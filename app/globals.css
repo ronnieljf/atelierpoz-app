@@ -1,8 +1,55 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colores principales - Vinotinto */
+  --color-primary-50: #fdf2f2;
+  --color-primary-100: #fce6e6;
+  --color-primary-200: #f9d0d0;
+  --color-primary-300: #f4a8a8;
+  --color-primary-400: #ed7777;
+  --color-primary-500: #e14d4d;
+  --color-primary-600: #c92f2f;
+  --color-primary-700: #a82525;
+  --color-primary-800: #8b2222;
+  --color-primary-900: #722F37;
+  --color-primary-950: #4a1a1a;
+
+  /* Colores secundarios */
+  --color-secondary-50: #faf5f0;
+  --color-secondary-100: #f3e8d8;
+  --color-secondary-200: #e6d0b0;
+  --color-secondary-300: #d6b17e;
+  --color-secondary-400: #c48d4d;
+  --color-secondary-500: #b8752e;
+  --color-secondary-600: #a85f24;
+  --color-secondary-700: #8b4a1f;
+  --color-secondary-800: #723d1e;
+  --color-secondary-900: #5e331b;
+  --color-secondary-950: #32190d;
+
+  /* Colores neutros */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  /* Colores semánticos - Dark mode (siempre activo) */
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --background-secondary: #171717;
+  --text-primary: #ededed;
+  --text-secondary: #a3a3a3;
+  --text-light: #737373;
+  --border: #404040;
+  --border-hover: #525252;
+  --border-focus: #c92f2f;
 }
 
 @theme inline {
@@ -10,17 +57,221 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  
+  /* Primary colors */
+  --color-primary: var(--color-primary-800);
+  --color-primary-light: var(--color-primary-600);
+  --color-primary-dark: var(--color-primary-900);
+  
+  /* Secondary colors */
+  --color-secondary: var(--color-secondary-600);
+  
+  /* Semantic colors */
+  --color-background-secondary: var(--background-secondary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-light: var(--text-light);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-border-focus: var(--border-focus);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* Efectos creativos y animaciones */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 34, 34, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 34, 34, 0.5);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 3s infinite;
+}
+
+.glass-effect {
+  background: rgba(26, 26, 26, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-border {
+  position: relative;
+  background: linear-gradient(135deg, rgba(139, 34, 34, 0.1), rgba(168, 95, 36, 0.1));
+  border: 1px solid transparent;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(139, 34, 34, 0.3), rgba(168, 95, 36, 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Estilos para sliders de rango de precio */
+.range-input {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #c92f2f;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(201, 47, 47, 0.4);
+}
+
+.range-input::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 2px;
+}
+
+.range-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #c92f2f;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.range-input::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(201, 47, 47, 0.4);
+}
+
+.range-input::-moz-range-track {
+  background: transparent;
+  height: 2px;
+}
+
+/* Safe area para iOS - Navigation drawer */
+.pb-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+@supports (padding: max(0px)) {
+  .pb-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Scrollbar elegante para diálogo de categorías */
+.category-dialog-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(115, 115, 115, 0.5) transparent;
+}
+
+.category-dialog-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.category-dialog-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.category-dialog-scroll::-webkit-scrollbar-thumb {
+  background: rgba(115, 115, 115, 0.4);
+  border-radius: 3px;
+}
+
+.category-dialog-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(115, 115, 115, 0.6);
+}
+
+/* Ocultar spinners (suma/resta) en inputs de precio */
+.price-input::-webkit-outer-spin-button,
+.price-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+.price-input {
+  -moz-appearance: textfield;
+}
+
+/* Admin: loading bar entre navegaciones */
+@keyframes admin-loading-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-admin-loading-bar {
+  animation: admin-loading-shimmer 1.2s ease-in-out infinite;
 }

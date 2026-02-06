@@ -1,0 +1,172 @@
+{
+  "welcome": "Bienvenido",
+  "title": "Atelier Poz",
+  "description": "Plataforma multitienda: descubre tiendas independientes en un solo lugar. Productos de tus marcas favoritas. Elige tu tienda y compra con estilo. ✨",
+  "storeWelcome": "Bienvenid@ a mi tienda {{storeName}}. Mira mis productos y encuentra lo que buscas. ✨",
+  "navigation": {
+    "home": "Inicio",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "cart": "Carrito"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "add": "Agregar",
+    "remove": "Quitar",
+    "update": "Actualizar"
+  },
+  "product": {
+    "addToCart": "Agregar al Carrito",
+    "addedToCart": "¡Agregado al Carrito!",
+    "viewDetails": "Ver Detalles",
+    "buyNow": "Comprar Ahora",
+    "inStock": "En Stock",
+    "outOfStock": "Agotado",
+    "selectVariant": "Seleccionar",
+    "quantity": "Cantidad",
+    "price": "Precio",
+    "total": "Total",
+    "description": "Descripción",
+    "specifications": "Especificaciones",
+    "reviews": "Reseñas",
+    "relatedProducts": "Productos Relacionados",
+    "selectOption": "Por favor selecciona todas las opciones requeridas",
+    "required": "Requerido"
+  },
+  "cart": {
+    "title": "Carrito de Compras",
+    "empty": "Tu carrito está vacío",
+    "emptyDescription": "Agrega algunos productos a tu carrito para comenzar",
+    "continueShopping": "Continuar Comprando",
+    "subtotal": "Subtotal",
+    "shipping": "Envío",
+    "tax": "Impuesto",
+    "total": "Total",
+    "checkout": "Finalizar Compra",
+    "items": "artículos",
+    "item": "artículo",
+    "removeItem": "Eliminar artículo",
+    "updateQuantity": "Actualizar cantidad",
+    "increaseQuantity": "Aumentar cantidad",
+    "decreaseQuantity": "Disminuir cantidad",
+    "orderByWhatsApp": "Realizar Pedido por WhatsApp",
+    "orderByWhatsAppDescription": "Haz clic en el botón verde de abajo para enviar tu pedido por WhatsApp. Te redirigirá automáticamente a una conversación con tu pedido listo.",
+    "orderByWhatsAppButton": "Enviar Pedido por WhatsApp",
+    "orderByWhatsAppButtonShort": "Enviar por WhatsApp",
+    "restoreTitle": "Carrito encontrado",
+    "restoreDescription": "Tienes productos en tu carrito de una sesión anterior. ¿Deseas continuar con estos productos o vaciar el carrito?",
+    "clearCart": "Vaciar Carrito",
+    "continueWithCart": "Continuar",
+    "customMessageTitle": "¿Quieres añadir algo más?",
+    "customMessageDescription": "Si es urgente, es un regalo o tienes alguna indicación especial, escríbelo aquí. Lo verán al inicio, antes de tu pedido.",
+    "customMessagePlaceholder": "P. ej. Es un regalo, lo necesito para el viernes…",
+    "customMessageSubmit": "Enviar a WhatsApp"
+  },
+  "theme": {
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "search": {
+    "placeholder": "Buscar productos...",
+    "noResults": "No se encontraron productos",
+    "noResultsDescription": "Intenta ajustar tus términos de búsqueda",
+    "results": "resultados encontrados",
+    "result": "resultado encontrado"
+  },
+  "filters": {
+    "title": "Filtros",
+    "clear": "Limpiar filtros",
+    "category": "Categoría",
+    "all": "Todos",
+    "priceRange": "Rango de Precio",
+    "minPrice": "Precio Mínimo",
+    "maxPrice": "Precio Máximo"
+  },
+  "view": {
+    "oneColumn": "Una columna",
+    "twoColumns": "Dos columnas"
+  },
+  "admin": {
+    "title": "Panel de Administración",
+    "login": {
+      "title": "Iniciar Sesión",
+      "email": "Correo Electrónico",
+      "password": "Contraseña",
+      "submit": "Iniciar Sesión",
+      "error": "Credenciales inválidas",
+      "emailPlaceholder": "ejemplo@email.com",
+      "passwordPlaceholder": "Ingresa tu contraseña"
+    },
+    "navigation": {
+      "dashboard": "Panel",
+      "products": "Productos",
+      "createProduct": "Crear Producto",
+      "listProducts": "Productos",
+      "logout": "Cerrar Sesión"
+    },
+    "products": {
+      "list": {
+        "title": "Productos",
+        "empty": "No hay productos",
+        "emptyDescription": "Crea tu primer producto para comenzar",
+        "actions": "Acciones",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteConfirm": "¿Estás seguro de eliminar este producto?",
+        "deleteSuccess": "Producto eliminado exitosamente",
+        "deleteError": "Error al eliminar el producto",
+        "noProducts": "No se encontraron productos"
+      }
+    },
+    "product": {
+      "create": {
+        "title": "Crear Nuevo Producto",
+        "name": "Nombre del Producto",
+        "namePlaceholder": "Ej: Anillo de Oro 18k",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Describe el producto...",
+        "basePrice": "Precio Base",
+        "basePricePlaceholder": "0.00",
+        "currency": "Moneda",
+        "stock": "Stock",
+        "stockPlaceholder": "0",
+        "sku": "Código",
+        "skuPlaceholder": "Ej: ANI-001",
+        "category": "Categoría",
+        "categoryPlaceholder": "Selecciona una categoría",
+        "images": "Imágenes",
+        "addImage": "Seleccionar Imágenes",
+        "imagePlaceholder": "Selecciona archivos de imagen",
+        "uploadImages": "Subir Imágenes",
+        "removeImage": "Eliminar",
+        "edit": "Editar Producto",
+        "editTitle": "Editar Producto",
+        "attributes": "Atributos",
+        "addAttribute": "Agregar Atributo",
+        "attributeName": "Nombre del Atributo",
+        "attributeNamePlaceholder": "Ej: Talla, Color, Material",
+        "attributeType": "Tipo",
+        "required": "Requerido",
+        "variants": "Variantes",
+        "addVariant": "Agregar Variante",
+        "variantName": "Nombre",
+        "variantValue": "Valor",
+        "variantPrice": "Precio Adicional",
+        "variantStock": "Stock",
+        "variantSku": "Código",
+        "submit": "Crear Producto",
+        "success": "Producto creado exitosamente",
+        "error": "Error al crear el producto"
+      }
+    }
+  }
+}

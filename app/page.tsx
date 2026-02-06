@@ -1,65 +1,159 @@
-import Image from "next/image";
+import type { Metadata } from 'next';
+import { getDictionary } from '@/lib/i18n/dictionary';
+import { defaultLocale } from '@/constants/locales';
+// import { ProductSearch } from '@/components/products/ProductSearch';
+// import { getRecentProducts } from '@/lib/services/products';
+import { getAllStores } from '@/lib/services/stores';
+// import { type Product } from '@/types/product';
+import { type Store } from '@/lib/services/stores';
+import { ScrollToTop } from '@/components/ui/ScrollToTop';
+import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { HomeStoresSection } from '@/components/home/HomeStoresSection';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = getDictionary(defaultLocale);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
+  const logoUrlFinal = getSeoLogoUrl();
+  const siteName = dict.title;
+  const description = dict.description || 'Plataforma multitienda: descubre tiendas independientes y sus productos en un solo lugar.';
+
+  return {
+    title: {
+      default: siteName,
+      template: `%s | ${siteName}`,
+    },
+    description,
+    keywords: 'plataforma multitienda, marketplace, tiendas independientes, varias tiendas, productos, comprar online',
+    authors: [{ name: siteName }],
+    metadataBase: new URL(baseUrl),
+    alternates: {
+      canonical: '/',
+    },
+    openGraph: {
+      type: 'website',
+      locale: 'es_ES',
+      url: `${baseUrl}/`,
+      siteName,
+      title: siteName,
+      description,
+      images: [
+        {
+          url: logoUrlFinal,
+          width: 1200,
+          height: 630,
+          alt: `${siteName} - Plataforma multitienda`,
+          secureUrl: logoUrlFinal,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: siteName,
+      description,
+      images: [logoUrlFinal],
+      creator: '@atelierpoz',
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+  };
+}
+
+export default async function HomePage() {
+  const dict = getDictionary(defaultLocale);
+
+  let stores: Store[] = [];
+  try {
+    stores = await getAllStores();
+  } catch (error) {
+    console.error('Error obteniendo tiendas:', error);
+  }
+
+  // Listado de productos en el home (comentado: el home solo muestra tiendas)
+  // let initialProducts: Product[] = [];
+  // try {
+  //   const result = await getRecentProducts(20, 0);
+  //   initialProducts = result.products;
+  // } catch (error) {
+  //   console.error('Error obteniendo productos recientes:', error);
+  // }
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
+  const siteName = dict.title;
+  const description = dict.description || 'Plataforma multitienda: descubre tiendas independientes y sus productos en un solo lugar.';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: siteName,
+    description,
+    url: baseUrl,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: `${baseUrl}/?q={search_term_string}` },
+      'query-input': 'required name=search_term_string',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteName,
+      description: 'Plataforma multitienda: varias tiendas independientes y sus productos en un solo lugar.',
+    },
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
+        {/* Hero: vista inicial elegante y profesional */}
+        <header className="relative mb-12 sm:mb-16 md:mb-20 text-center overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+            <div className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] bg-primary-900/15 rounded-full blur-[100px]" />
+          </div>
+          <div className="relative">
+            <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-neutral-500 mb-4">
+              {dict.title}
+            </p>
+            <h1 className="text-4xl font-light tracking-tight text-neutral-50 drop-shadow-sm sm:text-5xl md:text-6xl lg:text-7xl mb-5">
+              {dict.welcome}
+            </h1>
+            <div className="mx-auto h-px w-20 bg-gradient-to-r from-transparent via-neutral-500 to-transparent mb-5" />
+            <p className="mx-auto max-w-md text-sm font-light text-neutral-400 leading-relaxed sm:text-base md:max-w-lg">
+              {dict.description}
+            </p>
+          </div>
+        </header>
+
+        {/* Lista de tiendas: contenido principal */}
+        <HomeStoresSection
+          stores={stores}
+          heading="Nuestras tiendas"
+          subheading="Elige una tienda y descubre sus productos."
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {/* Búsqueda de productos en el home (comentado: el home solo muestra tiendas) */}
+        {/* <section className="pt-8 sm:pt-12 md:pt-16 border-t border-neutral-800/60">
+          <div className="mb-6 sm:mb-8 text-center">
+            <p className="text-sm font-light text-neutral-500">
+              ¿Buscas algo en concreto? Explora el catálogo
+            </p>
+          </div>
+          <ProductSearch dict={dict} initialProducts={initialProducts} />
+        </section> */}
+
+        <ScrollToTop />
+      </div>
     </div>
   );
 }
