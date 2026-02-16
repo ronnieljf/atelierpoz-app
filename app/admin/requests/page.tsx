@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { getRequests, updateRequestStatus, type Request } from '@/lib/services/requests';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
 import { Package, CheckCircle, XCircle, ChevronLeft, ChevronRight, Loader2, Eye, PlayCircle, Receipt, MessageCircle } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { openWhatsAppForRequest } from '@/lib/utils/whatsapp';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
@@ -49,7 +51,9 @@ export default function RequestsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = DEFAULT_PAGE_SIZE;
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchDebounced, setCustomerSearchDebounced] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -66,6 +70,14 @@ export default function RequestsPage() {
     }
   }, [authState.stores, selectedStoreId]);
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setCustomerSearchDebounced(customerSearch);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [customerSearch]);
+
   const loadRequests = useCallback(async () => {
     if (!selectedStoreId) {
       setLoading(false);
@@ -81,6 +93,7 @@ export default function RequestsPage() {
         limit: pageSize,
         offset,
         status: statusFilter || undefined,
+        search: customerSearchDebounced || undefined,
       });
       setRequests(result.requests);
       setTotal(result.total);
@@ -95,7 +108,7 @@ export default function RequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStoreId, page, pageSize, statusFilter]);
+  }, [selectedStoreId, page, pageSize, statusFilter, customerSearchDebounced]);
 
   useEffect(() => {
     if (selectedStoreId) loadRequests();
@@ -171,19 +184,12 @@ export default function RequestsPage() {
     }
   };
 
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
-
   const initialLoad = loading && selectedStoreId && !hasLoadedOnce;
   if (initialLoad) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-400">Cargando pedidos...</div>
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-400" aria-hidden />
+        <p className="text-sm font-light text-neutral-500">Cargando…</p>
       </div>
     );
   }
@@ -192,9 +198,12 @@ export default function RequestsPage() {
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 mb-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">
-            Pedidos
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">
+              Pedidos
+            </h1>
+            <Tooltip content="Lista de todos los pedidos recibidos desde tu tienda. Puedes procesarlos, completarlos o cancelarlos." />
+          </div>
           {selectedStoreId && (
             <p className="text-sm text-neutral-400">
               {total} {total === 1 ? 'pedido' : 'pedidos'}
@@ -250,6 +259,16 @@ export default function RequestsPage() {
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-neutral-500">Filtros</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-400">Cliente o número</label>
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Nombre, teléfono o número de pedido"
+                className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
+              />
+            </div>
+            <div>
               <label className="mb-1.5 block text-sm font-medium text-neutral-400">Estado</label>
               <select
                 value={statusFilter}
@@ -302,21 +321,21 @@ export default function RequestsPage() {
             No hay pedidos
           </h3>
           <p className="text-sm text-neutral-400 sm:text-base">
-            {statusFilter 
+            {statusFilter || customerSearchDebounced
               ? 'No hay pedidos con este filtro'
               : 'Aún no se han realizado pedidos para esta tienda'}
           </p>
         </div>
       ) : (
-        <div className="relative bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl sm:rounded-3xl overflow-hidden">
+        <div className="relative">
           {loading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-950/30 rounded-2xl sm:rounded-3xl pointer-events-none">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-950/50 pointer-events-none">
               <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
             </div>
           )}
 
           {/* Cards: misma vista en móvil y desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 p-4 sm:p-5 lg:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {requests.map((request) => {
               const statusInfo = STATUS_LABELS[request.status] || STATUS_LABELS.pending;
               const itemsCount = Array.isArray(request.items) ? request.items.length : 0;
@@ -329,8 +348,13 @@ export default function RequestsPage() {
                   className="overflow-hidden rounded-2xl border border-neutral-700/60 bg-neutral-800/40"
                 >
                   <div className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {request.orderNumber != null && (
+                          <p className="text-xs font-medium uppercase tracking-wider text-primary-400 mb-1">
+                            Pedido #{request.orderNumber}
+                          </p>
+                        )}
                         <h3 className="text-[15px] font-medium text-neutral-100">
                           {request.customerName || 'Sin nombre'}
                         </h3>
@@ -350,14 +374,22 @@ export default function RequestsPage() {
                           </div>
                         )}
                       </div>
-                      <span className={cn(
-                        'inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border',
-                        statusInfo.bgColor,
-                        statusInfo.color,
-                        statusInfo.borderColor
-                      )}>
-                        {statusInfo.label}
-                      </span>
+                      <div className="flex flex-col gap-1.5 items-end">
+                        <span className={cn(
+                          'inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border whitespace-nowrap',
+                          statusInfo.bgColor,
+                          statusInfo.color,
+                          statusInfo.borderColor
+                        )}>
+                          {statusInfo.label}
+                        </span>
+                        {request.hasReceivable && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium border bg-purple-500/10 text-purple-400 border-purple-500/30 whitespace-nowrap">
+                            <Receipt className="h-3 w-3" />
+                            Cuenta generada
+                          </span>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center justify-between text-sm">
@@ -389,64 +421,142 @@ export default function RequestsPage() {
                     </div>
                   </div>
                   
+                  {/* Botones de acción organizados en bloques claros */}
                   <div className="flex flex-col border-t border-neutral-700/60">
                     {request.status === 'pending' && (
-                      <div className="flex border-b border-neutral-700/60">
-                        {!request.hasReceivable && (
-                          <Link
-                            href={`/admin/receivables/create?from=request&requestId=${encodeURIComponent(request.id)}&storeId=${encodeURIComponent(selectedStoreId)}`}
-                            className="flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-r border-neutral-700/60"
+                      <>
+                        {/* Bloque 1: Acciones principales */}
+                        <div className="flex flex-col gap-0 border-b border-neutral-700/60">
+                          {!request.hasReceivable && (
+                            <Link
+                              href={`/admin/receivables/create?from=request&requestId=${encodeURIComponent(request.id)}&storeId=${encodeURIComponent(selectedStoreId)}`}
+                              className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-b border-neutral-700/60"
+                              title="Crear una cuenta por cobrar basada en este pedido"
+                            >
+                              <Receipt className="h-4 w-4" />
+                              <span>Generar cuenta por cobrar</span>
+                              <Tooltip content="Crea un registro de pago pendiente para este pedido" />
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'processing')}
+                            disabled={updatingStatus === request.id}
+                            title="Marcar pedido como en proceso de preparación"
+                            className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/10 active:bg-blue-500/15 disabled:opacity-50"
                           >
-                            <Receipt className="h-4 w-4" />
-                            Cuenta por cobrar
-                          </Link>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(request.id, 'processing')}
-                          disabled={updatingStatus === request.id}
-                          className={cn(
-                            'flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-medium text-blue-400 transition-colors hover:bg-blue-500/10 active:bg-blue-500/15 disabled:opacity-50',
-                            !request.hasReceivable && 'border-r border-neutral-700/60'
-                          )}
-                        >
-                          {updatingStatus === request.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <PlayCircle className="h-4 w-4" />
-                          )}
-                          Procesar
-                        </button>
-                      </div>
+                            {updatingStatus === request.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <PlayCircle className="h-4 w-4" />
+                            )}
+                            <span>Marcar en proceso</span>
+                            <Tooltip content="Indica que estás preparando este pedido" />
+                          </button>
+                        </div>
+                        
+                        {/* Bloque 2: Finalización */}
+                        <div className="grid grid-cols-2 gap-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'completed')}
+                            disabled={updatingStatus === request.id}
+                            title="Marcar pedido como completado y actualizar stock"
+                            className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/10 active:bg-green-500/15 disabled:opacity-50 border-r border-neutral-700/60"
+                          >
+                            {updatingStatus === request.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                            <span>Completado</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'cancelled')}
+                            disabled={updatingStatus === request.id}
+                            title="Cancelar este pedido"
+                            className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 active:bg-red-500/15 disabled:opacity-50"
+                          >
+                            {updatingStatus === request.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
+                            <span>Cancelar</span>
+                          </button>
+                        </div>
+                      </>
                     )}
-                    {(request.status === 'pending' || request.status === 'processing') && (
-                      <div className="flex">
+                    
+                    {request.status === 'processing' && (
+                      <div className="grid grid-cols-2 gap-0">
                         <button
                           type="button"
                           onClick={() => handleStatusChange(request.id, 'completed')}
                           disabled={updatingStatus === request.id}
-                          className="flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/10 active:bg-green-500/15 disabled:opacity-50 border-r border-neutral-700/60"
+                          title="Marcar pedido como completado y actualizar stock"
+                          className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/10 active:bg-green-500/15 disabled:opacity-50 border-r border-neutral-700/60"
                         >
                           {updatingStatus === request.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <CheckCircle className="h-4 w-4" />
                           )}
-                          Completar
+                          <span>Completado</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleStatusChange(request.id, 'cancelled')}
                           disabled={updatingStatus === request.id}
-                          className="flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 active:bg-red-500/15 disabled:opacity-50"
+                          title="Cancelar este pedido"
+                          className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 active:bg-red-500/15 disabled:opacity-50"
                         >
                           {updatingStatus === request.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <XCircle className="h-4 w-4" />
                           )}
-                          Cancelar
+                          <span>Cancelar</span>
                         </button>
+                      </div>
+                    )}
+
+                    {request.status === 'cancelled' && (
+                      <div className="border-t border-neutral-700/60 p-2">
+                        <p className="text-xs text-neutral-500 text-center mb-2">Cambiar estado del pedido</p>
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'pending')}
+                            disabled={updatingStatus === request.id}
+                            title="Volver a pendiente"
+                            className="flex items-center justify-center gap-1 py-3 text-xs font-medium text-yellow-400 transition-colors hover:bg-yellow-500/10 disabled:opacity-50 rounded-lg"
+                          >
+                            {updatingStatus === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            <span>Pendiente</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'processing')}
+                            disabled={updatingStatus === request.id}
+                            title="Marcar en proceso"
+                            className="flex items-center justify-center gap-1 py-3 text-xs font-medium text-blue-400 transition-colors hover:bg-blue-500/10 disabled:opacity-50 rounded-lg"
+                          >
+                            {updatingStatus === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+                            <span>En proceso</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(request.id, 'completed')}
+                            disabled={updatingStatus === request.id}
+                            title="Completar pedido"
+                            className="flex items-center justify-center gap-1 py-3 text-xs font-medium text-green-400 transition-colors hover:bg-green-500/10 disabled:opacity-50 rounded-lg"
+                          >
+                            {updatingStatus === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                            <span>Completado</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -456,7 +566,7 @@ export default function RequestsPage() {
           </div>
 
           {total > 0 && (
-            <div className="flex flex-col gap-4 border-t border-neutral-800 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="order-2 text-center text-sm text-neutral-400 sm:order-1 sm:text-left">
                 {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, total)} de {total}
               </p>
@@ -487,29 +597,41 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {/* Modal de detalle del pedido */}
-      <AnimatePresence>
-        {selectedRequest && (
-          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm"
-              onClick={() => setSelectedRequest(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.25 }}
-              className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-neutral-700/50 bg-neutral-900 p-6 sm:p-8 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
+      {/* Modal de detalle del pedido (portal para correcta visualización en mobile) */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {selectedRequest && (
+              <div
+                className="fixed inset-0 z-[90] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-neutral-950/80 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+                style={{ minHeight: '100dvh' }}
+              >
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm"
+                  onClick={() => setSelectedRequest(null)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  transition={{ duration: 0.25 }}
+                  className="relative z-10 my-auto w-full max-w-3xl max-h-[90dvh] overflow-y-auto rounded-3xl border border-neutral-700/50 bg-neutral-900 p-6 sm:p-8 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-medium text-neutral-100">
-                  Detalle del Pedido
-                </h2>
+                <div>
+                  {selectedRequest.orderNumber != null && (
+                    <p className="text-sm font-medium uppercase tracking-wider text-primary-400 mb-1">
+                      Pedido #{selectedRequest.orderNumber}
+                    </p>
+                  )}
+                  <h2 className="text-xl sm:text-2xl font-medium text-neutral-100">
+                    Detalle del Pedido
+                  </h2>
+                </div>
                 <button
                   onClick={() => setSelectedRequest(null)}
                   className="flex items-center justify-center w-10 h-10 rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 transition-colors"
@@ -642,14 +764,22 @@ export default function RequestsPage() {
                     <h3 className="text-sm font-medium uppercase tracking-wider text-neutral-500">
                       Resumen
                     </h3>
-                    <span className={cn(
-                      'inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border',
-                      STATUS_LABELS[selectedRequest.status].bgColor,
-                      STATUS_LABELS[selectedRequest.status].color,
-                      STATUS_LABELS[selectedRequest.status].borderColor
-                    )}>
-                      {STATUS_LABELS[selectedRequest.status].label}
-                    </span>
+                    <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
+                      <span className={cn(
+                        'inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border',
+                        STATUS_LABELS[selectedRequest.status].bgColor,
+                        STATUS_LABELS[selectedRequest.status].color,
+                        STATUS_LABELS[selectedRequest.status].borderColor
+                      )}>
+                        {STATUS_LABELS[selectedRequest.status].label}
+                      </span>
+                      {selectedRequest.hasReceivable && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border bg-purple-500/10 text-purple-400 border-purple-500/30">
+                          <Receipt className="h-3.5 w-3.5" />
+                          Cuenta por cobrar generada
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm text-neutral-400">
@@ -672,7 +802,21 @@ export default function RequestsPage() {
 
                 {/* Acciones */}
                 {selectedRequest.status === 'pending' && (
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {!selectedRequest.hasReceivable && (
+                      <Link
+                        href={`/admin/receivables/create?from=request&requestId=${encodeURIComponent(selectedRequest.id)}&storeId=${encodeURIComponent(selectedStoreId)}`}
+                        className="flex-1"
+                      >
+                        <Button
+                          variant="outline"
+                          className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                        >
+                          <Receipt className="h-4 w-4 mr-2" />
+                          Crear Cuenta por Cobrar
+                        </Button>
+                      </Link>
+                    )}
                     <Button
                       variant="primary"
                       onClick={() => {
@@ -739,11 +883,63 @@ export default function RequestsPage() {
                     </Button>
                   </div>
                 )}
+
+                {selectedRequest.status === 'cancelled' && (
+                  <div className="rounded-2xl border border-neutral-700/50 bg-neutral-800/30 p-4 sm:p-6">
+                    <h3 className="text-sm font-medium uppercase tracking-wider text-neutral-500 mb-3">
+                      Cambiar estado del pedido
+                    </h3>
+                    <p className="text-xs text-neutral-400 mb-4">
+                      Este pedido está cancelado. Puedes volver a activarlo eligiendo un nuevo estado.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleStatusChange(selectedRequest.id, 'pending')}
+                        disabled={updatingStatus === selectedRequest.id}
+                        className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                      >
+                        {updatingStatus === selectedRequest.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : null}
+                        Volver a pendiente
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleStatusChange(selectedRequest.id, 'processing')}
+                        disabled={updatingStatus === selectedRequest.id}
+                        className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                      >
+                        {updatingStatus === selectedRequest.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <PlayCircle className="h-4 w-4 mr-2" />
+                        )}
+                        Marcar en proceso
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleStatusChange(selectedRequest.id, 'completed')}
+                        disabled={updatingStatus === selectedRequest.id}
+                        className="border-green-500/30 text-green-400 hover:bg-green-500/10"
+                      >
+                        {updatingStatus === selectedRequest.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                        )}
+                        Completar pedido
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </motion.div>
-          </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

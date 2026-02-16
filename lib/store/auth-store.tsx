@@ -8,13 +8,16 @@ interface Store {
   name: string;
   state: string;
   logo?: string | null;
+  location?: string | null;
   instagram?: string | null;
   tiktok?: string | null;
+  iva?: number;
   is_creator: boolean;
   phone_number: string | null;
   created_at: string;
   updated_at: string;
   joined_at: string;
+  feature_send_reminder_receivables_whatsapp?: boolean;
 }
 
 interface AuthState {
@@ -257,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS);
 
+      let authSucceeded = false;
       try {
         const { httpClient } = await import('@/lib/http/client');
         const response = await httpClient.get<{
@@ -265,8 +269,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }>('/api/auth/me', { signal: controller.signal });
 
         if (response.success && response.data?.user) {
+          clearTimeout(timeoutId);
+          authSucceeded = true;
           dispatch({ type: 'LOAD_AUTH', payload: response.data.user });
           await loadUserStores();
+          dispatch({ type: 'AUTH_HYDRATED' });
+          return;
         } else {
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
@@ -305,11 +313,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } finally {
         clearTimeout(timeoutId);
-        dispatch({ type: 'AUTH_HYDRATED' });
+        if (!authSucceeded) dispatch({ type: 'AUTH_HYDRATED' });
       }
     };
 
-    loadAuth();
+    void loadAuth();
   }, [loadUserStores]);
 
   const login = async (email: string, password: string): Promise<boolean> => {

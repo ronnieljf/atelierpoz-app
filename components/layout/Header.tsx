@@ -61,32 +61,30 @@ export function Header({ locale }: HeaderProps) {
   const headerTitle = storeName ?? dict.title;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-800/50 glass-effect rounded-b-2xl shadow-lg">
-      <div className="container mx-auto flex h-16 sm:h-20 items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-xl">
+      <div className="container mx-auto flex h-14 sm:h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
           prefetch={true}
-          className="flex items-center gap-2 text-xl sm:text-2xl font-light tracking-tight text-neutral-50 transition-all duration-300 hover:opacity-70 relative group"
+          className="flex items-center gap-2.5 text-white transition-opacity hover:opacity-90"
           aria-label={dict.navigation.home}
         >
-          <Home className="h-5 w-5 sm:h-6 sm:w-6 text-primary-400 group-hover:text-primary-300 transition-colors shrink-0" />
-          <span className="relative z-10 truncate">{headerTitle}</span>
-          <span className="absolute inset-0 bg-gradient-to-r from-primary-600/20 to-primary-800/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl" />
+          <Home className="h-5 w-5 sm:h-5 sm:w-5 text-neutral-300 shrink-0" />
+          <span className="truncate text-lg font-light tracking-tight sm:text-xl">{headerTitle}</span>
         </Link>
-        
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-1 sm:gap-2">
           {showStoresButton && (
             <Link
               href="/"
               prefetch={true}
               className={cn(
-                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-light transition-all duration-200",
-                "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50"
+                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-light text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white sm:gap-2',
+                'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
               )}
-              title="Inicio"
+              title={dict.navigation.home}
             >
-              <Store className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="hidden sm:inline">Inicio</span>
+              <Store className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">{dict.navigation.home}</span>
             </Link>
           )}
           <CartIcon locale={locale} dict={dict} />

@@ -56,7 +56,7 @@ export default async function CartPage() {
   const dict = getDictionary(defaultLocale);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-4xl">
+    <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
       <Cart dict={dict} locale={defaultLocale} />
     </div>
   );

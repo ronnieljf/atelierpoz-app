@@ -99,14 +99,6 @@ export default function EditCategoryPage({
     }
   };
 
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">

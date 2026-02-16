@@ -90,14 +90,6 @@ export default function CategoriesPage() {
     }
   };
 
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-4 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">

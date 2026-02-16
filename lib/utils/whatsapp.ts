@@ -1,4 +1,5 @@
 import { type Cart, type CartItem } from '@/types/product';
+import { showWhatsAppBlockedNotification } from './whatsapp-fallback';
 
 /** Imagen del ítem: variante/combinación si existe, sino imagen del producto */
 function getItemImage(item: CartItem): string {
@@ -22,24 +23,31 @@ function getItemSku(item: CartItem): string {
  * - selectedVariants puede tener varias entradas (Color: Rojo, Talla: M).
  * - totalPrice de cada ítem ya incluye precio base + modificador de combinación/variante.
  * @param usdToBs - Tasa de cambio USD → Bs (ej. BCV dólar). Si > 0, se añade el total en Bs (tasa USD).
- * @param _eurToBs - Tasa euro no se usa (comentado a petición: no mostrar total a tasa EUR en el mensaje).
+ * @param eurToBs - Tasa euro (no se usa en el mensaje; se mantiene por compatibilidad de API).
  */
 export function generateWhatsAppMessageForStore(
   items: CartItem[],
   storeName: string,
   locale: string,
   usdToBs?: number,
-  _eurToBs?: number
+  eurToBs?: number, // eslint-disable-line @typescript-eslint/no-unused-vars
+  orderNumber?: number | null
 ): string {
   const isSpanish = locale === 'es';
 
+  const orderRef =
+    orderNumber != null && orderNumber > 0
+      ? isSpanish
+        ? ` #${orderNumber}`
+        : ` #${orderNumber}`
+      : '';
   const greeting = storeName
     ? isSpanish
-      ? `Pedido - ${storeName}\n\n`
-      : `Order - ${storeName}\n\n`
+      ? `Hola, aquí está mi pedido${orderRef} para ${storeName}:\n\n`
+      : `Hi, here is my order${orderRef} for ${storeName}:\n\n`
     : isSpanish
-      ? 'Pedido\n\n'
-      : 'Order\n\n';
+      ? `Hola, aquí está mi pedido${orderRef}:\n\n`
+      : `Hi, here is my order${orderRef}:\n\n`;
 
   const itemsText = items
     .map((item, index) => {
@@ -65,11 +73,15 @@ export function generateWhatsAppMessageForStore(
   if (rateUsd > 0) {
     const totalBsUsd = total * rateUsd;
     totalText += isSpanish
-      ? `\n   Bs ${totalBsUsd.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa BCV USD)`
-      : `\n   Bs ${totalBsUsd.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (BCV USD rate)`;
+      ? `\n   Bs ${totalBsUsd.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa BCV USD del día)`
+      : `\n   Bs ${totalBsUsd.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (BCV USD rate today)`;
+    totalText += isSpanish
+      ? '\n\nEntiendo que el precio en Bs puede variar según la tasa del día.'
+      : '\n\nI understand the price in Bs may vary according to the rate of the day.';
   }
-  // Total a tasa euro quitado del mensaje de WhatsApp
-  const closing = isSpanish ? '\n\nGracias!' : '\n\nThank you!';
+  const closing = isSpanish
+    ? '\n\nQuedo atento. ¡Gracias!'
+    : '\n\nI\'ll be waiting. Thank you!';
 
   return greeting + itemsText + totalText + closing;
 }
@@ -83,8 +95,10 @@ export function generateWhatsAppMessage(cart: Cart, locale: string): string {
 
 /**
  * Abre WhatsApp con el mensaje del pedido de una tienda específica.
+ * Compatible con Safari - usa método seguro que evita bloqueo de popups.
  * Si se pasa customMessage (ej. urgencia, motivo), se concatena al inicio del mensaje.
  * Si se pasa usdToBs (tasa BCV dólar), se añade el total en Bs (tasa USD). Si eurToBs (tasa BCV euro), también el total en Bs (tasa EUR).
+ * Si se pasa orderNumber (número de pedido devuelto al crear el pedido), se muestra en el mensaje (ej. Pedido #123).
  */
 export function openWhatsAppForStore(
   items: CartItem[],
@@ -93,24 +107,26 @@ export function openWhatsAppForStore(
   phoneNumber: string,
   customMessage?: string,
   usdToBs?: number,
-  eurToBs?: number
+  eurToBs?: number,
+  orderNumber?: number | null
 ) {
-  const base = generateWhatsAppMessageForStore(items, storeName, locale, usdToBs, eurToBs);
+  const base = generateWhatsAppMessageForStore(items, storeName, locale, usdToBs, eurToBs, orderNumber);
   const prefix = customMessage?.trim();
   const message = prefix ? `${prefix}\n\n${base}` : base;
   const encodedMessage = encodeURIComponent(message);
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-  window.open(whatsappUrl, '_blank');
+  safeOpenLink(whatsappUrl);
 }
 
 /**
  * Abre WhatsApp con el mensaje del pedido (versión original para compatibilidad)
+ * Compatible con Safari.
  */
 export function openWhatsApp(cart: Cart, locale: string, phoneNumber: string) {
   const message = generateWhatsAppMessage(cart, locale);
   const encodedMessage = encodeURIComponent(message);
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-  window.open(whatsappUrl, '_blank');
+  safeOpenLink(whatsappUrl);
 }
 
 /** Datos mínimos de un pedido para generar mensaje de WhatsApp (admin) */
@@ -120,11 +136,13 @@ export interface RequestForWhatsApp {
   currency: string;
   customerName?: string | null;
   customMessage?: string | null;
+  /** Número de pedido; si se pasa, se muestra "Pedido #X" */
+  orderNumber?: number | null;
 }
 
 /**
- * Genera un mensaje amable para enviar por WhatsApp al cliente desde el admin.
- * Es un pedido (el cliente aún no ha pagado): tono cercano y respetuoso, sin dar a entender que debe algo.
+ * Genera un mensaje amable de saludo sobre el pedido para enviar por WhatsApp al cliente desde el admin.
+ * No es un cobro: es un mensaje cordial sobre el pedido que hizo. El cliente puede responder con confianza.
  */
 export function generateWhatsAppMessageForRequest(
   request: RequestForWhatsApp,
@@ -135,11 +153,18 @@ export function generateWhatsAppMessageForRequest(
   const name = request.customerName?.trim() || '';
   const greeting = name
     ? isSpanish
-      ? `Hola ${name}, te comparto el resumen de tu pedido:\n\n`
-      : `Hi ${name}, here is the summary of your order:\n\n`
+      ? `Hola ${name}, ¡gracias por tu pedido! Te dejamos el resumen por si lo quieres tener a mano:\n\n`
+      : `Hi ${name}, thanks for your order! Here’s the summary for your reference:\n\n`
     : isSpanish
-      ? 'Hola, te comparto el resumen de tu pedido:\n\n'
-      : 'Hi, here is the summary of your order:\n\n';
+      ? 'Hola, ¡gracias por tu pedido! Te dejamos el resumen por si lo quieres tener a mano:\n\n'
+      : 'Hi, thanks for your order! Here’s the summary for your reference:\n\n';
+
+  const lines: string[] = [greeting.trim()];
+
+  const orderNum = request.orderNumber != null && Number(request.orderNumber) > 0 ? Number(request.orderNumber) : null;
+  if (orderNum != null) {
+    lines.push(`Pedido #${orderNum}`, '');
+  }
 
   const itemsText = (request.items || [])
     .map((item, index) => {
@@ -155,15 +180,23 @@ export function generateWhatsAppMessageForRequest(
       return `${index + 1}. ${item.productName}${variantsText}\n   ${skuLabel}: ${sku}\n   ${quantityLabel}: ${item.quantity} x $${unitPrice.toFixed(2)} = $${item.totalPrice.toFixed(2)}`;
     })
     .join('\n\n');
+  lines.push(itemsText);
 
   const total = typeof request.total === 'number' ? request.total : (request.items || []).reduce((s, i) => s + (i.totalPrice || 0), 0);
   const totalLabel = isSpanish ? 'Total del pedido' : 'Order total';
-  const totalText = `\n\n${totalLabel}: ${request.currency} ${total.toFixed(2)}`;
-  const custom = request.customMessage?.trim();
-  const customBlock = custom ? `\n\n${isSpanish ? 'Tu mensaje' : 'Your message'}: ${custom}` : '';
-  const closing = isSpanish ? '\n\nCualquier duda, quedo atento. ¡Gracias!' : '\n\nIf you have any questions, I\'m here. Thank you!';
+  lines.push('', `${totalLabel}: ${request.currency} ${total.toFixed(2)}`);
 
-  return greeting + itemsText + totalText + customBlock + closing;
+  const custom = request.customMessage?.trim();
+  if (custom) {
+    lines.push('', `${isSpanish ? 'Tu mensaje' : 'Your message'}: ${custom}`);
+  }
+
+  const closing = isSpanish
+    ? '\n\nSi tienes alguna duda o quieres confirmar algo, puedes responder a este chat con toda confianza. ¡Gracias!'
+    : "\n\nIf you have any questions or want to confirm anything, feel free to reply to this chat. Thank you!";
+  lines.push(closing);
+
+  return lines.join('\n');
 }
 
 /** Abono para mostrar en el mensaje de WhatsApp */
@@ -197,11 +230,27 @@ export interface ReceivableForWhatsApp {
   totalPaid?: number;
   /** Productos del pedido (opcional; solo cuando la cuenta viene de un pedido) */
   orderItems?: ReceivableOrderItemForWhatsApp[];
+  /** Número de la tienda al que el cliente debe responder (no a este mensaje). Si se pasa, se añade intro y cierre. */
+  storeReplyPhoneNumber?: string | null;
+  /** Nombre de la tienda a la que debe pagar (se muestra en intro/cierre junto al número). */
+  storeName?: string | null;
+  /** Sumatoria de montos por moneda cuando se envían varias cuentas agrupadas (ej. { USD: 150, VES: 200 }). */
+  summaryByCurrency?: Record<string, number>;
+  /** Cantidad de cuentas incluidas en el mensaje (cuando es envío masivo por número). */
+  summaryCount?: number;
+  /** true = contacto manual desde el admin (lista/detalle): mensaje amable, el cliente puede responder. false/undefined = recordatorio masivo: se añade texto de no responder y responder a la tienda. */
+  forManualContact?: boolean;
+  /** Número de pedido asociado (cuando la cuenta viene de un pedido). Si se pasa, se muestra "Pedido #<orderNumber>". */
+  orderNumber?: number | null;
+  /** Número de la cuenta por cobrar. Si no hay orderNumber, se usa para mostrar "Cuenta #<receivableNumber>". */
+  receivableNumber?: number | null;
 }
 
 /**
  * Genera un mensaje con el detalle de la cuenta por cobrar para enviar por WhatsApp.
  * Incluye abonos y lo que falta por cobrar cuando se pasan payments o totalPaid.
+ * Si forManualContact es true (clic manual en lista/detalle): mensaje amable, sin indicar "no responder".
+ * Si forManualContact es false/undefined (recordatorio masivo): se añade intro/cierre indicando que responda a la tienda.
  */
 export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWhatsApp): string {
   const name = receivable.customerName?.trim() || 'Cliente';
@@ -213,16 +262,44 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
       : 0);
   const pending = Math.max(0, total - totalPaid);
 
-  const lines: string[] = [
-    `Hola ${name}, te escribo respecto a la cuenta por cobrar:`,
-    '',
-    `*Monto total:* ${receivable.currency} ${total.toFixed(2)}`,
-    `*Estado:* ${receivable.status === 'pending' ? 'Pendiente' : receivable.status === 'paid' ? 'Cobrada' : 'Cancelada'}`,
-  ];
-  if (receivable.description?.trim()) {
-    lines.push(`*Descripción:* ${receivable.description.trim()}`);
+  const isManualContact = receivable.forManualContact === true;
+  const storePhone = receivable.storeReplyPhoneNumber?.trim();
+  const storeName = receivable.storeName?.trim() || 'la tienda';
+  const introOutro =
+    !isManualContact &&
+    storePhone &&
+    `_Por favor, no respondas a este mensaje._ Debes pagar y responder a *${storeName}* al número: ${storePhone}`;
+
+  const lines: string[] = [];
+  if (introOutro) {
+    lines.push(introOutro);
+    lines.push('');
   }
-  if (receivable.createdAt) {
+  const greeting = isManualContact
+    ? `Hola ${name}, te escribo con gusto respecto a tu cuenta por cobrar:`
+    : `Hola ${name}, te escribo respecto a la cuenta por cobrar:`;
+  lines.push(greeting, '');
+
+  const orderNum = receivable.orderNumber != null && Number(receivable.orderNumber) > 0 ? Number(receivable.orderNumber) : null;
+  const recNum = receivable.receivableNumber != null && Number(receivable.receivableNumber) > 0 ? Number(receivable.receivableNumber) : null;
+  if (orderNum != null) {
+    lines.push(`Pedido #${orderNum}`);
+  } else if (recNum != null) {
+    lines.push(`Cuenta #${recNum}`);
+  }
+
+  const hasSummary = receivable.summaryCount != null && receivable.summaryCount > 0 && receivable.summaryByCurrency && Object.keys(receivable.summaryByCurrency).length > 0;
+  if (hasSummary) {
+    const summaryByCurrency = receivable.summaryByCurrency ?? {};
+    const parts = Object.entries(summaryByCurrency)
+      .map(([curr, amt]) => `${curr} ${Number(amt).toFixed(2)}`)
+      .join(', ');
+    lines.push(`*Sumatoria (${receivable.summaryCount} ${receivable.summaryCount === 1 ? 'cuenta' : 'cuentas'}):* ${parts}`);
+  } else {
+    lines.push(`*Monto total:* ${receivable.currency} ${total.toFixed(2)}`);
+  }
+
+  if (!hasSummary && receivable.createdAt) {
     const date = new Date(receivable.createdAt).toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
@@ -231,7 +308,7 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
     lines.push(`*Fecha:* ${date}`);
   }
 
-  if (Array.isArray(receivable.orderItems) && receivable.orderItems.length > 0) {
+  if (!hasSummary && Array.isArray(receivable.orderItems) && receivable.orderItems.length > 0) {
     lines.push('');
     lines.push('*Productos:*');
     receivable.orderItems.forEach((item, i) => {
@@ -246,7 +323,7 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
     });
   }
 
-  if (totalPaid > 0 || (Array.isArray(receivable.payments) && receivable.payments.length > 0)) {
+  if (!hasSummary && (totalPaid > 0 || (Array.isArray(receivable.payments) && receivable.payments.length > 0))) {
     lines.push('');
     lines.push('*Abonos:*');
     if (Array.isArray(receivable.payments) && receivable.payments.length > 0) {
@@ -265,27 +342,84 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
     lines.push(`*Total abonado:* ${receivable.currency} ${totalPaid.toFixed(2)}`);
   }
 
-  if (pending > 0) {
+  if (!hasSummary && pending > 0) {
     lines.push(`*Total a pagar:* ${receivable.currency} ${pending.toFixed(2)}`);
   }
 
-  lines.push('', 'Cuando puedas, te agradezco que me confirmes.');
+  if (isManualContact) {
+    lines.push(
+      '',
+      'Cuando puedas, te agradezco que confirmes o me cuentes si tienes alguna duda. Puedes responder a este chat con toda confianza.',
+      '',
+      '¡Gracias!'
+    );
+  } else {
+    lines.push('', 'Cuando puedas, te agradezco que confirmes.');
+    const supportWaUrl = 'https://wa.me/584120893949';
+    lines.push('');
+    lines.push(`📱 Para contacto o soporte, escríbenos aquí: ${supportWaUrl}`);
+    if (introOutro) {
+      lines.push('');
+      lines.push(introOutro);
+    }
+  }
   return lines.join('\n');
 }
 
 /**
  * Abre WhatsApp con el cliente de una cuenta por cobrar y un mensaje con el detalle de la cuenta.
+ * Compatible con Safari.
  */
 export function openWhatsAppForReceivable(receivable: ReceivableForWhatsApp): void {
   const phone = receivable.customerPhone?.trim();
   if (!phone) return;
-  const message = generateWhatsAppMessageForReceivable(receivable);
+  const message = generateWhatsAppMessageForReceivable({ ...receivable, forManualContact: true });
   openWhatsAppToPhone(phone, message);
+}
+
+/**
+ * Intenta abrir un link de forma segura, compatible con Safari.
+ * En Safari, siempre muestra una notificación de respaldo porque puede bloquear popups silenciosamente.
+ */
+function safeOpenLink(url: string): boolean {
+  // Detectar si es Safari
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  
+  try {
+    // Método universal: crear link temporal y hacer click
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // En Safari, SIEMPRE mostrar notificación de respaldo
+    // Porque Safari puede bloquear el popup sin avisar
+    if (isSafari) {
+      setTimeout(() => {
+        console.log('[WhatsApp] Safari detectado - mostrando notificación de respaldo');
+        showWhatsAppBlockedNotification(url);
+      }, 500);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[WhatsApp] Error abriendo link:', error);
+    
+    // Fallback: Mostrar notificación elegante
+    showWhatsAppBlockedNotification(url);
+    
+    return false;
+  }
 }
 
 /**
  * Abre WhatsApp con un número de teléfono (ej. cliente de una cuenta por cobrar).
  * El teléfono puede tener formato +58 412 1234567; se normaliza a dígitos para wa.me.
+ * Compatible con Safari - no usa window.open() directamente.
  * @param phone - Número con o sin código de país
  * @param message - Mensaje opcional para prellenar el chat
  */
@@ -298,11 +432,12 @@ export function openWhatsAppToPhone(phone: string, message?: string): void {
   const url = message?.trim()
     ? `${base}?text=${encodeURIComponent(message.trim())}`
     : base;
-  window.open(url, '_blank');
+  safeOpenLink(url);
 }
 
 /**
  * Abre WhatsApp con el cliente de un pedido desde el admin.
+ * Compatible con Safari - usa método seguro.
  * Usa un mensaje amable con los datos del pedido.
  * El teléfono debe tener código de país (ej. +584121234567); se elimina el + para wa.me.
  */
@@ -318,5 +453,5 @@ export function openWhatsAppForRequest(
   const message = generateWhatsAppMessageForRequest(request, storeName, locale);
   const encodedMessage = encodeURIComponent(message);
   const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodedMessage}`;
-  window.open(whatsappUrl, '_blank');
+  safeOpenLink(whatsappUrl);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createCategory } from '@/lib/services/categories';
@@ -17,6 +17,11 @@ export default function CreateCategoryPage() {
   const [slug, setSlug] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const slugManuallyEditedRef = useRef(false);
+
+  function slugFromName(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
 
   useEffect(() => {
     if (authState.user && authState.stores.length === 0 && loadStores) {
@@ -62,14 +67,6 @@ export default function CreateCategoryPage() {
       setSubmitting(false);
     }
   };
-
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -128,8 +125,11 @@ export default function CreateCategoryPage() {
             type="text"
             value={name}
             onChange={(e) => {
-              setName(e.target.value);
-              if (!slug) setSlug(e.target.value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+              const newName = e.target.value;
+              setName(newName);
+              if (!slugManuallyEditedRef.current) {
+                setSlug(slugFromName(newName));
+              }
             }}
             placeholder="Ej: Accesorios"
             maxLength={255}
@@ -143,7 +143,12 @@ export default function CreateCategoryPage() {
           <input
             type="text"
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v.trim()) slugManuallyEditedRef.current = false;
+              else slugManuallyEditedRef.current = true;
+              setSlug(v);
+            }}
             placeholder="Se genera del nombre si está vacío"
             maxLength={100}
             className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"

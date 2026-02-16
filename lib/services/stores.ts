@@ -12,6 +12,8 @@ export interface Store {
   tiktok?: string | null;
   description?: string | null;
   location?: string | null;
+  /** IVA en porcentaje (ej. 19, 13). Configurable por tienda. */
+  iva?: number;
   created_at: string;
   updated_at: string;
 }
@@ -90,12 +92,13 @@ export async function createStore(
   instagram?: string,
   tiktok?: string,
   description?: string,
-  location?: string
+  location?: string,
+  iva?: number
 ): Promise<Store | null> {
   try {
     const { httpClient } = await import('@/lib/http/client');
     
-    const body: { name: string; state: string; store_id?: string; instagram?: string; tiktok?: string; description?: string; location?: string } = { name, state };
+    const body: { name: string; state: string; store_id?: string; instagram?: string; tiktok?: string; description?: string; location?: string; iva?: number } = { name, state };
     if (store_id?.trim()) {
       body.store_id = store_id.trim();
     }
@@ -110,6 +113,9 @@ export async function createStore(
     }
     if (location != null) {
       body.location = location.trim() || undefined;
+    }
+    if (iva != null && !Number.isNaN(Number(iva))) {
+      body.iva = Math.max(0, Math.min(100, Number(iva)));
     }
     
     const response = await httpClient.post<{
@@ -187,6 +193,7 @@ export async function updateStore(
     tiktok?: string | null;
     description?: string | null;
     location?: string | null;
+    iva?: number | null;
   }
 ): Promise<Store | null> {
   try {

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Instagram, Video, MapPin } from 'lucide-react';
+import { Instagram, MapPin } from 'lucide-react';
 import Link from 'next/link';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 
 interface StorePageHeaderProps {
   name: string;
@@ -11,6 +12,14 @@ interface StorePageHeaderProps {
   location?: string | null;
   instagram?: string | null;
   tiktok?: string | null;
+}
+
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+    </svg>
+  );
 }
 
 export function StorePageHeader({
@@ -22,174 +31,72 @@ export function StorePageHeader({
   tiktok,
 }: StorePageHeaderProps) {
   const [logoError, setLogoError] = useState(false);
-  const showLogo = !!logo && !logoError;
+  const logoUrl = resolveImageUrl(logo ?? null) ?? logo ?? null;
+  const showLogo = !!logoUrl && !logoError;
+  const ig = instagram?.trim();
+  const tt = tiktok?.trim();
+  const hasSocial = !!(ig || tt);
 
   return (
-    <div className="mb-8 sm:mb-12 md:mb-16 text-center relative">
-      {/* Solo móvil: hero destacado con nombre de la tienda */}
-      <div className="md:hidden mb-10 pt-4 pb-8 relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-72 h-72 bg-primary-900/10 rounded-full blur-3xl" />
-        </div>
-        <div className="relative">
-          {showLogo && (
-            <div className="flex justify-center mb-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logo!}
-                alt=""
-                className="h-20 w-20 rounded-2xl object-cover border border-neutral-700/50 shadow-lg"
-                onError={() => setLogoError(true)}
-              />
-            </div>
-          )}
-          <h1 className="text-4xl font-light tracking-tight text-neutral-50 drop-shadow-md mb-3">
-            {name}
-          </h1>
-          <div className="h-px w-16 mx-auto bg-gradient-to-r from-transparent via-neutral-500 to-transparent mb-3" />
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-2">
-            {instagram && (
-              <Link
-                href={`https://instagram.com/${instagram}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-purple-400 transition-colors"
-              >
-                <Instagram className="h-4 w-4" />
-                @{instagram}
-              </Link>
-            )}
-            {tiktok && (
-              <Link
-                href={`https://tiktok.com/@${tiktok.replace(/^@/, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-cyan-400 transition-colors"
-              >
-                <Video className="h-4 w-4" />
-                @{tiktok.replace(/^@/, '')}
-              </Link>
-            )}
-          </div>
-          {description && (
-            <p className="text-sm font-light text-neutral-400 whitespace-pre-line">{description}</p>
-          )}
-          {location && (
-            <p className="text-sm font-light text-neutral-500 mt-1 flex items-center justify-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              {location}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Desktop: bloque actual */}
-      <div className="hidden md:block">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-64 h-64 sm:w-96 sm:h-96 bg-primary-900/5 rounded-full blur-3xl animate-float" />
-      </div>
-
-      {showLogo ? (
-        <>
-          <div className="relative flex flex-col items-center">
+    <header className="mb-10 sm:mb-12">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+        {/* Logo */}
+        {showLogo && (
+          <div className="flex justify-center sm:justify-start">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={logo!}
+              src={logoUrl}
               alt=""
-              className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 rounded-2xl object-cover border border-neutral-700/50 shadow-lg mb-4"
+              className="h-20 w-20 rounded-2xl object-cover ring-1 ring-neutral-700/50 sm:h-24 sm:w-24"
               onError={() => setLogoError(true)}
             />
-            <h1 className="relative mb-2 sm:mb-3 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-neutral-50 drop-shadow-lg">
-              {name}
-            </h1>
           </div>
-          <div className="relative mt-2 mb-4 flex flex-wrap items-center justify-center gap-3">
-            {instagram && (
-              <Link
-                href={`https://instagram.com/${instagram}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 hover:border-purple-400/50 hover:from-purple-600/30 hover:to-pink-600/30 transition-all duration-200 group"
-              >
-                <Instagram className="h-4 w-4 text-purple-400 group-hover:text-purple-300 transition-colors" />
-                <span className="text-sm font-medium text-purple-300 group-hover:text-purple-200 transition-colors">
-                  @{instagram}
-                </span>
-              </Link>
-            )}
-            {tiktok && (
-              <Link
-                href={`https://tiktok.com/@${tiktok.replace(/^@/, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800/60 border border-neutral-600 hover:border-cyan-500/50 hover:bg-cyan-950/20 transition-all duration-200 group"
-              >
-                <Video className="h-4 w-4 text-neutral-400 group-hover:text-cyan-400 transition-colors" />
-                <span className="text-sm font-medium text-neutral-300 group-hover:text-cyan-300 transition-colors">
-                  @{tiktok.replace(/^@/, '')}
-                </span>
-              </Link>
-            )}
-          </div>
-          {description && (
-            <p className="relative mx-auto max-w-2xl text-sm sm:text-base font-light text-neutral-400 whitespace-pre-line px-4">
-              {description}
-            </p>
-          )}
-          {location && (
-            <p className="relative mx-auto max-w-2xl mt-2 text-sm font-light text-neutral-500 flex items-center justify-center gap-2">
-              <MapPin className="h-4 w-4 shrink-0" />
-              {location}
-            </p>
-          )}
-        </>
-      ) : (
-        <>
-          <h1 className="relative mb-2 sm:mb-3 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-neutral-50 drop-shadow-lg">
+        )}
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <h1 className="text-2xl font-light tracking-tight text-white sm:text-3xl md:text-4xl">
             {name}
           </h1>
-          <div className="relative mt-2 mb-4 flex flex-wrap items-center justify-center gap-3">
-            {instagram && (
-              <Link
-                href={`https://instagram.com/${instagram}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 hover:border-purple-400/50 hover:from-purple-600/30 hover:to-pink-600/30 transition-all duration-200 group"
-              >
-                <Instagram className="h-4 w-4 text-purple-400 group-hover:text-purple-300 transition-colors" />
-                <span className="text-sm font-medium text-purple-300 group-hover:text-purple-200 transition-colors">
-                  @{instagram}
+          {(location || hasSocial) && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-light text-neutral-400 sm:justify-start">
+              {location && (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 shrink-0 text-neutral-500" aria-hidden />
+                  {location}
                 </span>
-              </Link>
-            )}
-            {tiktok && (
-              <Link
-                href={`https://tiktok.com/@${tiktok.replace(/^@/, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800/60 border border-neutral-600 hover:border-cyan-500/50 hover:bg-cyan-950/20 transition-all duration-200 group"
-              >
-                <Video className="h-4 w-4 text-neutral-400 group-hover:text-cyan-400 transition-colors" />
-                <span className="text-sm font-medium text-neutral-300 group-hover:text-cyan-300 transition-colors">
-                  @{tiktok.replace(/^@/, '')}
-                </span>
-              </Link>
-            )}
-          </div>
+              )}
+              {ig && (
+                <Link
+                  href={`https://instagram.com/${ig.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-pink-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-neutral-950 rounded px-1"
+                  aria-label={`Instagram: @${ig.replace(/^@/, '')}`}
+                >
+                  <Instagram className="h-4 w-4 shrink-0" />
+                  @{ig.replace(/^@/, '')}
+                </Link>
+              )}
+              {tt && (
+                <Link
+                  href={`https://tiktok.com/@${tt.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 transition-colors hover:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-neutral-950 rounded px-1"
+                  aria-label={`TikTok: @${tt.replace(/^@/, '')}`}
+                >
+                  <TikTokIcon className="h-4 w-4 shrink-0" />
+                  @{tt.replace(/^@/, '')}
+                </Link>
+              )}
+            </div>
+          )}
           {description && (
-            <p className="relative mx-auto max-w-2xl text-sm sm:text-base font-light text-neutral-400 whitespace-pre-line px-4">
+            <p className="mt-4 max-w-2xl text-sm font-light leading-relaxed text-neutral-400 whitespace-pre-line">
               {description}
             </p>
           )}
-          {location && (
-            <p className="relative mx-auto max-w-2xl mt-2 text-sm font-light text-neutral-500 flex items-center justify-center gap-2">
-              <MapPin className="h-4 w-4 shrink-0" />
-              {location}
-            </p>
-          )}
-        </>
-      )}
+        </div>
       </div>
-    </div>
+    </header>
   );
 }

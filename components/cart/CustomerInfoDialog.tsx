@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Phone, Check, Sparkles } from 'lucide-react';
 import phoneCountries from '@/constants/phoneCountries.json';
+import { cn } from '@/lib/utils/cn';
 
 const DEFAULT_COUNTRY_CODE = '+58';
 
@@ -50,6 +51,7 @@ export function CustomerInfoDialog({
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isConfirmingIdentity, setIsConfirmingIdentity] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,11 +62,13 @@ export function CustomerInfoDialog({
         const parsed = parseStoredPhone(existingCustomer.customerPhone, phoneCountries);
         setPhoneCountryCode(parsed.code);
         setPhoneNumber(parsed.number);
+        setErrors({});
       } else {
         setIsConfirmingIdentity(false);
         setCustomerName('');
         setPhoneCountryCode(DEFAULT_COUNTRY_CODE);
         setPhoneNumber('');
+        setErrors({});
       }
     }, 0);
     return () => clearTimeout(t);
@@ -83,11 +87,22 @@ export function CustomerInfoDialog({
   }, [isOpen]);
 
   const handleSubmit = () => {
+    setErrors({});
+    const nameTrimmed = customerName.trim();
     const digits = phoneNumber.replace(/\D/g, '').replace(/^0+/, '');
-    const fullPhone =
-      digits.length > 0 ? phoneCountryCode + digits : undefined;
+    const fullPhone = digits.length > 0 ? phoneCountryCode + digits : undefined;
+
+    const newErrors: { name?: string; phone?: string } = {};
+    if (!nameTrimmed) newErrors.name = 'El nombre es obligatorio';
+    if (!fullPhone || digits.length < 7) newErrors.phone = 'El teléfono es obligatorio';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     const customerInfo: CustomerInfo = {
-      customerName: customerName.trim() || undefined,
+      customerName: nameTrimmed,
       customerPhone: fullPhone,
     };
     onConfirm(customerInfo);
@@ -245,7 +260,7 @@ export function CustomerInfoDialog({
                         
                         <div className="bg-gradient-to-br from-primary-900/30 via-neutral-800/60 to-neutral-800/50 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 border border-primary-500/30 shadow-lg">
                           <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed mb-3 sm:mb-4">
-                            <span className="font-semibold text-primary-400">Los siguientes datos son opcionales</span>, pero si los compartes, los guardaremos para que tus próximas compras sean más rápidas y personalizadas.
+                            <span className="font-semibold text-primary-400">Nombre y teléfono son obligatorios</span> para procesar tu pedido y que la tienda pueda contactarte.
                           </p>
                           
                           {/* Campos del formulario */}
@@ -254,15 +269,22 @@ export function CustomerInfoDialog({
                             <div>
                               <label className="block text-xs sm:text-sm font-medium text-neutral-300 mb-1.5 sm:mb-2">
                                 <User className="inline h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 align-middle" />
-                                Nombre (opcional)
+                                Nombre <span className="text-primary-400">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
+                                onChange={(e) => { setCustomerName(e.target.value); setErrors((prev) => ({ ...prev, name: undefined })); }}
                                 placeholder="Tu nombre"
-                                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-neutral-800/50 border border-neutral-700/50 text-neutral-100 placeholder-neutral-500 focus:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all duration-200 text-sm sm:text-base"
+                                required
+                                aria-required="true"
+                                aria-invalid={!!errors.name}
+                                className={cn(
+                                  "w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-neutral-800/50 border text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base",
+                                  errors.name ? "border-red-500/60 focus:border-red-500/50 focus:ring-red-500/20" : "border-neutral-700/50 focus:border-primary-500/50 focus:ring-primary-500/20"
+                                )}
                               />
+                              {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name}</p>}
                             </div>
                             
                             {/* Teléfono: primero número, luego selector de país */}
@@ -270,15 +292,22 @@ export function CustomerInfoDialog({
                               <div>
                                 <label className="block text-xs sm:text-sm font-medium text-neutral-300 mb-1.5 sm:mb-2">
                                   <Phone className="inline h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 align-middle" />
-                                  Teléfono (opcional)
+                                  Teléfono <span className="text-primary-400">*</span>
                                 </label>
                                 <input
                                   type="tel"
                                   value={phoneNumber}
-                                  onChange={(e) => setPhoneNumber(e.target.value)}
+                                  onChange={(e) => { setPhoneNumber(e.target.value); setErrors((prev) => ({ ...prev, phone: undefined })); }}
                                   placeholder="412 1234567"
-                                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-neutral-800/50 border border-neutral-700/50 text-neutral-100 placeholder-neutral-500 focus:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all duration-200 text-sm sm:text-base"
+                                  required
+                                  aria-required="true"
+                                  aria-invalid={!!errors.phone}
+                                  className={cn(
+                                    "w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-neutral-800/50 border text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base",
+                                    errors.phone ? "border-red-500/60 focus:border-red-500/50 focus:ring-red-500/20" : "border-neutral-700/50 focus:border-primary-500/50 focus:ring-primary-500/20"
+                                  )}
                                 />
+                                {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone}</p>}
                               </div>
                               <div>
                                 <label className="block text-xs sm:text-sm font-medium text-neutral-300 mb-1.5 sm:mb-2">
@@ -302,7 +331,7 @@ export function CustomerInfoDialog({
                         </div>
                         
                         <p className="text-xs sm:text-sm text-neutral-400 text-center leading-relaxed px-1">
-                          Puedes omitir estos campos si prefieres. Tu pedido se procesará de todas formas.
+                          La tienda usará estos datos para confirmar tu pedido y contactarte.
                         </p>
                       </div>
                       

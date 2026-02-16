@@ -32,14 +32,14 @@ export default function EditReceivableItemsPage({
   const storeId = storeIdFromQuery || (authState.stores.length === 1 ? authState.stores[0].id : '');
 
   const [receivable, setReceivable] = useState<Receivable | null>(null);
-  const [requestDetails, setRequestDetails] = useState<Request | null>(null);
+  const [, setRequestDetails] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [, setLoadingProducts] = useState(false);
   const [addProductId, setAddProductId] = useState('');
   const [addQuantity, setAddQuantity] = useState(1);
   const [addSelectedVariants, setAddSelectedVariants] = useState<Record<string, string>>({});
@@ -55,7 +55,7 @@ export default function EditReceivableItemsPage({
     setLoading(true);
     setMessage(null);
     try {
-      const [rec, req] = await Promise.all([
+      const [rec] = await Promise.all([
         getReceivableById(id, storeId),
         getRequestById(id, storeId).catch(() => null),
       ]);

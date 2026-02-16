@@ -17,8 +17,16 @@ type ApiReceivable = Record<string, unknown> & {
   id?: string;
   store_id?: string;
   storeId?: string;
+  receivable_number?: number;
+  receivableNumber?: number;
   created_by?: string;
   createdBy?: string;
+  updated_by?: string;
+  updatedBy?: string;
+  created_by_name?: string;
+  createdByName?: string;
+  updated_by_name?: string;
+  updatedByName?: string;
   customer_name?: unknown;
   customerName?: unknown;
   customer_phone?: unknown;
@@ -51,7 +59,11 @@ function formatReceivable(r: ApiReceivable): Receivable {
   return {
     id: toStr(r.id),
     storeId: toStr(r.storeId ?? r.store_id),
+    receivableNumber: typeof r.receivableNumber === 'number' ? r.receivableNumber : (typeof r.receivable_number === 'number' ? r.receivable_number : undefined),
     createdBy: toStr(r.createdBy ?? r.created_by),
+    updatedBy: toStringOrNull(r.updatedBy ?? r.updated_by) ?? undefined,
+    createdByName: toStringOrNull(r.createdByName ?? r.created_by_name) ?? undefined,
+    updatedByName: toStringOrNull(r.updatedByName ?? r.updated_by_name) ?? undefined,
     customerName: toStringOrNull(r.customerName ?? r.customer_name),
     customerPhone: toStringOrNull(r.customerPhone ?? r.customer_phone),
     description: toStringOrNull(r.description),
@@ -68,11 +80,12 @@ function formatReceivable(r: ApiReceivable): Receivable {
 
 /**
  * Listar cuentas por cobrar de una tienda
+ * @param options.search - filtra por nombre o número de cliente / número de cuenta
  */
 export async function getReceivables(
   storeId: string,
-  options?: { status?: string; limit?: number; offset?: number; dateFrom?: string; dateTo?: string }
-): Promise<{ receivables: Receivable[]; total: number }> {
+  options?: { status?: string; limit?: number; offset?: number; dateFrom?: string; dateTo?: string; search?: string }
+): Promise<{ receivables: Receivable[]; total: number; totalAmountByCurrency: Record<string, number> }> {
   const params = new URLSearchParams();
   params.set('storeId', storeId);
   if (options?.status) params.set('status', options.status);
@@ -80,19 +93,24 @@ export async function getReceivables(
   if (options?.offset != null) params.set('offset', String(options.offset));
   if (options?.dateFrom) params.set('dateFrom', options.dateFrom);
   if (options?.dateTo) params.set('dateTo', options.dateTo);
+  if (options?.search?.trim()) params.set('search', options.search.trim());
 
-  const response = await httpClient.get<{ success: boolean; receivables: ApiReceivable[]; total: number }>(
-    `/api/receivables?${params.toString()}`
-  );
+  const response = await httpClient.get<{
+    success: boolean;
+    receivables: ApiReceivable[];
+    total: number;
+    totalAmountByCurrency?: Record<string, number>;
+  }>(`/api/receivables?${params.toString()}`);
 
   if (response.success && response.data) {
     const receivables = (response.data.receivables || []).map(formatReceivable);
     return {
       receivables,
       total: response.data.total ?? 0,
+      totalAmountByCurrency: response.data.totalAmountByCurrency ?? {},
     };
   }
-  return { receivables: [], total: 0 };
+  return { receivables: [], total: 0, totalAmountByCurrency: {} };
 }
 
 /**
@@ -298,11 +316,11 @@ export async function createReceivablePayment(
   data: CreateReceivablePaymentData
 ): Promise<{ receivable: Receivable; payments: ReceivablePayment[]; totalPaid: number } | null> {
   const response = await httpClient.post<{
-    success: boolean;
-    receivable: ApiReceivable;
-    payments: ApiPayment[];
-    totalPaid: number;
-  }>(`/api/receivables/${receivableId}/payments`, {
+      success: boolean;
+      receivable: ApiReceivable;
+      payments: ApiPayment[];
+      totalPaid: number;
+    }>(`/api/receivables/${receivableId}/payments`, {
     storeId: data.storeId,
     amount: data.amount,
     currency: data.currency ?? undefined,
@@ -317,4 +335,84 @@ export async function createReceivablePayment(
     };
   }
   return null;
+}
+
+/**
+ * Verificar si una tienda tiene activa la funcionalidad de enviar recordatorios
+ * de cuentas por cobrar por WhatsApp.
+ */
+export async function hasReceivablesWhatsAppReminderFeature(
+  storeIdentifier: string
+): Promise<boolean> {
+  const response = await httpClient.get<{
+    success: boolean;
+    enabled: boolean;
+  }>(
+    `/api/stores/public/${encodeURIComponent(
+      storeIdentifier
+    )}/feature-send-reminder-receivables-whatsapp`
+  );
+
+  if (response.success && response.data) {
+    return Boolean(response.data.enabled);
+  }
+  return false;
+}
+
+/**
+ * Enviar recordatorios por WhatsApp vía API usando el template cuenta_por_cobrar.
+ * Requiere que la tienda tenga feature_send_reminder_receivables_whatsapp activo.
+ */
+export async function sendReceivableReminders(
+  storeId: string,
+  recipients: Array<{ phone: string; receivableIds: string[] }>
+): Promise<{ sent: number; failed: number; failedDetails?: Array<{ index: number; phone: string; error: string }> }> {
+  const response = await httpClient.post<{
+    success: boolean;
+    sent: number;
+    failed: number;
+    failedDetails?: Array<{ index: number; phone: string; error: string }>;
+  }>('/api/receivables/send-reminders', {
+    storeId,
+    recipients,
+  });
+
+  if (response.success && response.data) {
+    return {
+      sent: response.data.sent ?? 0,
+      failed: response.data.failed ?? 0,
+      failedDetails: response.data.failedDetails,
+    };
+  }
+  throw new Error((response as { error?: string }).error ?? 'Error al enviar recordatorios');
+}
+
+/**
+ * Actualizar el estado de varias cuentas por cobrar en lote.
+ * El backend solo actualiza las que están en estado 'pending'.
+ */
+export async function bulkUpdateReceivableStatus(
+  storeId: string,
+  receivableIds: string[],
+  newStatus: 'paid' | 'cancelled'
+): Promise<{ updated: number; skipped: number; total: number }> {
+  const response = await httpClient.post<{
+    success: boolean;
+    updated: number;
+    skipped: number;
+    total: number;
+  }>('/api/receivables/bulk-update-status', {
+    storeId,
+    receivableIds,
+    newStatus,
+  });
+
+  if (response.success && response.data) {
+    return {
+      updated: response.data.updated ?? 0,
+      skipped: response.data.skipped ?? 0,
+      total: response.data.total ?? 0,
+    };
+  }
+  throw new Error((response as { error?: string }).error ?? 'Error al actualizar el estado');
 }

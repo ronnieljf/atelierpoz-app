@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
@@ -8,21 +7,16 @@ interface PageTransitionProps {
   children: ReactNode;
 }
 
+/**
+ * Envuelve el contenido con una transición suave al cambiar de ruta.
+ * Usa solo CSS para no cargar framer-motion en rutas críticas (login, etc.).
+ */
 export function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
 
   return (
-    <motion.div
-      key={pathname}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.35,
-        ease: [0.4, 0, 0.2, 1],
-      }}
-      className="w-full"
-    >
+    <div key={pathname} className="page-transition-in w-full">
       {children}
-    </motion.div>
+    </div>
   );
 }

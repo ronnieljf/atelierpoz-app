@@ -110,29 +110,25 @@ export default async function HomePage() {
   };
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-x-hidden relative">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-10 md:py-14">
-        {/* Hero: vista inicial elegante y profesional */}
-        <header className="relative mb-12 sm:mb-16 md:mb-20 text-center overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-            <div className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] bg-primary-900/15 rounded-full blur-[100px]" />
-          </div>
-          <div className="relative">
-            <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-neutral-500 mb-4">
-              {dict.title}
-            </p>
-            <h1 className="text-4xl font-light tracking-tight text-neutral-50 drop-shadow-sm sm:text-5xl md:text-6xl lg:text-7xl mb-5">
-              {dict.welcome}
-            </h1>
-            <div className="mx-auto h-px w-20 bg-gradient-to-r from-transparent via-neutral-500 to-transparent mb-5" />
-            <p className="mx-auto max-w-md text-sm font-light text-neutral-400 leading-relaxed sm:text-base md:max-w-lg">
-              {dict.description}
-            </p>
-          </div>
+      
+      <div className="container mx-auto max-w-4xl px-4 sm:px-6 py-10 sm:py-14 md:py-20 relative z-10">
+        {/* Hero: limpio y elegante */}
+        <header className="relative mb-14 sm:mb-16 md:mb-24 text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500 mb-6">
+            {dict.title}
+          </p>
+          <h1 className="text-3xl font-light tracking-tight text-white sm:text-4xl md:text-5xl mb-4">
+            {dict.welcome}
+          </h1>
+          <div className="mx-auto mb-6 h-px w-16 bg-neutral-600" aria-hidden />
+          <p className="mx-auto max-w-md text-sm font-light text-neutral-400 leading-relaxed sm:text-base">
+            {dict.description}
+          </p>
         </header>
 
         {/* Lista de tiendas: contenido principal */}

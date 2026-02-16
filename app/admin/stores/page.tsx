@@ -21,6 +21,7 @@ export default function StoresCreatePage() {
     tiktok: '',
     description: '',
     location: '',
+    iva: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function StoresCreatePage() {
     tiktok: '',
     description: '',
     location: '',
+    iva: '',
   });
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
   const [addingUserToStore, setAddingUserToStore] = useState<string | null>(null);
@@ -126,7 +128,8 @@ export default function StoresCreatePage() {
         formData.instagram.trim() || undefined,
         formData.tiktok.trim() || undefined,
         formData.description.trim() || undefined,
-        formData.location.trim() || undefined
+        formData.location.trim() || undefined,
+        formData.iva !== '' && !Number.isNaN(Number(formData.iva)) ? Number(formData.iva) : undefined
       );
 
       if (newStore) {
@@ -143,6 +146,7 @@ export default function StoresCreatePage() {
           tiktok: '',
           description: '',
           location: '',
+          iva: '',
         });
         // Recargar las tiendas del usuario
         if (loadStores) {
@@ -159,7 +163,7 @@ export default function StoresCreatePage() {
     }
   };
 
-  const handleEditStore = (store: { id: string; name: string; state: string; store_id?: string | null; instagram?: string | null; tiktok?: string | null; description?: string | null; location?: string | null }) => {
+  const handleEditStore = (store: { id: string; name: string; state: string; store_id?: string | null; instagram?: string | null; tiktok?: string | null; description?: string | null; location?: string | null; iva?: number | null }) => {
     setEditingStoreId(store.id);
     setEditFormData({
       name: store.name,
@@ -169,6 +173,7 @@ export default function StoresCreatePage() {
       tiktok: store.tiktok || '',
       description: store.description || '',
       location: store.location || '',
+      iva: store.iva != null && !Number.isNaN(Number(store.iva)) ? String(store.iva) : '',
     });
     setUploadedLogoUrl(null);
     setLogoImgErrorStoreIds((s) => {
@@ -186,7 +191,7 @@ export default function StoresCreatePage() {
     setMessage(null);
 
     try {
-      const updates: { name?: string; state?: string; store_id?: string | null; instagram?: string | null; tiktok?: string | null; description?: string | null; location?: string | null } = {};
+      const updates: { name?: string; state?: string; store_id?: string | null; instagram?: string | null; tiktok?: string | null; description?: string | null; location?: string | null; iva?: number | null } = {};
       if (editFormData.name) updates.name = editFormData.name;
       if (editFormData.state) updates.state = editFormData.state;
       if (editFormData.store_id !== undefined) {
@@ -203,6 +208,10 @@ export default function StoresCreatePage() {
       }
       if (editFormData.location !== undefined) {
         updates.location = editFormData.location.trim() || null;
+      }
+      if (editFormData.iva !== undefined && editFormData.iva !== '') {
+        const ivaNum = parseFloat(editFormData.iva);
+        updates.iva = !Number.isNaN(ivaNum) ? Math.max(0, Math.min(100, ivaNum)) : null;
       }
 
       const updatedStore = await updateStore(editingStoreId, updates);
@@ -222,6 +231,7 @@ export default function StoresCreatePage() {
           tiktok: '',
           description: '',
           location: '',
+          iva: '',
         });
         setUploadedLogoUrl(null);
         // Cerrar la sección expandida si estaba abierta
@@ -437,6 +447,22 @@ export default function StoresCreatePage() {
                   placeholder="Ej: Caracas, Venezuela"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  IVA (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={formData.iva}
+                  onChange={(e) => setFormData({ ...formData, iva: e.target.value })}
+                  className="w-full px-4 py-2 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  placeholder="Ej: 19"
+                />
+                <p className="text-xs text-neutral-500 mt-1">Porcentaje de IVA por defecto para productos de esta tienda (ej. 19, 13).</p>
+              </div>
               <div className="flex gap-3">
                 <Button
                   type="submit"
@@ -458,6 +484,7 @@ export default function StoresCreatePage() {
                       tiktok: '',
                       description: '',
                       location: '',
+                      iva: '',
                     });
                   }}
                 >
@@ -603,6 +630,22 @@ export default function StoresCreatePage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-neutral-300 mb-2">
+                          IVA (%)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          value={editFormData.iva}
+                          onChange={(e) => setEditFormData({ ...editFormData, iva: e.target.value })}
+                          className="w-full px-4 py-2 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          placeholder="Ej: 19"
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">Porcentaje de IVA por defecto para productos de esta tienda.</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-2">
                           Logo
                         </label>
                         <div className="flex flex-wrap items-center gap-4">
@@ -702,6 +745,7 @@ export default function StoresCreatePage() {
                               tiktok: '',
                               description: '',
                               location: '',
+                              iva: '',
                             });
                             setUploadedLogoUrl(null);
                             // Cerrar la sección expandida si estaba abierta

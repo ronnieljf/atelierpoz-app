@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -14,8 +14,12 @@
     "verify": "npm run check && npm run build && echo '✓ Frontend ready for production'"
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
+    "heic2any": "^0.0.4",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.468.0",
     "next": "16.1.4",
     "react": "19.2.3",

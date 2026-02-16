@@ -7,7 +7,7 @@ import { getClients, deleteClient } from '@/lib/services/clients';
 import type { Client } from '@/types/client';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { UserCircle, Plus, Loader2, Edit, Trash2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { UserCircle, Plus, Loader2, Edit, Trash2, ChevronLeft, ChevronRight, Search, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 
@@ -120,13 +120,13 @@ export default function ClientsPage() {
     }
   };
 
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
+  const handleOpenWhatsApp = (phone: string) => {
+    if (!phone?.trim()) return;
+    // Limpiar el número de teléfono de caracteres especiales
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhone}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
 
   const initialLoad = loading && selectedStoreId && !hasLoadedOnce;
   if (initialLoad) {
@@ -200,7 +200,7 @@ export default function ClientsPage() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Nombre, teléfono o email…"
+              placeholder="Nombre, cédula, teléfono o email…"
               className="w-full rounded-xl border border-neutral-700 bg-neutral-800/50 py-3 pl-10 pr-3 text-base text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:py-2.5 sm:pl-9 sm:text-sm"
             />
           </div>
@@ -267,6 +267,7 @@ export default function ClientsPage() {
               <thead className="border-b border-neutral-700 bg-neutral-800/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-neutral-300 sm:px-6">Nombre</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-neutral-300 sm:px-6">Cédula</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-neutral-300 sm:px-6">Teléfono</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-neutral-300 sm:px-6">Email</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-neutral-300 sm:px-6">Acciones</th>
@@ -286,7 +287,25 @@ export default function ClientsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 sm:px-6 text-sm text-neutral-400">
-                      {client.phone?.trim() || '—'}
+                      {client.identityDocument?.trim() || '—'}
+                    </td>
+                    <td className="px-4 py-3 sm:px-6">
+                      {client.phone?.trim() ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-neutral-400">{client.phone}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWhatsApp(client.phone!)}
+                            className="inline-flex items-center justify-center rounded-lg p-1.5 text-green-400 transition-colors hover:bg-green-500/10"
+                            title="Abrir chat de WhatsApp"
+                            aria-label="Abrir WhatsApp"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-neutral-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 sm:px-6 text-sm text-neutral-400">
                       {client.email?.trim() || '—'}

@@ -18,38 +18,35 @@ export function HomeStoresSection({
   if (stores.length === 0) {
     return (
       <section className="py-12 md:py-20">
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-neutral-800/80 bg-neutral-900/30 py-24 px-6 text-center">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-neutral-800/80">
-            <StoreIcon className="h-10 w-10 text-neutral-500" />
+        <div className="container mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-neutral-800/60 bg-neutral-900/40 py-20 px-6 text-center">
+            <StoreIcon className="mb-4 h-10 w-10 text-neutral-600" />
+            <h3 className="text-base font-medium text-neutral-300">No hay tiendas disponibles</h3>
+            <p className="mt-1 max-w-sm text-sm font-light text-neutral-500">
+              Pronto podrás explorar nuestras tiendas y sus productos.
+            </p>
           </div>
-          <h3 className="mb-2 text-lg font-medium text-neutral-300">No hay tiendas disponibles</h3>
-          <p className="max-w-sm text-sm font-light text-neutral-500">
-            Pronto podrás explorar nuestras tiendas y sus productos.
-          </p>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="py-10 sm:py-14 md:py-20">
-      <div className="mb-10 sm:mb-14 md:mb-16 text-center">
-        <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-primary-400/90">
-          Explora
-        </p>
-        <h2 className="mb-3 text-3xl font-light tracking-tight text-neutral-50 sm:text-4xl md:text-5xl">
-          {heading}
-        </h2>
-        <div className="mx-auto h-px w-12 bg-gradient-to-r from-transparent via-neutral-600 to-transparent" />
-        <p className="mx-auto mt-4 max-w-lg text-sm font-light text-neutral-400 sm:text-base">
-          {subheading}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 xl:gap-10">
-        {stores.map((store) => (
-          <StoreCard key={store.id} store={store} />
-        ))}
+    <section className="py-12 sm:py-16 md:py-20">
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6">
+        <div className="mb-10 sm:mb-12 text-center">
+          <h2 className="text-2xl font-light tracking-tight text-white sm:text-3xl md:text-4xl">
+            {heading}
+          </h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-light text-neutral-400 sm:text-base">
+            {subheading}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
+          {stores.map((store) => (
+            <StoreCard key={store.id} store={store} />
+          ))}
+        </div>
       </div>
     </section>
   );

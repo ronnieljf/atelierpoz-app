@@ -8,6 +8,7 @@ import { type Product } from '@/types/product';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { Button } from '@/components/ui/Button';
 import { Plus, Edit, Trash2, Package, Image as ImageIcon, Search, Loader2, XCircle, Eye, EyeOff, DollarSign, Ban } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
@@ -36,7 +37,12 @@ export default function ProductsListPage() {
   const [updatingCategoryProductId, setUpdatingCategoryProductId] = useState<string | null>(null);
   const [updatingSortOrderProductId, setUpdatingSortOrderProductId] = useState<string | null>(null);
   const [updatingHidePriceProductId, setUpdatingHidePriceProductId] = useState<string | null>(null);
+  const [editingPriceProductId, setEditingPriceProductId] = useState<string | null>(null);
+  const [updatingPriceProductId, setUpdatingPriceProductId] = useState<string | null>(null);
   const productsListRef = useRef<HTMLDivElement>(null);
+
+  /** Producto sin variantes (combinations): se puede editar el precio desde la lista */
+  const canEditPrice = (p: Product) => !p.combinations || p.combinations.length === 0;
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -193,7 +199,8 @@ export default function ProductsListPage() {
       const success = await deleteProduct(id, selectedStoreId);
       if (success) {
         setMessage({ type: 'success', text: dict.admin.products.list.deleteSuccess });
-        loadProducts();
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setTotal((prev) => Math.max(0, prev - 1));
       } else {
         setMessage({ type: 'error', text: dict.admin.products.list.deleteError });
       }
@@ -211,7 +218,7 @@ export default function ProductsListPage() {
     try {
       await setProductOutOfStock(id, selectedStoreId);
       setMessage({ type: 'success', text: 'Stock del producto actualizado a 0' });
-      loadProducts();
+      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, stock: 0 } : p)));
     } catch (error) {
       setMessage({
         type: 'error',
@@ -235,7 +242,9 @@ export default function ProductsListPage() {
         type: 'success',
         text: `Producto ${newVisibility ? 'visible' : 'oculto'} en la tienda`,
       });
-      loadProducts();
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, visibleInStore: newVisibility } : p))
+      );
     } catch (error) {
       setMessage({
         type: 'error',
@@ -261,7 +270,9 @@ export default function ProductsListPage() {
         type: 'success',
         text: newHidePrice ? 'Precio oculto en la tienda' : 'Precio visible en la tienda',
       });
-      loadProducts();
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, hidePrice: newHidePrice } : p))
+      );
     } catch (error) {
       setMessage({
         type: 'error',
@@ -290,7 +301,14 @@ export default function ProductsListPage() {
         categoryId: newCategoryId,
       });
       setMessage({ type: 'success', text: 'Categoría actualizada' });
-      loadProducts();
+      const cat = categories.find((c) => c.id === newCategoryId);
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? { ...p, categoryId: newCategoryId, category: cat?.slug ?? cat?.name ?? p.category }
+            : p
+        )
+      );
     } catch (error) {
       setMessage({
         type: 'error',
@@ -301,21 +319,47 @@ export default function ProductsListPage() {
     }
   };
 
-  // Mostrar loading mientras se cargan las tiendas inicialmente
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
+  const handlePriceSave = async (productId: string, newPriceStr: string, product: Product) => {
+    if (!selectedStoreId) return;
+    const num = parseFloat(newPriceStr.replace(',', '.'));
+    if (Number.isNaN(num) || num < 0) {
+      setMessage({ type: 'error', text: 'El precio debe ser un número mayor o igual a 0' });
+      setEditingPriceProductId(null);
+      return;
+    }
+    if (Math.abs(num - product.basePrice) < 0.005) {
+      setEditingPriceProductId(null);
+      return;
+    }
+    setEditingPriceProductId(null);
+    setUpdatingPriceProductId(productId);
+    setMessage(null);
+    try {
+      await updateProduct(productId, {
+        storeId: selectedStoreId,
+        basePrice: num,
+      });
+      setMessage({ type: 'success', text: 'Precio actualizado' });
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, basePrice: num } : p))
+      );
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Error al actualizar el precio',
+      });
+    } finally {
+      setUpdatingPriceProductId(null);
+    }
+  };
 
   // Full-page loading solo en la primera carga de la tienda. Luego mantener tabla o empty state y usar overlay.
   const initialLoad = loading && selectedStoreId && !hasLoadedOnce;
   if (initialLoad) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-400">{dict.common.loading}</div>
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-400" aria-hidden />
+        <p className="text-sm font-light text-neutral-500">Cargando…</p>
       </div>
     );
   }
@@ -324,9 +368,12 @@ export default function ProductsListPage() {
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 mb-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">
-            {dict.admin.products.list.title}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">
+              {dict.admin.products.list.title}
+            </h1>
+            <Tooltip content="Gestiona todos los productos de tu tienda: edita precios, stock, visibilidad y más." />
+          </div>
           {selectedStoreId && (
             <p className="text-sm text-neutral-400">
               {products.length < total
@@ -336,7 +383,7 @@ export default function ProductsListPage() {
           )}
         </div>
         <Link href="/admin/products/create" className="w-full sm:w-auto">
-          <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto">
+          <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto" title="Crear un nuevo producto">
             <Plus className="h-4 w-4 mr-2" />
             {dict.admin.navigation.createProduct}
           </Button>
@@ -503,14 +550,14 @@ export default function ProductsListPage() {
           )}
         </div>
       ) : (
-        <div ref={productsListRef} className="relative bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl sm:rounded-3xl overflow-hidden">
+        <div ref={productsListRef} className="relative">
           {loading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-950/30 rounded-2xl sm:rounded-3xl pointer-events-none">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-950/50 pointer-events-none">
               <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
             </div>
           )}
-          {/* Desktop: cards con imagen grande arriba y orden */}
-          <div className="hidden md:block p-4 lg:p-6">
+          {/* Desktop: cards con diseño uniforme */}
+          <div className="hidden md:block">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
               {products.map((product, index) => {
                 const currentPosition = (product.sortOrder != null ? product.sortOrder : index) + 1;
@@ -519,197 +566,75 @@ export default function ProductsListPage() {
                   key={product.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="overflow-hidden rounded-2xl border border-neutral-700/60 bg-neutral-800/40 flex flex-col"
+                  className="overflow-hidden rounded-2xl border border-neutral-700/60 bg-neutral-800/40 flex flex-col h-full"
                 >
-                  {/* Imagen ocupa todo el ancho arriba para verla bien al ordenar */}
-                  <div className="relative w-full aspect-square bg-neutral-800 border-b border-neutral-700 flex items-center justify-center">
+                  {/* Imagen con aspect ratio fijo */}
+                  <div className="relative w-full aspect-square bg-neutral-800 border-b border-neutral-700 flex items-center justify-center overflow-hidden">
                     {product.images && product.images.length > 0 ? (
                       <Image
                         src={product.images[0].startsWith('data:') ? product.images[0] : product.images[0]}
                         alt={product.name}
-                        width={400}
-                        height={400}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                         unoptimized={product.images[0].startsWith('data:')}
                       />
                     ) : (
                       <ImageIcon className="h-16 w-16 text-neutral-600" />
                     )}
                   </div>
-                  <div className="p-4 lg:p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm lg:text-base font-medium leading-snug text-neutral-100 line-clamp-2">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          Código <span className="font-mono text-neutral-400">{product.sku || '—'}</span>
-                        </p>
+                  
+                  {/* Información del producto con altura fija */}
+                  <div className="p-4 lg:p-5 flex flex-col flex-1">
+                    {/* Sección superior: nombre y orden */}
+                    <div className="mb-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm lg:text-base font-medium leading-snug text-neutral-100 line-clamp-2 min-h-[2.5rem]">
+                            {product.name}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <label className="text-xs text-neutral-500 whitespace-nowrap">Orden</label>
+                          <input
+                            type="number"
+                            min={1}
+                            defaultValue={currentPosition}
+                            disabled={updatingSortOrderProductId === product.id}
+                            onBlur={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!Number.isNaN(v) && v >= 1 && v !== currentPosition) {
+                                handleSortOrderChange(product.id, v);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            className="w-14 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-center text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
+                          />
+                          {updatingSortOrderProductId === product.id && (
+                            <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <label className="text-xs text-neutral-500 whitespace-nowrap">Orden</label>
-                        <input
-                          type="number"
-                          min={1}
-                          defaultValue={currentPosition}
-                          disabled={updatingSortOrderProductId === product.id}
-                          onBlur={(e) => {
-                            const v = parseInt(e.target.value, 10);
-                            if (!Number.isNaN(v) && v >= 1 && v !== currentPosition) {
-                              handleSortOrderChange(product.id, v);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.currentTarget.blur();
-                            }
-                          }}
-                          className="w-14 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-center text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
-                        />
-                        {updatingSortOrderProductId === product.id && (
-                          <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={getProductCategoryId(product)}
-                        onChange={(e) => handleCategoryChange(product.id, e.target.value)}
-                        disabled={updatingCategoryProductId === product.id || categories.length === 0}
-                        className={cn(
-                          'min-w-0 max-w-full rounded-lg border bg-neutral-800/50 px-2 py-1.5 text-xs text-neutral-100',
-                          'border-neutral-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50',
-                          'disabled:opacity-50 disabled:cursor-not-allowed'
-                        )}
-                      >
-                        <option value="">Sin categoría</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                      {updatingCategoryProductId === product.id && (
-                        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-semibold tabular-nums text-neutral-100">
-                        {product.currency} {product.basePrice.toFixed(2)}
-                      </span>
-                      <span className="text-xs text-neutral-500">
-                        Stock <span className="font-medium tabular-nums text-neutral-400">{product.stock}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-auto flex flex-wrap items-stretch border-t border-neutral-700/60">
-                    <Link
-                      href={`/admin/products/${product.id}/edit`}
-                      className="flex flex-1 min-w-0 items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium text-neutral-300 transition-colors hover:bg-neutral-700/50 hover:text-primary-400 border-r border-neutral-700/60"
-                    >
-                      <Edit className="h-3.5 w-3.5 flex-shrink-0" />
-                      {dict.admin.products.list.edit}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleVisibility(product)}
-                      className={cn(
-                        'flex flex-1 min-w-0 items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium transition-colors border-r border-neutral-700/60',
-                        product.visibleInStore
-                          ? 'text-blue-400 hover:bg-blue-500/10 hover:text-blue-300'
-                          : 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-300'
-                      )}
-                      title={product.visibleInStore ? 'Ocultar en tienda' : 'Mostrar en tienda'}
-                    >
-                      {product.visibleInStore ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                      <span className="truncate">{product.visibleInStore ? 'Visible' : 'Oculto'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleHidePrice(product)}
-                      disabled={updatingHidePriceProductId === product.id}
-                      className={cn(
-                        'flex flex-1 min-w-0 items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium transition-colors border-r border-neutral-700/60',
-                        product.hidePrice === true
-                          ? 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'
-                          : 'text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-300'
-                      )}
-                      title={product.hidePrice ? 'Mostrar precio en tienda' : 'Ocultar precio en tienda'}
-                    >
-                      {updatingHidePriceProductId === product.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-400" />
-                      ) : product.hidePrice === true ? (
-                        <Ban className="h-3.5 w-3.5" />
-                      ) : (
-                        <DollarSign className="h-3.5 w-3.5" />
-                      )}
-                      <span className="truncate">{product.hidePrice ? 'Precio oculto' : 'Precio visible'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOutOfStock(product.id)}
-                      className="flex flex-1 min-w-0 items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium text-neutral-400 transition-colors hover:bg-orange-500/10 hover:text-orange-400 border-r border-neutral-700/60"
-                      title="Poner stock en 0"
-                    >
-                      <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate">Sin stock</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(product.id)}
-                      className="flex flex-1 min-w-0 items-center justify-center gap-1.5 py-3 px-3 text-xs font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 flex-shrink-0" />
-                      {dict.admin.products.list.delete}
-                    </button>
-                  </div>
-                </motion.article>
-              );
-              })}
-            </div>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-3 px-3 py-4 sm:px-4 sm:py-5">
-            {products.map((product, index) => {
-              const currentPosition = (product.sortOrder != null ? product.sortOrder : index) + 1;
-              return (
-              <motion.article
-                key={product.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="overflow-hidden rounded-2xl border border-neutral-700/60 bg-neutral-800/40"
-              >
-                <div className="flex gap-4 p-4">
-                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center">
-                    {product.images && product.images.length > 0 ? (
-                      <Image
-                        src={product.images[0].startsWith('data:') ? product.images[0] : product.images[0]}
-                        alt={product.name}
-                        width={80}
-                        height={80}
-                        className="h-full w-full object-cover"
-                        unoptimized={product.images[0].startsWith('data:')}
-                      />
-                    ) : (
-                      <ImageIcon className="h-8 w-8 text-neutral-600" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <h3 className="text-[15px] font-medium leading-snug text-neutral-100 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-neutral-500">
-                      Código <span className="font-mono text-neutral-400">{product.sku}</span>
-                    </p>
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                      <span className="text-base font-semibold tabular-nums text-neutral-100">
-                        {product.currency} {product.basePrice.toFixed(2)}
-                      </span>
-                      <div className="flex items-center gap-1.5">
+                      
+                      {/* Código y categoría */}
+                      <p className="text-xs text-neutral-500 mb-2">
+                        Código <span className="font-mono text-neutral-400">{product.sku || '—'}</span>
+                      </p>
+                      
+                      <div className="flex items-center gap-2">
                         <select
                           value={getProductCategoryId(product)}
                           onChange={(e) => handleCategoryChange(product.id, e.target.value)}
                           disabled={updatingCategoryProductId === product.id || categories.length === 0}
-                          className="min-w-0 max-w-[140px] rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1 text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
+                          className={cn(
+                            'flex-1 rounded-lg border bg-neutral-800/50 px-2 py-1.5 text-xs text-neutral-100',
+                            'border-neutral-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50',
+                            'disabled:opacity-50 disabled:cursor-not-allowed'
+                          )}
                         >
                           <option value="">Sin categoría</option>
                           {categories.map((c) => (
@@ -721,15 +646,256 @@ export default function ProductsListPage() {
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-neutral-500">
-                      Stock <span className="font-medium tabular-nums text-neutral-400">{product.stock}</span>
-                    </p>
+                    
+                    {/* Precio y stock - siempre en la misma posición; precio editable solo sin variantes */}
+                    <div className="flex items-center justify-between text-sm mb-4 pb-4 border-b border-neutral-700/40">
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <span className="text-xs text-neutral-500">Precio</span>
+                        {canEditPrice(product) ? (
+                          editingPriceProductId === product.id ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-neutral-500 text-xs">{product.currency}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                defaultValue={product.basePrice}
+                                disabled={updatingPriceProductId === product.id}
+                                onBlur={(e) => handlePriceSave(product.id, e.target.value, product)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                }}
+                                className="w-24 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
+                                autoFocus
+                              />
+                              {updatingPriceProductId === product.id && (
+                                <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditingPriceProductId(product.id)}
+                              disabled={updatingPriceProductId === product.id}
+                              className="text-left font-semibold tabular-nums text-neutral-100 text-base hover:text-primary-400 transition-colors disabled:opacity-50"
+                              title="Clic para editar precio"
+                            >
+                              {updatingPriceProductId === product.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin inline-block" />
+                              ) : (
+                                `${product.currency} ${product.basePrice.toFixed(2)}`
+                              )}
+                            </button>
+                          )
+                        ) : (
+                          <span className="font-semibold tabular-nums text-neutral-100 text-base">
+                            {product.currency} {product.basePrice.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-xs text-neutral-500">Stock</span>
+                        <span className="font-medium tabular-nums text-neutral-400">{product.stock}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Botones de acción organizados en bloques claros */}
+                  <div className="mt-auto flex flex-col border-t border-neutral-700/60">
+                    {/* Fila 1: Editar (más prominente) */}
+                    <Link
+                      href={`/admin/products/${product.id}/edit`}
+                      className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 border-b border-neutral-700/60"
+                      title="Editar toda la información del producto"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span>Editar producto</span>
+                      <Tooltip content="Modifica nombre, precio, stock, imágenes y más" />
+                    </Link>
+                    
+                    {/* Fila 2: Visibilidad y precio */}
+                    <div className="grid grid-cols-2 border-b border-neutral-700/60">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVisibility(product)}
+                        className={cn(
+                          'flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors border-r border-neutral-700/60',
+                          product.visibleInStore
+                            ? 'text-blue-400 hover:bg-blue-500/10'
+                            : 'text-neutral-400 hover:bg-neutral-700/50'
+                        )}
+                        title={product.visibleInStore ? 'Ocultar en la tienda pública' : 'Mostrar en la tienda pública'}
+                      >
+                        {product.visibleInStore ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        <span>{product.visibleInStore ? 'Visible' : 'Oculto'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleHidePrice(product)}
+                        disabled={updatingHidePriceProductId === product.id}
+                        className={cn(
+                          'flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors disabled:opacity-50',
+                          product.hidePrice === true
+                            ? 'text-amber-400 hover:bg-amber-500/10'
+                            : 'text-neutral-400 hover:bg-neutral-700/50'
+                        )}
+                        title={product.hidePrice ? 'Mostrar precio en tienda' : 'Ocultar precio (consultar)'}
+                      >
+                        {updatingHidePriceProductId === product.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary-400" />
+                        ) : product.hidePrice === true ? (
+                          <Ban className="h-4 w-4" />
+                        ) : (
+                          <DollarSign className="h-4 w-4" />
+                        )}
+                        <span>{product.hidePrice ? 'Precio oculto' : 'Precio visible'}</span>
+                      </button>
+                    </div>
+                    
+                    {/* Fila 3: Acciones destructivas */}
+                    <div className="grid grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOutOfStock(product.id)}
+                        className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/10 border-r border-neutral-700/60"
+                        title="Poner el stock de este producto en 0"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        <span>Agotar stock</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(product.id)}
+                        className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+                        title="Eliminar permanentemente este producto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Eliminar</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.article>
+              );
+              })}
+            </div>
+          </div>
+
+          {/* Mobile Cards con diseño uniforme */}
+          <div className="md:hidden space-y-3">
+            {products.map((product, index) => {
+              const currentPosition = (product.sortOrder != null ? product.sortOrder : index) + 1;
+              return (
+              <motion.article
+                key={product.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="overflow-hidden rounded-2xl border border-neutral-700/60 bg-neutral-800/40 flex flex-col"
+              >
+                {/* Imagen con aspect ratio fijo */}
+                <div className="relative w-full aspect-video bg-neutral-800 border-b border-neutral-700 flex items-center justify-center overflow-hidden">
+                  {product.images && product.images.length > 0 ? (
+                    <Image
+                      src={product.images[0].startsWith('data:') ? product.images[0] : product.images[0]}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                      sizes="100vw"
+                      unoptimized={product.images[0].startsWith('data:')}
+                    />
+                  ) : (
+                    <ImageIcon className="h-12 w-12 text-neutral-600" />
+                  )}
+                </div>
+                
+                {/* Información del producto */}
+                <div className="p-4 flex flex-col">
+                  {/* Nombre fijo de 2 líneas */}
+                  <h3 className="text-[15px] font-medium leading-snug text-neutral-100 line-clamp-2 min-h-[2.6rem] mb-2">
+                    {product.name}
+                  </h3>
+                  
+                  {/* Código */}
+                  <p className="text-xs text-neutral-500 mb-3">
+                    Código <span className="font-mono text-neutral-400">{product.sku}</span>
+                  </p>
+                  
+                  {/* Categoría */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <select
+                      value={getProductCategoryId(product)}
+                      onChange={(e) => handleCategoryChange(product.id, e.target.value)}
+                      disabled={updatingCategoryProductId === product.id || categories.length === 0}
+                      className="flex-1 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
+                    >
+                      <option value="">Sin categoría</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    {updatingCategoryProductId === product.id && (
+                      <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
+                    )}
+                  </div>
+                  
+                  {/* Precio y stock; precio editable solo sin variantes */}
+                  <div className="flex items-center justify-between mb-3 pb-3 border-b border-neutral-700/40">
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                      <span className="text-xs text-neutral-500">Precio</span>
+                      {canEditPrice(product) ? (
+                        editingPriceProductId === product.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-neutral-500 text-xs">{product.currency}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              defaultValue={product.basePrice}
+                              disabled={updatingPriceProductId === product.id}
+                              onBlur={(e) => handlePriceSave(product.id, e.target.value, product)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                              }}
+                              className="w-24 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
+                              autoFocus
+                            />
+                            {updatingPriceProductId === product.id && (
+                              <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingPriceProductId(product.id)}
+                            disabled={updatingPriceProductId === product.id}
+                            className="text-left text-base font-semibold tabular-nums text-neutral-100 hover:text-primary-400 transition-colors disabled:opacity-50"
+                            title="Toca para editar precio"
+                          >
+                            {updatingPriceProductId === product.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin inline-block" />
+                            ) : (
+                              `${product.currency} ${product.basePrice.toFixed(2)}`
+                            )}
+                          </button>
+                        )
+                      ) : (
+                        <span className="text-base font-semibold tabular-nums text-neutral-100">
+                          {product.currency} {product.basePrice.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="text-xs text-neutral-500">Stock</span>
+                      <span className="font-medium tabular-nums text-neutral-400">{product.stock}</span>
+                    </div>
                   </div>
                 </div>
+                {/* Botones de acción organizados - Mobile */}
                 <div className="flex flex-col border-t border-neutral-700/60">
                   {/* Orden: input numérico */}
-                  <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-neutral-700/60">
-                    <span className="text-xs font-medium text-neutral-400">Orden</span>
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-neutral-700/60 bg-neutral-800/20">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-neutral-300">Orden de aparición</span>
+                      <Tooltip content="Número que define en qué posición aparece este producto en la tienda" />
+                    </div>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -745,87 +911,87 @@ export default function ProductsListPage() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') e.currentTarget.blur();
                         }}
-                        className="w-16 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-center text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
+                        className="w-16 rounded-lg border border-neutral-600 bg-neutral-800/50 px-2 py-1.5 text-center text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 disabled:opacity-50"
                       />
                       {updatingSortOrderProductId === product.id && (
                         <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-primary-400" />
                       )}
                     </div>
                   </div>
-                  {/* Primera fila: Editar y Visible/Oculto */}
-                  <div className="flex">
-                    <Link
-                      href={`/admin/products/${product.id}/edit`}
-                      className="flex flex-1 items-center justify-center gap-2 py-3.5 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-700/50 hover:text-primary-400 active:bg-neutral-700 border-r border-neutral-700/60"
-                    >
-                      <Edit className="h-4 w-4" />
-                      Editar
-                    </Link>
+                  
+                  {/* Editar (más prominente) */}
+                  <Link
+                    href={`/admin/products/${product.id}/edit`}
+                    className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-b border-neutral-700/60"
+                    title="Editar toda la información del producto"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span>Editar producto</span>
+                  </Link>
+                  
+                  {/* Visibilidad y Precio */}
+                  <div className="grid grid-cols-2 border-b border-neutral-700/60">
                     <button
                       type="button"
                       onClick={() => handleToggleVisibility(product)}
                       className={cn(
-                        "flex flex-1 cursor-pointer items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors active:bg-neutral-700/30 border-r border-neutral-700/60",
+                        "flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors border-r border-neutral-700/60",
                         product.visibleInStore
-                          ? "text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
-                          : "text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-300"
+                          ? "text-blue-400 hover:bg-blue-500/10"
+                          : "text-neutral-400 hover:bg-neutral-700/50"
                       )}
+                      title={product.visibleInStore ? 'Ocultar en tienda' : 'Mostrar en tienda'}
                     >
-                      {product.visibleInStore ? (
-                        <>
-                          <Eye className="h-4 w-4" />
-                          Visible
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="h-4 w-4" />
-                          Oculto
-                        </>
-                      )}
+                      {product.visibleInStore ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      <span>{product.visibleInStore ? 'Visible' : 'Oculto'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleToggleHidePrice(product)}
                       disabled={updatingHidePriceProductId === product.id}
                       className={cn(
-                        "flex flex-1 cursor-pointer items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors active:bg-neutral-700/30",
+                        "flex items-center justify-center gap-2 py-4 text-sm font-medium transition-colors disabled:opacity-50",
                         product.hidePrice === true
-                          ? "text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-                          : "text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-300"
+                          ? "text-amber-400 hover:bg-amber-500/10"
+                          : "text-neutral-400 hover:bg-neutral-700/50"
                       )}
+                      title="Mostrar u ocultar precio"
                     >
                       {updatingHidePriceProductId === product.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-primary-400" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : product.hidePrice === true ? (
                         <>
                           <Ban className="h-4 w-4" />
-                          Precio oculto
+                          Sin precio
                         </>
                       ) : (
                         <>
                           <DollarSign className="h-4 w-4" />
-                          Precio visible
+                          Con precio
                         </>
                       )}
                     </button>
                   </div>
-                  {/* Segunda fila: Sin stock y Eliminar */}
-                  <div className="flex border-t border-neutral-700/60">
+                  
+                  {/* Acciones destructivas */}
+                  <div className="grid grid-cols-2">
                     <button
                       type="button"
                       onClick={() => handleOutOfStock(product.id)}
-                      className="flex flex-1 cursor-pointer items-center justify-center gap-2 py-3.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-orange-500/10 hover:text-orange-400 active:bg-orange-500/15 border-r border-neutral-700/60"
+                      className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/10 active:bg-orange-500/15 border-r border-neutral-700/60"
+                      title="Poner stock en 0"
                     >
                       <XCircle className="h-4 w-4" />
-                      Sin stock
+                      <span>Agotar</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(product.id)}
-                      className="flex flex-1 cursor-pointer items-center justify-center gap-2 py-3.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400 active:bg-red-500/15"
+                      className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 active:bg-red-500/15"
+                      title="Eliminar producto"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Eliminar
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>
@@ -836,17 +1002,14 @@ export default function ProductsListPage() {
 
           {/* Sentinel para scroll infinito */}
           {total > 0 && products.length < total && (
-            <div
-              ref={loadMoreSentinelRef}
-              className="flex items-center justify-center py-6 border-t border-neutral-800"
-            >
+            <div ref={loadMoreSentinelRef} className="flex items-center justify-center py-6">
               {loadingMore && (
                 <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
               )}
             </div>
           )}
           {total > 0 && products.length >= total && products.length > 0 && (
-            <p className="py-4 text-center text-sm text-neutral-500 border-t border-neutral-800">
+            <p className="py-4 text-center text-sm text-neutral-500">
               Todos los productos cargados
             </p>
           )}

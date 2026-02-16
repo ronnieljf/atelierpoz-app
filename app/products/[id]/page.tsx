@@ -203,7 +203,7 @@ export default async function ProductPage({
         }}
       />
       
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
         <nav className="mb-4 sm:mb-6 text-xs sm:text-sm">
           <Link
             href={backUrl}

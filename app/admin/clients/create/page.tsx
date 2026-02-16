@@ -15,7 +15,10 @@ export default function CreateClientPage() {
   const [storeId, setStoreId] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [cedulaPrefix, setCedulaPrefix] = useState<'V' | 'E'>('V');
+  const [cedulaNumber, setCedulaNumber] = useState('');
   const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +42,13 @@ export default function CreateClientPage() {
     }
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
+    const trimmedCedulaNum = cedulaNumber.trim();
     const trimmedEmail = email.trim();
+    if (!trimmedCedulaNum) {
+      setMessage({ type: 'error', text: 'La cédula de identidad es obligatoria' });
+      return;
+    }
+    const trimmedCedula = `${cedulaPrefix}-${trimmedCedulaNum}`;
     if (!trimmedName && !trimmedPhone && !trimmedEmail) {
       setMessage({ type: 'error', text: 'Indica al menos nombre, teléfono o email' });
       return;
@@ -49,9 +58,11 @@ export default function CreateClientPage() {
     try {
       await createClient({
         storeId,
+        identityDocument: trimmedCedula,
         name: trimmedName || undefined,
         phone: trimmedPhone || undefined,
         email: trimmedEmail || undefined,
+        address: address.trim() || undefined,
       });
       setMessage({ type: 'success', text: 'Cliente creado correctamente' });
       setTimeout(() => {
@@ -67,14 +78,6 @@ export default function CreateClientPage() {
     }
   };
 
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-center gap-4">
@@ -89,7 +92,7 @@ export default function CreateClientPage() {
             Nuevo cliente
           </h1>
           <p className="text-sm text-neutral-400">
-            Agrega un cliente a la cartera de la tienda. Todos los campos son opcionales, pero conviene indicar al menos uno.
+            Agrega un cliente a la cartera de la tienda. La cédula de identidad es obligatoria.
           </p>
         </div>
       </div>
@@ -129,6 +132,29 @@ export default function CreateClientPage() {
         </div>
 
         <div>
+          <label className="mb-2 block text-sm font-medium text-neutral-300">Cédula de identidad *</label>
+          <div className="flex gap-2">
+            <select
+              value={cedulaPrefix}
+              onChange={(e) => setCedulaPrefix(e.target.value as 'V' | 'E')}
+              className="h-12 w-16 shrink-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+            >
+              <option value="V">V</option>
+              <option value="E">E</option>
+            </select>
+            <input
+              type="text"
+              value={cedulaNumber}
+              onChange={(e) => setCedulaNumber(e.target.value)}
+              placeholder="12345678"
+              maxLength={50}
+              required
+              className="h-12 flex-1 min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="mb-2 block text-sm font-medium text-neutral-300">Nombre (opcional)</label>
           <input
             type="text"
@@ -160,6 +186,18 @@ export default function CreateClientPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="cliente@ejemplo.com"
             maxLength={255}
+            className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-neutral-300">Dirección (opcional)</label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Ej: Av. Principal, edificio X, apto 5"
+            maxLength={500}
             className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
           />
         </div>

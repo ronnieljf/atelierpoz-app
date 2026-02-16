@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingCart, X, Plus, Minus, MessageCircle, Store, Phone, Instagram } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, MessageCircle, Store, Instagram } from 'lucide-react';
 import { useCart } from '@/lib/store/cart-store';
 import { type Dictionary } from '@/lib/i18n/dictionary';
 import { type Locale } from '@/constants/locales';
@@ -16,6 +16,7 @@ import { createRequest } from '@/lib/services/requests';
 import { CustomerInfoDialog } from './CustomerInfoDialog';
 import { getBcvRates } from '@/lib/services/bcv';
 import { getStoreById } from '@/lib/services/stores';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 
 interface CartProps {
   dict: Dictionary;
@@ -166,9 +167,10 @@ export function Cart({ dict, locale }: CartProps) {
     setCustomerInfoDialog(null);
     setCustomerInfo(null);
 
-    // Guardar el pedido en el backend y abrir WhatsApp directamente (sin mensaje adicional)
+    // Guardar el pedido en el backend y abrir WhatsApp con el número de pedido en el mensaje
+    let orderNumber: number | undefined;
     try {
-      await createRequest({
+      const request = await createRequest({
         storeId: storeGroup.storeId,
         items: storeGroup.items,
         total: storeGroup.total,
@@ -176,6 +178,7 @@ export function Cart({ dict, locale }: CartProps) {
         customerName: info.customerName,
         customerPhone: info.customerPhone,
       });
+      orderNumber = request?.orderNumber ?? undefined;
     } catch (error) {
       console.error('Error guardando pedido:', error);
     }
@@ -187,7 +190,9 @@ export function Cart({ dict, locale }: CartProps) {
       locale,
       phoneNumber,
       undefined,
-      bcvRates.dolar > 0 ? bcvRates.dolar : undefined
+      bcvRates.dolar > 0 ? bcvRates.dolar : undefined,
+      undefined,
+      orderNumber
     );
   };
   
@@ -254,17 +259,15 @@ export function Cart({ dict, locale }: CartProps) {
   
   if (cart.items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-        <div className="mb-5 flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-2xl bg-neutral-800/80 border border-neutral-700/40">
-          <ShoppingCart className="h-10 w-10 sm:h-12 sm:w-12 text-neutral-500" />
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-neutral-800/60">
+          <ShoppingCart className="h-7 w-7 text-neutral-500" aria-hidden />
         </div>
-        <h2 className="mb-2 text-xl sm:text-2xl font-light tracking-tight text-neutral-100">
-          {dict.cart.empty}
-        </h2>
-        <p className="mb-8 max-w-sm text-sm sm:text-base font-light text-neutral-500 px-4 text-center leading-relaxed">
+        <h2 className="text-lg font-medium text-neutral-100">{dict.cart.empty}</h2>
+        <p className="mt-2 max-w-xs text-center text-sm font-light text-neutral-500">
           {dict.cart.emptyDescription}
         </p>
-        <Link href="/" prefetch={true}>
+        <Link href="/" prefetch={true} className="mt-8">
           <Button>{dict.cart.continueShopping}</Button>
         </Link>
       </div>
@@ -272,16 +275,16 @@ export function Cart({ dict, locale }: CartProps) {
   }
 
   return (
-    <div className="space-y-8 sm:space-y-10">
-      <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-neutral-100">
+    <div className="space-y-8">
+      <h1 className="text-2xl font-light tracking-tight text-white sm:text-3xl">
         {dict.cart.title}
       </h1>
 
-      <div className="space-y-8 sm:space-y-10">
+      <div className="space-y-8">
         {storesGroups.map((storeGroup) => (
           <div
             key={storeGroup.storeId}
-            className="rounded-3xl border border-neutral-700/40 bg-neutral-900/60 backdrop-blur-sm p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] relative overflow-hidden"
+            className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-5 sm:p-6"
           >
             {(() => {
               const storeInfo = storeInfoMap[storeGroup.storeId];
@@ -289,26 +292,26 @@ export function Cart({ dict, locale }: CartProps) {
               const instagram = storeGroup.storeInstagram ?? (storeInfo?.instagram && storeInfo.instagram.trim() ? storeInfo.instagram.trim() : undefined);
               const tiktok = storeGroup.storeTiktok ?? (storeInfo?.tiktok && storeInfo.tiktok.trim() ? storeInfo.tiktok.trim() : undefined);
               return (
-                <div className="mb-6 flex items-center gap-4 pb-6 border-b border-neutral-700/40">
-                  <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-primary-500/20 bg-primary-500/10">
+                <div className="mb-5 flex items-center gap-4 border-b border-neutral-800 pb-5">
+                  <div className="flex h-11 w-11 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-800 ring-1 ring-neutral-700/50">
                     {logo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={logo}
-                        alt={storeGroup.storeName}
+                        src={resolveImageUrl(logo) ?? logo}
+                        alt=""
                         className="h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
-                        <Store className="h-6 w-6 sm:h-7 sm:w-7 text-primary-400" />
+                        <Store className="h-5 w-5 text-neutral-500" aria-hidden />
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-xl font-medium text-neutral-100 tracking-tight">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-medium text-white sm:text-lg">
                       {storeGroup.storeName}
                     </h2>
-                    <p className="text-sm font-light text-neutral-500">
+                    <p className="text-sm text-neutral-500">
                       {storeGroup.items.length} {storeGroup.items.length === 1 ? 'producto' : 'productos'}
                     </p>
                     {(instagram || tiktok) && (
@@ -318,11 +321,11 @@ export function Cart({ dict, locale }: CartProps) {
                             href={`https://instagram.com/${instagram.replace(/^@/, '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-pink-400 transition-colors"
+                            className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-pink-400"
                             aria-label="Instagram"
                           >
-                            <Instagram className="h-4 w-4" />
-                            <span>@{instagram.replace(/^@/, '')}</span>
+                            <Instagram className="h-3.5 w-3.5" />
+                            @{instagram.replace(/^@/, '')}
                           </a>
                         )}
                         {tiktok && (
@@ -330,13 +333,13 @@ export function Cart({ dict, locale }: CartProps) {
                             href={`https://tiktok.com/@${tiktok.replace(/^@/, '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-300"
                             aria-label="TikTok"
                           >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                               <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
                             </svg>
-                            <span>@{tiktok.replace(/^@/, '')}</span>
+                            @{tiktok.replace(/^@/, '')}
                           </a>
                         )}
                       </div>
@@ -346,99 +349,82 @@ export function Cart({ dict, locale }: CartProps) {
               );
             })()}
 
-            <div className="space-y-4 mb-6">
+            <div className="mb-6 space-y-3">
               {storeGroup.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col sm:flex-row gap-4 sm:gap-5 rounded-2xl border border-neutral-700/30 bg-neutral-800/30 p-4 sm:p-5 transition-all duration-300 hover:bg-neutral-800/50"
+                  className="flex gap-4 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4"
                 >
                   <Link
                     href={`/products/${item.productId}`}
                     prefetch={true}
-                    className="relative h-28 w-full sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-xl border border-neutral-700/40 group/image"
+                    className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-neutral-800"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 z-10" />
                     <Image
                       src={item.productImage}
-                      alt={item.productName}
+                      alt=""
                       fill
-                      className="object-cover transition-transform duration-500 group-hover/image:scale-110"
-                      sizes="96px"
+                      className="object-cover"
+                      sizes="80px"
                       loading="lazy"
-                      placeholder="blur"
-                      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
                     />
                   </Link>
-                  
-                  <div className="flex flex-1 flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
                         <Link
                           href={`/products/${item.productId}`}
                           prefetch={true}
-                          className="text-base font-medium text-neutral-100 hover:text-primary-400 transition-colors duration-200"
+                          className="text-sm font-medium text-white hover:text-primary-300"
                         >
                           {item.productName}
                         </Link>
                         {item.selectedVariants.length > 0 && (
-                          <div className="mt-1.5 space-y-0.5">
-                            {item.selectedVariants.map((variant, index) => (
-                              <p key={index} className="text-xs font-light text-neutral-500">
-                                <span className="text-neutral-400">{variant.attributeName}:</span>{' '}
-                                {variant.variantValue}
-                              </p>
-                            ))}
-                          </div>
+                          <p className="mt-0.5 text-xs text-neutral-500">
+                            {item.selectedVariants.map((v) => v.variantValue).join(' · ')}
+                          </p>
                         )}
                       </div>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-neutral-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-200 flex-shrink-0"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-red-400"
                         title={dict.cart.removeItem}
                         aria-label={dict.cart.removeItem}
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                      <div className="flex items-center rounded-xl border border-neutral-700/40 bg-neutral-900/40 p-0.5">
+                    <div className="mt-3 flex items-center justify-between gap-4">
+                      <div className="flex items-center rounded-lg border border-neutral-700 bg-neutral-950">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 transition-all duration-200"
-                          aria-label={dict.cart.decreaseQuantity || 'Disminuir cantidad'}
+                          className="flex h-8 w-8 items-center justify-center text-neutral-400 hover:text-white disabled:opacity-40"
+                          aria-label={dict.cart.decreaseQuantity || 'Disminuir'}
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="min-w-[2.25rem] text-center text-sm font-medium text-neutral-100 tabular-nums">
+                        <span className="min-w-[2rem] text-center text-sm tabular-nums text-neutral-200">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:text-primary-400 hover:bg-primary-500/10 transition-all duration-200"
-                          aria-label={dict.cart.increaseQuantity || 'Aumentar cantidad'}
+                          className="flex h-8 w-8 items-center justify-center text-neutral-400 hover:text-white disabled:opacity-40"
+                          aria-label={dict.cart.increaseQuantity || 'Aumentar'}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="text-left sm:text-right">
-                        {item.hidePrice === true ? (
-                          <p className="text-sm font-medium text-neutral-400 italic">
-                            Precio a convenir
-                          </p>
-                        ) : (
-                          <>
-                            <p className="text-base font-medium text-neutral-100 tracking-tight">
-                              ${item.totalPrice.toFixed(2)}
-                            </p>
-                            {item.quantity > 1 && (
-                              <p className="text-xs font-light text-neutral-500">
-                                ${(item.totalPrice / item.quantity).toFixed(2)} c/u
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
+                      {item.hidePrice !== true && (
+                        <p className="text-sm font-medium text-white tabular-nums">
+                          ${item.totalPrice.toFixed(2)}
+                          {item.quantity > 1 && (
+                            <span className="ml-1 text-neutral-500">· ${(item.totalPrice / item.quantity).toFixed(2)} c/u</span>
+                          )}
+                        </p>
+                      )}
+                      {item.hidePrice === true && (
+                        <p className="text-sm italic text-neutral-500">Precio a convenir</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -446,53 +432,39 @@ export function Cart({ dict, locale }: CartProps) {
             </div>
 
             {/* Resumen y botón de WhatsApp por tienda */}
-            <div className="rounded-2xl border border-green-700/30 bg-green-950/30 backdrop-blur-sm p-5 sm:p-6 relative overflow-hidden">
-              <div className="mb-4 flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600/20 border border-green-500/20">
-                    <MessageCircle className="h-5 w-5 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-green-400/90">
-                      Total {storeGroup.storeName}
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+                    Total · {storeGroup.storeName}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums text-white">
+                    ${storeGroup.total.toFixed(2)}
+                  </p>
+                  {bcvRates.dolar > 0 && (
+                    <p className="mt-1 text-sm tabular-nums text-neutral-500">
+                      Bs. {(storeGroup.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa USD)
                     </p>
-                    <p className="text-lg font-semibold text-green-100 tracking-tight">
-                      ${storeGroup.total.toFixed(2)}
-                    </p>
-                    {/* Totales en Bs (tasa BCV dólar) por tienda — euro comentado */}
-                    {bcvRates.dolar > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-sm font-medium text-green-200/90 tracking-tight tabular-nums">
-                          Bs. {(storeGroup.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa USD)
-                        </p>
-                        {/* {bcvRates.euro > 0 && (
-                          <p className="text-sm font-medium text-green-200/90 tracking-tight tabular-nums">
-                            Bs. {(storeGroup.total * bcvRates.euro).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa EUR)
-                          </p>
-                        )} */}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Selector de número de teléfono si hay múltiples opciones */}
+              {/* Selector de contacto: solo nombres (nunca mostrar teléfonos) */}
               {(() => {
                 const availableUsers = (storeGroup.storeUsers || []).filter(
                   (user) => user.phoneNumber && user.phoneNumber.trim() !== ''
                 );
-                const hasMultipleNumbers = availableUsers.length > 1;
-                const defaultPhone = availableUsers.length > 0 
-                  ? availableUsers[0].phoneNumber 
+                const hasMultiple = availableUsers.length > 1;
+                const defaultPhone = availableUsers.length > 0
+                  ? availableUsers[0].phoneNumber
                   : (storeGroup.storePhoneNumber || WHATSAPP_PHONE);
                 const selectedPhone = selectedPhoneNumbers[storeGroup.storeId] || defaultPhone;
-                
-                if (hasMultipleNumbers) {
+
+                if (hasMultiple) {
                   return (
-                    <div className="mb-4 space-y-2 relative z-10">
-                      <label className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-green-400/80">
-                        <Phone className="h-3.5 w-3.5" />
-                        Selecciona WhatsApp
+                    <div className="mb-4">
+                      <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-neutral-500">
+                        Enviar pedido a
                       </label>
                       <select
                         value={selectedPhone}
@@ -502,17 +474,17 @@ export function Cart({ dict, locale }: CartProps) {
                             [storeGroup.storeId]: e.target.value,
                           }));
                         }}
-                        className="w-full rounded-xl px-4 py-2.5 text-sm bg-neutral-900/50 border border-green-700/30 text-green-100 placeholder-green-400/50 focus:border-green-500/50 focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-colors duration-200"
+                        className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-sm text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
                       >
                         {availableUsers.map((user) => (
-                          <option key={user.id} value={user.phoneNumber} className="bg-neutral-900 text-green-100">
-                            {user.userName || 'Usuario'}
+                          <option key={user.id} value={user.phoneNumber}>
+                            {user.userName || storeGroup.storeName}
                             {user.isCreator ? ' (Creador)' : ''}
                           </option>
                         ))}
                         {!storeGroup.storePhoneNumber && (
-                          <option value={WHATSAPP_PHONE} className="bg-neutral-900 text-green-100">
-                            Número por defecto
+                          <option value={WHATSAPP_PHONE}>
+                            {storeGroup.storeName}
                           </option>
                         )}
                       </select>
@@ -520,15 +492,11 @@ export function Cart({ dict, locale }: CartProps) {
                   );
                 }
 
-                if (availableUsers.length === 1) {
-                  return null;
-                }
-
                 if (availableUsers.length === 0) {
                   return (
-                    <div className="mb-4 py-2.5 px-3 rounded-xl bg-amber-900/20 border border-amber-700/30 relative z-10">
-                      <p className="text-xs font-light text-amber-200/90">
-                        Sin número configurado. Se usará el por defecto.
+                    <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2">
+                      <p className="text-xs text-amber-200/90">
+                        Sin contacto configurado. Se usará el de la tienda.
                       </p>
                     </div>
                   );
@@ -540,16 +508,12 @@ export function Cart({ dict, locale }: CartProps) {
               <button
                 onClick={() => handleSendOrderClick(storeGroup)}
                 className={cn(
-                  'relative z-10 w-full rounded-xl px-5 py-3 text-sm font-medium transition-all duration-200',
-                  'flex items-center justify-center gap-2',
-                  'bg-green-600 text-white hover:bg-green-500',
-                  'border border-green-500/30 hover:border-green-400/40',
-                  'shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/25',
-                  'hover:scale-[1.01] active:scale-[0.99]'
+                  'w-full rounded-xl px-4 py-3 text-sm font-medium transition-colors',
+                  'flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-500'
                 )}
               >
-                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Enviar pedido · {storeGroup.storeName}</span>
+                <MessageCircle className="h-4 w-4" aria-hidden />
+                <span>{dict.cart.orderByWhatsAppButtonShort}</span> · {storeGroup.storeName}
               </button>
             </div>
           </div>
@@ -557,65 +521,27 @@ export function Cart({ dict, locale }: CartProps) {
       </div>
 
       {/* Resumen general */}
-      <div className="rounded-3xl border border-neutral-700/40 bg-neutral-900/60 backdrop-blur-sm p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] relative overflow-hidden">
-        <div className="space-y-3 relative z-10">
-          <div className="border-t border-neutral-700/40 pt-4 mt-1">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 p-6">
+        <div className="flex justify-between items-baseline gap-4">
+          <span className="text-base font-medium text-neutral-200">{dict.cart.total}</span>
+          <span className="text-2xl font-semibold tabular-nums text-white">
+            ${cart.total.toFixed(2)}
+          </span>
+        </div>
+        {bcvRates.dolar > 0 && (
+          <div className="mt-3 border-t border-neutral-800 pt-3">
             <div className="flex justify-between items-baseline gap-4">
-              <span className="text-lg font-medium text-neutral-100 tracking-tight">
-                {dict.cart.total}
-              </span>
-              <span className="text-2xl sm:text-3xl font-semibold text-primary-400 tracking-tight tabular-nums">
-                ${cart.total.toFixed(2)}
+              <span className="text-sm text-neutral-500">Total en Bs. (tasa BCV USD)</span>
+              <span className="text-lg font-medium tabular-nums text-neutral-300">
+                Bs. {(cart.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               </span>
             </div>
-            {/* Totales en bolívares (tasa BCV dólar) — euro comentado */}
-            {bcvRates.dolar > 0 && (
-              <div className="mt-3 pt-3 border-t border-neutral-700/30 space-y-2">
-                <div>
-                  <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-sm font-medium text-neutral-400 tracking-tight">
-                      Total en Bs. (tasa BCV USD)
-                    </span>
-                    <span className="text-lg sm:text-xl font-semibold text-neutral-300 tracking-tight tabular-nums">
-                      Bs. {(cart.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-0.5 text-right">
-                    Tasa: Bs. {bcvRates.dolar.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} por USD
-                  </p>
-                </div>
-                {/* Total a tasa euro — comentado
-                {bcvRates.euro > 0 && (
-                  <div>
-                    <div className="flex justify-between items-baseline gap-4">
-                      <span className="text-sm font-medium text-neutral-400 tracking-tight">
-                        Total en Bs. (tasa BCV EUR)
-                      </span>
-                      <span className="text-lg sm:text-xl font-semibold text-neutral-300 tracking-tight tabular-nums">
-                        Bs. {(cart.total * bcvRates.euro).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-0.5 text-right">
-                      Tasa: Bs. {bcvRates.euro.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} por EUR
-                    </p>
-                  </div>
-                )} */}
-              </div>
-            )}
+            <p className="mt-1 text-right text-xs text-neutral-500">
+              Tasa: Bs. {bcvRates.dolar.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} / USD
+            </p>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* <div className="pt-4 sm:pt-6 flex justify-center">
-        <Link
-          href="/"
-          prefetch={true}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-neutral-700/50 bg-neutral-800/50 text-neutral-300 hover:text-neutral-100 hover:border-primary-500/30 hover:bg-primary-500/5 transition-all duration-200 text-sm font-medium"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {dict.navigation.home}
-        </Link>
-      </div> */}
 
       {/* Diálogo de información del cliente */}
       <CustomerInfoDialog

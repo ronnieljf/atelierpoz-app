@@ -24,6 +24,9 @@ export default function EditClientPage({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [cedulaPrefix, setCedulaPrefix] = useState<'V' | 'E'>('V');
+  const [cedulaNumber, setCedulaNumber] = useState('');
+  const [address, setAddress] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,16 @@ export default function EditClientPage({
         setName(client.name ?? '');
         setPhone(client.phone ?? '');
         setEmail(client.email ?? '');
+        setAddress(client.address ?? '');
+        const doc = (client.identityDocument ?? '').trim();
+        const match = doc.match(/^(V|E)[-\s]?(.*)$/i);
+        if (match) {
+          setCedulaPrefix((match[1]?.toUpperCase() ?? 'V') as 'V' | 'E');
+          setCedulaNumber(match[2] ?? '');
+        } else {
+          setCedulaPrefix('V');
+          setCedulaNumber(doc);
+        }
       } else {
         setMessage({ type: 'error', text: 'Cliente no encontrado' });
       }
@@ -85,6 +98,8 @@ export default function EditClientPage({
         name: trimmedName || null,
         phone: trimmedPhone || null,
         email: trimmedEmail || null,
+        address: address.trim() || null,
+        identityDocument: cedulaNumber.trim() ? `${cedulaPrefix}-${cedulaNumber.trim()}` : null,
       });
       if (updated) {
         setMessage({ type: 'success', text: 'Cliente actualizado correctamente' });
@@ -103,14 +118,6 @@ export default function EditClientPage({
       setSubmitting(false);
     }
   };
-
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
 
   if (!storeId) {
     return (
@@ -182,6 +189,28 @@ export default function EditClientPage({
         </div>
 
         <div>
+          <label className="mb-2 block text-sm font-medium text-neutral-300">Cédula de identidad</label>
+          <div className="flex gap-2">
+            <select
+              value={cedulaPrefix}
+              onChange={(e) => setCedulaPrefix(e.target.value as 'V' | 'E')}
+              className="h-12 w-16 shrink-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+            >
+              <option value="V">V</option>
+              <option value="E">E</option>
+            </select>
+            <input
+              type="text"
+              value={cedulaNumber}
+              onChange={(e) => setCedulaNumber(e.target.value)}
+              placeholder="12345678"
+              maxLength={50}
+              className="h-12 flex-1 min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="mb-2 block text-sm font-medium text-neutral-300">Nombre (opcional)</label>
           <input
             type="text"
@@ -213,6 +242,18 @@ export default function EditClientPage({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="cliente@ejemplo.com"
             maxLength={255}
+            className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-neutral-300">Dirección (opcional)</label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Ej: Av. Principal, edificio X, apto 5"
+            maxLength={500}
             className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
           />
         </div>

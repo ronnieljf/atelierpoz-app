@@ -62,6 +62,8 @@ export interface Product {
   visibleInStore?: boolean; // Si el producto es visible en la tienda pública
   hidePrice?: boolean; // Si el precio debe ocultarse en la tienda pública
   sortOrder?: number | null; // Orden de visualización en la tienda (menor = primero)
+  /** IVA en porcentaje (ej. 19, 13). Por defecto hereda de la tienda. */
+  iva?: number;
   storeId?: string; // ID (UUID) de la tienda
   storeSlug?: string | null; // store_id (slug) para URL, ej. /mi-atelier
   storeName?: string; // Nombre de la tienda

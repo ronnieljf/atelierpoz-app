@@ -513,7 +513,16 @@ export default function ReceivableDetailPage({
                                 variantLabel: variantLabel || null,
                               };
                             }) ?? undefined;
-                          openWhatsAppForReceivable({ ...receivable, payments, totalPaid, orderItems });
+                          const storeForPhone = authState.stores.find((s) => s.id === storeId);
+                          openWhatsAppForReceivable({
+                            ...receivable,
+                            payments,
+                            totalPaid,
+                            orderItems,
+                            storeReplyPhoneNumber: storeForPhone?.phone_number?.trim() || undefined,
+                            storeName: storeForPhone?.name?.trim() || undefined,
+                            orderNumber: requestDetails?.orderNumber ?? undefined,
+                          });
                         }}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/30 bg-green-500/10 px-2.5 py-1.5 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/20"
                         title="Abrir WhatsApp"

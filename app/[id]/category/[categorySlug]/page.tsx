@@ -6,16 +6,16 @@ import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
 import { getStoreProducts } from '@/lib/services/products';
 import { getStoreById } from '@/lib/services/stores';
+import { getCategoriesByStore } from '@/lib/services/categories';
 import { type Product } from '@/types/product';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { getSeoLogoUrl } from '@/lib/utils/seo';
 
 export const dynamic = 'force-dynamic';
 
-/** Rutas reservadas: no son tiendas, evitan que [id] las capture. */
+/** Rutas reservadas: no son tiendas */
 const RESERVED_SEGMENTS = ['cart', 'admin', 'products'];
 
-/** Convierte una URL de imagen a absoluta; descarta data: e inválidas. */
 function toAbsoluteImageUrl(url: string | undefined, baseUrl: string): string | null {
   if (!url || url.startsWith('data:')) return null;
   if (url.startsWith('http')) return url;
@@ -25,9 +25,9 @@ function toAbsoluteImageUrl(url: string | undefined, baseUrl: string): string | 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; categorySlug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { id, categorySlug } = await params;
   if (RESERVED_SEGMENTS.includes(id)) {
     return { title: 'Not Found' };
   }
@@ -37,12 +37,17 @@ export async function generateMetadata({
   const defaultLogoUrl = getSeoLogoUrl();
 
   const store = await getStoreById(id);
-  const title = store ? store.name : 'Tienda';
+  if (!store) return { title: 'Not Found' };
+
+  const slugDecoded = decodeURIComponent(categorySlug || '');
+  const categories = await getCategoriesByStore(store.id);
+  const category = categories.find((c) => c.slug === slugDecoded);
+  const categoryName = category?.name ?? slugDecoded;
+
+  const title = `${categoryName} – ${store.name}`;
   const description = store?.description?.trim()
     ? store.description.trim()
-    : (store
-        ? `Descubre los productos exclusivos de ${store.name}. ${dict.description}`
-        : `Explora nuestra tienda. ${dict.description}`);
+    : `Explora ${categoryName} en ${store.name}. ${dict.description}`;
 
   const seoImageUrls: string[] = [];
   if (store?.logo) {
@@ -53,53 +58,42 @@ export async function generateMetadata({
     seoImageUrls.push(defaultLogoUrl);
   }
 
-  const ogImages = seoImageUrls.map((url) => ({
-    url,
-    width: 1200,
-    height: 630,
-    alt: store ? store.name : 'Tienda',
-    secureUrl: url,
-  }));
-
   const storeUrlSlug = (store?.store_id && store.store_id.trim()) ? store.store_id : id;
+  const canonicalPath = `/${storeUrlSlug}/category/${categorySlug}`;
 
   return {
     title: { absolute: title },
     description,
-    keywords: store ? `${store.name}, productos, ${dict.title}` : 'tienda, productos',
+    keywords: `${store.name}, ${categoryName}, productos, ${dict.title}`,
     authors: [{ name: siteName }],
     metadataBase: new URL(baseUrl),
-    alternates: { canonical: `/${storeUrlSlug}` },
+    alternates: { canonical: canonicalPath },
     openGraph: {
       type: 'website',
       locale: 'es_ES',
-      url: `${baseUrl}/${storeUrlSlug}`,
+      url: `${baseUrl}${canonicalPath}`,
       siteName,
-      title: store ? store.name : 'Tienda',
+      title,
       description,
-      images: ogImages,
+      images: seoImageUrls.map((url) => ({ url, width: 1200, height: 630, alt: title, secureUrl: url })),
     },
     twitter: {
       card: 'summary_large_image',
-      title: store ? store.name : 'Tienda',
+      title,
       description,
       images: seoImageUrls,
       creator: '@atelierpoz',
     },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
-    },
+    robots: { index: true, follow: true },
   };
 }
 
-export default async function StorePage({
+export default async function StoreCategoryPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; categorySlug: string }>;
 }) {
-  const { id } = await params;
+  const { id, categorySlug } = await params;
   if (RESERVED_SEGMENTS.includes(id)) {
     notFound();
   }
@@ -110,12 +104,19 @@ export default async function StorePage({
     notFound();
   }
 
+  const slugDecoded = decodeURIComponent(categorySlug || '');
+  const categories = await getCategoriesByStore(store.id);
+  const category = categories.find((c) => c.slug === slugDecoded);
+  if (!category) {
+    notFound();
+  }
+
   let initialProducts: Product[] = [];
   try {
-    const result = await getStoreProducts(store.id, 20, 0);
+    const result = await getStoreProducts(store.id, 20, 0, undefined, { categoryId: category.id });
     initialProducts = result.products;
   } catch (error) {
-    console.error('Error obteniendo productos de la tienda:', error);
+    console.error('Error obteniendo productos por categoría:', error);
   }
 
   return (
@@ -129,7 +130,12 @@ export default async function StorePage({
           instagram={store.instagram}
           tiktok={store.tiktok}
         />
-        <ProductSearch storeId={store.id} dict={dict} initialProducts={initialProducts} />
+        <ProductSearch
+          storeId={store.id}
+          dict={dict}
+          initialProducts={initialProducts}
+          initialCategorySlug={slugDecoded}
+        />
         <ScrollToTop />
       </div>
     </div>

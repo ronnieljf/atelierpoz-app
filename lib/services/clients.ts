@@ -5,11 +5,16 @@
 import { httpClient } from '@/lib/http/client';
 import type { Client, CreateClientData, UpdateClientData } from '@/types/client';
 
+export type { Client };
+
 type ApiClient = {
   id?: string;
   name?: string | null;
   phone?: string | null;
   email?: string | null;
+  address?: string | null;
+  identity_document?: string | null;
+  identityDocument?: string | null;
   store_id?: string;
   storeId?: string;
   created_at?: string;
@@ -24,6 +29,8 @@ function formatClient(c: ApiClient): Client {
     name: c.name ?? null,
     phone: c.phone ?? null,
     email: c.email ?? null,
+    address: c.address ?? null,
+    identityDocument: c.identityDocument ?? c.identity_document ?? null,
     storeId: String(c.storeId ?? c.store_id ?? ''),
     createdAt: String(c.createdAt ?? c.created_at ?? ''),
     updatedAt: String(c.updatedAt ?? c.updated_at ?? ''),
@@ -84,9 +91,11 @@ export async function getClientById(clientId: string, storeId: string): Promise<
 export async function createClient(data: CreateClientData): Promise<Client> {
   const response = await httpClient.post<{ success: boolean; client: ApiClient }>('/api/clients', {
     storeId: data.storeId,
+    identityDocument: (data.identityDocument ?? '').trim() || undefined,
     name: data.name ?? undefined,
     phone: data.phone ?? undefined,
     email: data.email ?? undefined,
+    address: data.address ?? undefined,
   });
   if (!response.success || !response.data?.client) {
     throw new Error((response as { error?: string }).error ?? 'Error al crear cliente');
@@ -103,6 +112,8 @@ export async function updateClient(clientId: string, data: UpdateClientData): Pr
     name: data.name !== undefined ? data.name : undefined,
     phone: data.phone !== undefined ? data.phone : undefined,
     email: data.email !== undefined ? data.email : undefined,
+    address: data.address !== undefined ? data.address : undefined,
+    identityDocument: data.identityDocument !== undefined ? data.identityDocument : undefined,
   });
   if (response.success && response.data?.client) {
     return formatClient(response.data.client);

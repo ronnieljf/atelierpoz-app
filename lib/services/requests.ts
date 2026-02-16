@@ -8,6 +8,7 @@ import { type CartItem } from '@/types/product';
 export interface Request {
   id: string;
   storeId: string;
+  orderNumber?: number | null;
   customerName?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;
@@ -58,10 +59,11 @@ export async function createRequest(data: CreateRequestData): Promise<Request | 
     const result = await response.json();
 
     if (result.success && result.request) {
-      const req = result.request as Request & { store_id?: string; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
+      const req = result.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
       return {
         ...req,
         storeId: req.store_id || req.storeId,
+        orderNumber: req.order_number ?? req.orderNumber,
         customerName: req.customer_name || req.customerName,
         customerPhone: req.customer_phone || req.customerPhone,
         customerEmail: req.customer_email || req.customerEmail,
@@ -80,6 +82,8 @@ export async function createRequest(data: CreateRequestData): Promise<Request | 
 
 /**
  * Obtener todos los requests de una tienda
+ * @param options.withoutReceivable - si true, solo devuelve pedidos que aún no tienen cuenta por cobrar
+ * @param options.search - filtra por nombre o número de cliente / número de pedido
  */
 export async function getRequests(
   storeId: string,
@@ -87,6 +91,8 @@ export async function getRequests(
     status?: string;
     limit?: number;
     offset?: number;
+    withoutReceivable?: boolean;
+    search?: string;
   }
 ): Promise<{ requests: Request[]; total: number }> {
   try {
@@ -95,6 +101,8 @@ export async function getRequests(
     if (options?.status) params.set('status', options.status);
     if (options?.limit) params.set('limit', options.limit.toString());
     if (options?.offset) params.set('offset', options.offset.toString());
+    if (options?.withoutReceivable === true) params.set('withoutReceivable', 'true');
+    if (options?.search?.trim()) params.set('search', options.search.trim());
 
     const response = await httpClient.get<{
       success: boolean;
@@ -103,9 +111,10 @@ export async function getRequests(
     }>(`/api/requests?${params.toString()}`);
 
     if (response.success && response.data) {
-      const requests = (response.data.requests || []).map((req: Request & { store_id?: string; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string; has_receivable?: boolean }) => ({
+      const requests = (response.data.requests || []).map((req: Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string; has_receivable?: boolean }) => ({
         ...req,
         storeId: req.store_id || req.storeId,
+        orderNumber: req.order_number ?? req.orderNumber,
         customerName: req.customer_name || req.customerName,
         customerPhone: req.customer_phone || req.customerPhone,
         customerEmail: req.customer_email || req.customerEmail,
@@ -138,10 +147,11 @@ export async function getRequestById(requestId: string, storeId: string): Promis
     }>(`/api/requests/${requestId}?storeId=${storeId}`);
 
     if (response.success && response.data?.request) {
-      const req = response.data.request as Request & { store_id?: string; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
+      const req = response.data.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
       return {
         ...req,
         storeId: req.store_id || req.storeId,
+        orderNumber: req.order_number ?? req.orderNumber,
         customerName: req.customer_name || req.customerName,
         customerPhone: req.customer_phone || req.customerPhone,
         customerEmail: req.customer_email || req.customerEmail,
@@ -176,10 +186,11 @@ export async function updateRequestStatus(
     });
 
     if (response.success && response.data?.request) {
-      const req = response.data.request as Request & { store_id?: string; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
+      const req = response.data.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
       return {
         ...req,
         storeId: req.store_id || req.storeId,
+        orderNumber: req.order_number ?? req.orderNumber,
         customerName: req.customer_name || req.customerName,
         customerPhone: req.customer_phone || req.customerPhone,
         customerEmail: req.customer_email || req.customerEmail,

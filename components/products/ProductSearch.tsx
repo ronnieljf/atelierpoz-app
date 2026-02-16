@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams, usePathname } from 'next/navigation';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { ProductCard } from './ProductCard';
 import { ProductCardSkeleton } from './ProductCardSkeleton';
@@ -18,6 +18,8 @@ interface ProductSearchProps {
   storeId?: string; // Si se proporciona, carga productos de esa tienda
   dict: Dictionary;
   initialProducts?: Product[]; // Productos iniciales (opcional, para SSR)
+  /** Slug de categoría desde la URL (ej. /tienda-id/category/ropa) para filtrar y sincronizar estado */
+  initialCategorySlug?: string;
 }
 
 const PRODUCTS_PER_PAGE = 20;
@@ -65,9 +67,11 @@ function loadSearchState(storeId?: string): { page: number; search: string } | n
   return null;
 }
 
-export function ProductSearch({ storeId, dict, initialProducts = [] }: ProductSearchProps) {
+export function ProductSearch({ storeId, dict, initialProducts = [], initialCategorySlug }: ProductSearchProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const router = useRouter();
+  const storePath = pathname.includes('/category/') ? pathname.replace(/\/category\/[^/]+$/, '') : pathname;
   
   // Restaurar búsqueda desde URL o localStorage (página siempre empieza en 1 por scroll infinito)
   const urlSearch = searchParams.get('search') || '';
@@ -123,6 +127,13 @@ export function ProductSearch({ storeId, dict, initialProducts = [] }: ProductSe
       setCategories([]);
     }
   }, [storeId]);
+
+  // Sincronizar categoryId desde la URL (initialCategorySlug) cuando las categorías estén cargadas
+  useEffect(() => {
+    if (!initialCategorySlug?.trim() || categories.length === 0) return;
+    const cat = categories.find((c) => c.slug === initialCategorySlug.trim());
+    if (cat) setCategoryId(cat.id);
+  }, [initialCategorySlug, categories]);
 
   // Debounce para precios (500ms); solo aplicamos filtro cuando ambos tienen valor y son válidos
   useEffect(() => {
@@ -405,12 +416,16 @@ export function ProductSearch({ storeId, dict, initialProducts = [] }: ProductSe
                 <button
                   type="button"
                   onClick={() => {
-                    setCategoryId('');
                     setPriceMin('');
                     setPriceMax('');
                     setDebouncedPriceMin('');
                     setDebouncedPriceMax('');
                     setCurrentPage(1);
+                    if (storeId && categoryId) {
+                      router.push(storePath);
+                    } else {
+                      setCategoryId('');
+                    }
                   }}
                   className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-600/80 bg-neutral-800/30 py-3 px-3.5 text-sm font-medium text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 hover:bg-neutral-800/50 transition-all duration-200"
                 >
@@ -488,10 +503,14 @@ export function ProductSearch({ storeId, dict, initialProducts = [] }: ProductSe
                             <button
                               type="button"
                               onClick={() => {
-                                setCategoryId('');
-                                setCurrentPage(1);
                                 setShowCategoryDialog(false);
                                 setCategorySearch('');
+                                if (storeId) {
+                                  router.push(storePath);
+                                } else {
+                                  setCategoryId('');
+                                  setCurrentPage(1);
+                                }
                               }}
                               className={cn(
                                 'w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-left transition-all duration-200',
@@ -511,10 +530,14 @@ export function ProductSearch({ storeId, dict, initialProducts = [] }: ProductSe
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setCategoryId(cat.id);
-                                    setCurrentPage(1);
                                     setShowCategoryDialog(false);
                                     setCategorySearch('');
+                                    if (storeId) {
+                                      router.push(`${storePath}/category/${encodeURIComponent(cat.slug)}`);
+                                    } else {
+                                      setCategoryId(cat.id);
+                                      setCurrentPage(1);
+                                    }
                                   }}
                                   className={cn(
                                     'w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-left transition-all duration-200',

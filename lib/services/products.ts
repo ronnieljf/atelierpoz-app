@@ -33,6 +33,7 @@ interface BackendProduct {
   hidePrice?: boolean;
   sort_order?: number | null;
   sortOrder?: number | null;
+  iva?: number;
   store_id?: string;
   storeId?: string;
   store_slug?: string | null;
@@ -368,6 +369,7 @@ export async function createProduct(product: Product & { storeId: string; catego
       tags: product.tags,
       visibleInStore: product.visibleInStore,
       sortOrder: (product as { sortOrder?: number | null }).sortOrder ?? undefined,
+      iva: (product as { iva?: number }).iva != null && !Number.isNaN(Number((product as { iva?: number }).iva)) ? Number((product as { iva?: number }).iva) : undefined,
     });
 
     if (response.success && response.data?.product) {
@@ -577,6 +579,7 @@ function formatProductFromAPI(product: BackendProduct): Product & { storeId?: st
     visibleInStore: product.visibleInStore === true || product.visible_in_store === true,
     hidePrice: product.hidePrice === true || product.hide_price === true,
     sortOrder: product.sortOrder ?? product.sort_order ?? undefined,
+    iva: product.iva != null && !Number.isNaN(Number(product.iva)) ? Number(product.iva) : undefined,
     storeId: product.storeId || product.store_id,
     storeSlug: (product.storeSlug ?? product.store_slug) || undefined,
     storeName: product.storeName || product.store_name,

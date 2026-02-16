@@ -256,41 +256,17 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
   // Si el producto no está visible, mostrar solo el mensaje
   if (product.visibleInStore === false) {
     return (
-      <div className="flex justify-center items-center min-h-[500px] py-12">
-        <div className="relative max-w-lg w-full">
-          {/* Fondo con gradiente y efecto de brillo */}
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-900/10 via-amber-800/5 to-transparent rounded-3xl blur-xl" />
-          
-          {/* Contenedor principal */}
-          <div className="relative rounded-3xl bg-gradient-to-br from-neutral-900/80 via-neutral-800/60 to-neutral-900/80 backdrop-blur-sm border border-amber-700/30 shadow-2xl overflow-hidden">
-            {/* Efecto de brillo animado */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-700" />
-            
-            {/* Contenido */}
-            <div className="relative p-8 sm:p-10 text-center">
-              {/* Icono con fondo circular */}
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-amber-900/30 to-amber-800/20 border border-amber-700/40 mb-6 shadow-lg">
-                <AlertCircle className="h-10 w-10 text-amber-400" strokeWidth={1.5} />
-              </div>
-              
-              {/* Título */}
-              <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200">
-                Producto no disponible
-              </h2>
-              
-              {/* Descripción */}
-              <p className="text-base sm:text-lg font-light text-neutral-300/80 leading-relaxed max-w-md mx-auto">
-                Este producto ya no está disponible en la tienda
-              </p>
-              
-              {/* Línea decorativa */}
-              <div className="mt-8 flex items-center justify-center gap-3">
-                <div className="h-px w-12 bg-gradient-to-r from-transparent to-amber-700/50" />
-                <div className="h-1 w-1 rounded-full bg-amber-500/60" />
-                <div className="h-px w-12 bg-gradient-to-l from-transparent to-amber-700/50" />
-              </div>
-            </div>
+      <div className="flex min-h-[380px] items-center justify-center py-10">
+        <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 px-6 py-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900">
+            <AlertCircle className="h-7 w-7 text-amber-400" aria-hidden />
           </div>
+          <h2 className="text-lg font-medium text-neutral-100">
+            Producto no disponible
+          </h2>
+          <p className="mt-2 text-sm font-light text-neutral-400">
+            Este producto ya no está visible en la tienda.
+          </p>
         </div>
       </div>
     );
@@ -306,34 +282,19 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
           onClick={hasImage ? () => setShowImageGallery(true) : undefined}
           onKeyDown={hasImage ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowImageGallery(true); } } : undefined}
           className={cn(
-            'relative aspect-square overflow-hidden rounded-3xl border-2 border-neutral-700/50 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 shadow-2xl group/image',
+            'relative aspect-square overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 group/image',
             hasImage && 'cursor-zoom-in'
           )}
         >
-          {/* Gradiente overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-900/20 via-transparent to-primary-800/20 opacity-0 group-hover/image:opacity-100 transition-opacity duration-500 z-10" />
-          {/* Hint para abrir galería */}
-          {hasImage && (
-            <div className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-900/80 border border-neutral-600/50 opacity-0 group-hover/image:opacity-100 transition-opacity duration-300">
-              <Expand className="h-4 w-4 text-neutral-300" />
-            </div>
-          )}
-          {/* Efecto de brillo */}
-          <div className="absolute inset-0 opacity-0 group-hover/image:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-500/20 to-transparent transform -skew-x-12 translate-x-[-200%] group-hover/image:translate-x-[200%] transition-transform duration-1000" />
-          </div>
-          
           {hasImage ? (
             <Image
               src={mainImage}
               alt={product.name}
               fill
-              className="object-cover transition-transform duration-700 group-hover/image:scale-110"
+              className="object-cover"
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
-              unoptimized={mainImage.startsWith('data:')}
-              placeholder="blur"
-              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+              unoptimized={mainImage.startsWith('data:') || mainImage.startsWith('http')}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
@@ -343,30 +304,26 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
         </div>
         
         {displayImages.length > 1 && (
-          <div className="grid grid-cols-4 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-3">
             {displayImages.map((image, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedImageIndex(index)}
-                className={`
-                  relative aspect-square overflow-hidden rounded-2xl border-2 transition-all duration-300 group/thumb
-                  ${selectedImageIndex === index
-                    ? 'border-primary-600 ring-2 ring-primary-400/50 shadow-xl scale-105'
-                    : 'border-neutral-700 hover:border-primary-500/50 hover:scale-105'
-                  }
-                `}
+                className={cn(
+                  'relative aspect-square overflow-hidden rounded-lg border transition-colors',
+                  selectedImageIndex === index
+                    ? 'border-primary-500'
+                    : 'border-neutral-800 hover:border-neutral-600'
+                )}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary-900/10 via-transparent to-primary-800/10 opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 z-10" />
                 <Image
                   src={image}
                   alt={`${product.name} - ${index + 1}`}
                   fill
-                  unoptimized={image.startsWith('data:')}
-                  className="object-cover transition-transform duration-300 group-hover/thumb:scale-110"
+                  unoptimized={image.startsWith('data:') || image.startsWith('http')}
+                  className="object-cover"
                   sizes="(max-width: 768px) 25vw, 12.5vw"
                   loading="lazy"
-                  placeholder="blur"
-                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
                 />
               </button>
             ))}
@@ -376,45 +333,43 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
       
       {/* Información del producto */}
       <div className="space-y-6">
-        <div className="rounded-3xl bg-gradient-to-br from-neutral-900/50 via-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 p-6 shadow-xl">
-          <h1 className="mb-3 text-3xl sm:text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 via-primary-300 to-neutral-100">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+          <h1 className="mb-3 text-2xl font-semibold tracking-tight text-neutral-50 sm:text-3xl">
             {product.name}
           </h1>
           {/* Nombre de la tienda */}
           {product.storeName && product.storeId && (
             <Link
               href={`/${(product.storeSlug && product.storeSlug.trim()) ? product.storeSlug : product.storeId}`}
-              className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-neutral-800/50 border border-neutral-700/50 hover:bg-neutral-700/50 hover:border-primary-500/50 transition-all duration-200 group"
+              className="mb-4 inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-primary-300"
             >
-              <Store className="h-4 w-4 text-neutral-400 group-hover:text-primary-400 transition-colors" />
-              <span className="text-sm font-medium text-neutral-300 group-hover:text-primary-400 transition-colors">
-                {product.storeName}
-              </span>
+              <Store className="h-4 w-4" aria-hidden />
+              <span>{product.storeName}</span>
             </Link>
           )}
           <div className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
               {product.hidePrice === true ? (
-                <span className="text-xl sm:text-2xl font-medium text-neutral-400 italic">
+                <span className="text-base sm:text-lg font-medium text-neutral-400 italic">
                   Precio a convenir
                 </span>
               ) : (
-                <span className="text-4xl sm:text-5xl font-bold tracking-tight text-primary-300">
+                <span className="text-3xl font-semibold tracking-tight text-primary-200 sm:text-4xl">
                   {product.currency === 'USD' ? '$' : (product.currency || '') + ' '}
                   {(typeof totalPrice === 'number' && !Number.isNaN(totalPrice) ? totalPrice : basePriceNumber).toFixed(2)}
                 </span>
               )}
               {product.rating && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800/50 border border-neutral-700/50">
-                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                <span className="font-bold text-neutral-200">{product.rating.toFixed(1)}</span>
-                {product.reviewCount && (
-                  <span className="text-sm font-medium text-neutral-400">
-                    ({product.reviewCount} {dict.product.reviews})
-                  </span>
-                )}
-              </div>
-            )}
+                <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 px-3 py-1 text-xs text-neutral-300">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="font-medium">{product.rating.toFixed(1)}</span>
+                  {product.reviewCount && (
+                    <span className="text-neutral-500">
+                      ({product.reviewCount} {dict.product.reviews})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             {/* Desglose: precio base + variantes (solo si no está oculto el precio) */}
             {product.hidePrice !== true &&
@@ -441,6 +396,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
               selectedVariantId={selectedVariants[attribute.id] || null}
               onSelect={(variantId) => handleVariantSelect(attribute.id, variantId)}
               dict={dict}
+              hasCombinationStock={Boolean(product.combinations && product.combinations.length > 0)}
             />
             {attribute.required && !selectedVariants[attribute.id] && (
               <p className="mt-1 text-xs font-light text-primary-400">
@@ -451,27 +407,27 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
         ))}
         
         {/* Cantidad */}
-        <div className="bg-neutral-900/50 rounded-2xl p-4 border border-neutral-700">
-          <label className="mb-3 block text-base font-medium text-neutral-200">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+          <label className="mb-3 block text-sm font-medium text-neutral-200">
             {dict.product.quantity}
           </label>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center rounded-xl border-2 border-neutral-600 bg-neutral-800 overflow-hidden w-full sm:w-auto">
+            <div className="flex w-full items-center overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 sm:w-auto">
               <button
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
-                className="px-5 py-3 text-neutral-300 hover:bg-primary-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 font-semibold"
+                className="px-4 py-3 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={dict.cart.decreaseQuantity || "Disminuir"}
               >
                 <Minus className="h-5 w-5" />
               </button>
-              <span className="min-w-[4rem] px-6 py-3 text-center font-bold text-lg text-neutral-100 bg-neutral-900">
+              <span className="min-w-[4rem] bg-neutral-950 px-5 py-3 text-center text-base font-medium text-neutral-50">
                 {quantity}
               </span>
               <button
                 onClick={() => setQuantity((q) => Math.min(availableStock, q + 1))}
                 disabled={quantity >= availableStock}
-                className="px-5 py-3 text-neutral-300 hover:bg-primary-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 font-semibold"
+                className="px-4 py-3 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={dict.cart.increaseQuantity || "Aumentar"}
               >
                 <Plus className="h-5 w-5" />
@@ -479,19 +435,13 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
             </div>
             <div className="flex-1">
               {availableStock > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400 text-lg">✓</span>
-                  <span className="text-sm font-medium text-green-400">
-                    {availableStock} {dict.product.inStock.toLowerCase()}
-                  </span>
-                </div>
+                <p className="text-sm font-medium text-green-400">
+                  {availableStock} {dict.product.inStock.toLowerCase()}
+                </p>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400 text-lg">✗</span>
-                  <span className="text-sm font-medium text-red-400">
-                    {dict.product.outOfStock}
-                  </span>
-                </div>
+                <p className="text-sm font-medium text-red-400">
+                  {dict.product.outOfStock}
+                </p>
               )}
             </div>
           </div>
@@ -503,23 +453,21 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
             onClick={handleAddToCart}
             disabled={!canAddToCart || availableStock < quantity}
             className={cn(
-              "w-full rounded-2xl px-6 py-4 font-bold text-lg transition-all duration-300",
-              "flex items-center justify-center gap-3",
-              "shadow-2xl border-2 transform hover:scale-[1.02] active:scale-[0.98]",
+              'flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-medium transition-colors',
               addedToCart
-                ? "bg-gradient-to-r from-green-600 to-green-700 text-white border-green-400/30 hover:from-green-500 hover:to-green-600"
-                : "bg-gradient-to-r from-primary-600 to-primary-700 text-white border-primary-400/30 hover:from-primary-500 hover:to-primary-600",
-              (!canAddToCart || availableStock < quantity) && "opacity-50 cursor-not-allowed hover:scale-100"
+                ? 'bg-green-600 text-white hover:bg-green-500'
+                : 'bg-primary-700 text-white hover:bg-primary-600',
+              (!canAddToCart || availableStock < quantity) && 'cursor-not-allowed opacity-50 hover:bg-primary-700'
             )}
           >
             {addedToCart ? (
               <>
-                <Check className="h-6 w-6" />
+                <Check className="h-5 w-5" />
                 <span>{dict.product.addedToCart || "¡Agregado!"}</span>
               </>
             ) : (
               <>
-                <ShoppingCart className="h-6 w-6" />
+                <ShoppingCart className="h-5 w-5" />
                 <span>{dict.product.addToCart}</span>
               </>
             )}
@@ -537,11 +485,11 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
         </div>
         
         {/* Descripción */}
-        <div className="rounded-3xl bg-gradient-to-br from-neutral-900/50 via-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 p-6 shadow-xl">
-          <h2 className="mb-4 text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 to-primary-300">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-6">
+          <h2 className="mb-3 text-base font-semibold text-neutral-100">
             {dict.product.description}
           </h2>
-          <p className="font-medium text-neutral-300 leading-relaxed whitespace-pre-line">
+          <p className="text-sm font-light leading-relaxed text-neutral-300 whitespace-pre-line">
             {product.description}
           </p>
         </div>

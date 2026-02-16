@@ -7,7 +7,12 @@ export type ReceivableStatus = 'pending' | 'paid' | 'cancelled';
 export interface Receivable {
   id: string;
   storeId: string;
+  receivableNumber?: number | null;
   createdBy: string;
+  /** Usuario que última actualizó el registro */
+  updatedBy?: string | null;
+  createdByName?: string | null;
+  updatedByName?: string | null;
   customerName: string | null;
   customerPhone: string | null;
   description: string | null;

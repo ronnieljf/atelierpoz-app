@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createReceivable, createReceivableFromRequest } from '@/lib/services/receivables';
 import { getRequests, getRequestById, type Request } from '@/lib/services/requests';
+import { getClients, type Client } from '@/lib/services/clients';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Receipt, ArrowLeft, Loader2, FileText, ShoppingBag, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Receipt, ArrowLeft, Loader2, FileText, ShoppingBag, Check, ChevronLeft, ChevronRight, UserCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 const REQUESTS_PAGE_SIZE = 15;
@@ -48,6 +49,17 @@ export default function CreateReceivablePage() {
   const [initialPaymentAmount, setInitialPaymentAmount] = useState('');
   const [initialPaymentNotes, setInitialPaymentNotes] = useState('');
 
+  // Selector de cliente existente (solo cuenta manual)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientSearchResults, setClientSearchResults] = useState<Client[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  // Últimos 100 clientes de la tienda para búsqueda rápida sin backend cuando hay pocos
+  const [recentClients, setRecentClients] = useState<Client[]>([]);
+  const [recentClientsTotal, setRecentClientsTotal] = useState(0);
+  const [initialClientsLoaded, setInitialClientsLoaded] = useState(false);
+
   useEffect(() => {
     if (authState.user && authState.stores.length === 0 && loadStores) {
       loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
@@ -65,6 +77,85 @@ export default function CreateReceivablePage() {
       setStoreId(storeIdFromUrl);
     }
   }, [storeIdFromUrl, fromRequest]);
+
+  // Al cambiar tienda en cuenta manual, limpiar cliente seleccionado y búsqueda
+  useEffect(() => {
+    if (!fromRequest) {
+      setSelectedClient(null);
+      setClientSearch('');
+      setClientSearchResults([]);
+      setShowClientDropdown(false);
+      setRecentClients([]);
+      setRecentClientsTotal(0);
+      setInitialClientsLoaded(false);
+    }
+  }, [storeId, fromRequest]);
+
+  // Cargar últimos 100 clientes al elegir tienda (cuenta manual) para búsqueda rápida
+  useEffect(() => {
+    if (fromRequest || !storeId) return;
+    getClients(storeId, { limit: 100 })
+      .then((res) => {
+        setRecentClients(res.clients);
+        setRecentClientsTotal(res.total);
+        setInitialClientsLoaded(true);
+      })
+      .catch(() => {
+        setRecentClients([]);
+        setRecentClientsTotal(0);
+        setInitialClientsLoaded(true);
+      });
+  }, [storeId, fromRequest]);
+
+  /** Filtra clientes por texto en nombre, teléfono o email (case insensitive) */
+  const filterClientsLocal = useCallback((list: Client[], query: string): Client[] => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return list.filter(
+      (c) =>
+        (c.name ?? '').toLowerCase().includes(q) ||
+        (c.phone ?? '').toLowerCase().includes(q) ||
+        (c.email ?? '').toLowerCase().includes(q)
+    );
+  }, []);
+
+  // Búsqueda de clientes: primero en el array local (100); si no hay resultados y hay más de 100, entonces backend
+  useEffect(() => {
+    if (fromRequest || !storeId) {
+      setClientSearchResults([]);
+      return;
+    }
+    const q = clientSearch.trim();
+    if (!q) {
+      setClientSearchResults([]);
+      setShowClientDropdown(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      const localMatches = filterClientsLocal(recentClients, q);
+      if (localMatches.length > 0) {
+        setClientSearchResults(localMatches);
+        setShowClientDropdown(true);
+        setLoadingClients(false);
+        return;
+      }
+      if (initialClientsLoaded && recentClientsTotal < 100) {
+        setClientSearchResults([]);
+        setShowClientDropdown(true);
+        setLoadingClients(false);
+        return;
+      }
+      setLoadingClients(true);
+      getClients(storeId, { search: q, limit: 15 })
+        .then((res) => {
+          setClientSearchResults(res.clients);
+          setShowClientDropdown(true);
+        })
+        .catch(() => setClientSearchResults([]))
+        .finally(() => setLoadingClients(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [clientSearch, storeId, fromRequest, recentClients, recentClientsTotal, initialClientsLoaded, filterClientsLocal]);
 
   const loadRequestFromUrl = useCallback(async () => {
     if (!requestIdFromUrl || !storeIdFromUrl) return;
@@ -121,6 +212,7 @@ export default function CreateReceivablePage() {
         status: 'pending,processing',
         limit: REQUESTS_PAGE_SIZE,
         offset,
+        withoutReceivable: true,
       });
       setRequests(result.requests);
       setRequestsTotal(result.total ?? 0);
@@ -228,14 +320,6 @@ export default function CreateReceivablePage() {
       setCreatingFromRequest(false);
     }
   };
-
-  if (authState.user && authState.stores.length === 0 && !message) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-neutral-400">Cargando tiendas...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -585,6 +669,86 @@ export default function CreateReceivablePage() {
               ))}
             </select>
           </div>
+
+          {storeId && (
+            <div className="rounded-xl border border-neutral-700/80 bg-neutral-800/30 p-4">
+              <p className="mb-3 text-sm font-medium text-neutral-300">Cliente</p>
+              <p className="mb-3 text-xs text-neutral-500">
+                Si el cliente ya está en la cartera, búscalo y selecciónalo para rellenar nombre y teléfono. Si no, ingresa los datos abajo manualmente.
+              </p>
+              {selectedClient ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 px-3 py-2.5">
+                  <UserCircle className="h-5 w-5 text-primary-400 flex-shrink-0" />
+                  <span className="text-sm text-neutral-100">
+                    {selectedClient.name || 'Sin nombre'}
+                    {selectedClient.phone && (
+                      <span className="ml-2 text-neutral-400">{selectedClient.phone}</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedClient(null);
+                      setCustomerName('');
+                      setCustomerPhone('');
+                    }}
+                    className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200"
+                  >
+                    <X className="h-4 w-4" />
+                    Cambiar
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    onFocus={() => clientSearch.trim() && setShowClientDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                    placeholder="Buscar por nombre o teléfono..."
+                    className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 pr-10 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  />
+                  {loadingClients && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
+                    </span>
+                  )}
+                  {showClientDropdown && clientSearchResults.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 shadow-xl">
+                      {clientSearchResults.map((client) => (
+                        <li key={client.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClient(client);
+                              setCustomerName(client.name ?? '');
+                              setCustomerPhone(client.phone ?? '');
+                              setClientSearch('');
+                              setClientSearchResults([]);
+                              setShowClientDropdown(false);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-neutral-200 hover:bg-neutral-800"
+                          >
+                            <UserCircle className="h-4 w-4 flex-shrink-0 text-neutral-500" />
+                            <span>{client.name || 'Sin nombre'}</span>
+                            {client.phone && (
+                              <span className="text-neutral-500">{client.phone}</span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {showClientDropdown && clientSearch.trim() && !loadingClients && clientSearchResults.length === 0 && (
+                    <p className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-neutral-500">
+                      No hay clientes que coincidan. Ingresa los datos abajo manualmente.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div>

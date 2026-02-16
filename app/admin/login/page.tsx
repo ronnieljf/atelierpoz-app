@@ -6,8 +6,6 @@ import { useAuth } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { Button } from '@/components/ui/Button';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { PageTransition } from '@/components/ui/PageTransition';
 
 // Por ahora usamos español por defecto para el admin
 const dict = getDictionary('es');
@@ -61,59 +59,37 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 py-8 sm:py-12">
-      {/* Efectos de fondo decorativos */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-900/5 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary-800/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      {/* Fondo ligero en móvil para evitar blurs costosos */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none sm:block" aria-hidden>
+        <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-primary-900/5 rounded-full blur-2xl sm:blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-primary-800/5 rounded-full blur-2xl sm:blur-3xl" />
       </div>
 
-      <PageTransition>
-        <div className="w-full max-w-md mx-auto px-0 sm:px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="relative"
-          >
-            {/* Card principal */}
-            <div className="relative bg-gradient-to-br from-neutral-900/95 via-neutral-900/90 to-neutral-800/95 backdrop-blur-xl border border-neutral-800/50 rounded-3xl p-8 sm:p-10 shadow-2xl overflow-hidden">
-              {/* Efecto de brillo sutil */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-500/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-1000" />
-              
-              {/* Contenido */}
-              <div className="relative z-10">
-                {/* Header */}
-                <div className="text-center mb-10">
-                  <div className="inline-flex items-center justify-center mb-6">
-                    <div className="relative">
-                      {/* Efecto de brillo animado detrás del icono */}
-                      <div className="absolute inset-0 bg-primary-500/20 rounded-full blur-xl animate-pulse" />
-                      {/* Icono de candado mejorado */}
-                      <div className="relative bg-gradient-to-br from-primary-600/30 via-primary-700/20 to-primary-800/30 rounded-2xl p-4 sm:p-5 border border-primary-500/20 shadow-lg">
-                        <Lock className="h-10 w-10 sm:h-12 sm:w-12 text-primary-400 drop-shadow-lg" />
-                      </div>
-                    </div>
+      <div className="w-full max-w-md mx-auto px-0 sm:px-4 animate-fade-in">
+        <div className="relative">
+          <div className="relative bg-neutral-900/95 border border-neutral-800/50 rounded-2xl sm:rounded-3xl p-6 sm:p-10 shadow-xl overflow-hidden">
+            <div className="relative z-10">
+              <div className="text-center mb-8 sm:mb-10">
+                <div className="inline-flex items-center justify-center mb-4 sm:mb-6">
+                  <div className="bg-primary-600/20 rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-primary-500/20">
+                    <Lock className="h-9 w-9 sm:h-12 sm:w-12 text-primary-400" />
                   </div>
-                  <h1 className="text-3xl sm:text-4xl font-light text-neutral-100 mb-2 tracking-tight">
-                    {dict.admin.login.title}
-                  </h1>
-                  <p className="text-neutral-400 text-sm sm:text-base">
-                    Panel de Administración
-                  </p>
                 </div>
+                <h1 className="text-2xl sm:text-4xl font-light text-neutral-100 mb-2 tracking-tight">
+                  {dict.admin.login.title}
+                </h1>
+                <p className="text-neutral-400 text-sm sm:text-base">
+                  Panel de Administración
+                </p>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm backdrop-blur-sm"
-                    >
-                      <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                      <span className="flex-1">{error}</span>
-                    </motion.div>
-                  )}
+              <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                {error && (
+                  <div className="flex items-center gap-3 p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                    <span className="flex-1">{error}</span>
+                  </div>
+                )}
 
                   <div className="space-y-5">
                     <div>
@@ -159,21 +135,20 @@ export default function AdminLoginPage() {
                     </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    className="w-full mt-8"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? dict.common.loading : dict.admin.login.submit}
-                  </Button>
-                </form>
-              </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="w-full mt-6 sm:mt-8"
+                  disabled={isLoading}
+                >
+                  {isLoading ? dict.common.loading : dict.admin.login.submit}
+                </Button>
+              </form>
             </div>
-          </motion.div>
+          </div>
         </div>
-      </PageTransition>
+      </div>
     </div>
   );
 }

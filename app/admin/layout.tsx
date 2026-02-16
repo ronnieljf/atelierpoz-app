@@ -5,12 +5,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store/auth-store';
 import { AuthProvider } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { LogOut, Package, Users, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound } from 'lucide-react';
+import { LogOut, Package, Users, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft } from 'lucide-react';
 import Link from 'next/link';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
 import { cn } from '@/lib/utils/cn';
-import { AnimatePresence, motion } from 'framer-motion';
 
 const dict = getDictionary('es');
 
@@ -21,6 +20,17 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const isAdmin = state.user?.role === 'admin';
   const hydrated = state.authHydrated;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('admin-sidebar-open');
+      setDesktopSidebarOpen(stored !== 'false');
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('admin-sidebar-open', String(desktopSidebarOpen));
+  }, [desktopSidebarOpen]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -75,11 +85,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/admin/login');
   };
 
-  // En /admin/login mostrar siempre el formulario (sin "Verificando"); el redirect si ya está logueado lo hace el useEffect
+  // Una sola pantalla de carga hasta que auth y tiendas estén listos (en rutas protegidas)
+  const isProtectedRoute = pathname !== '/admin' && pathname !== '/admin/login';
+  const waitingForStores = isProtectedRoute && !!state.user && state.stores.length === 0;
   const showLoading =
     pathname === '/admin' ||
-    (pathname !== '/admin' && pathname !== '/admin/login' && !isAuthenticated()) ||
-    (!hydrated && pathname !== '/admin/login');
+    (!hydrated && pathname !== '/admin/login') ||
+    (isProtectedRoute && !isAuthenticated()) ||
+    waitingForStores;
 
   if (showLoading) {
     return <AdminAuthLoading />;
@@ -104,9 +117,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950">
-      {/* Sidebar - Web */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-full w-64 lg:block">
-        <div className="flex h-full flex-col border-r border-neutral-800/80 bg-neutral-900/60 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+      {/* Sidebar - Web (desktop, con opción de ocultar) */}
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-40 hidden h-full border-r border-neutral-800/80 bg-neutral-900/60 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[width,transform] duration-200 ease-out lg:block',
+          desktopSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
+        )}
+      >
+        <div className="flex h-full w-64 flex-col">
           {/* User */}
           <div className="shrink-0 border-b border-neutral-800/80 px-5 pt-6 pb-5">
             {state.user && (
@@ -158,6 +176,18 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <span className="truncate">Pedidos</span>
             </Link>
             <Link
+              href="/admin/sales"
+              className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}
+            >
+              {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && (
+                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+              )}
+              <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
+                <ShoppingCart className="h-4 w-4" />
+              </span>
+              <span className="truncate">Ventas</span>
+            </Link>
+            <Link
               href="/admin/receivables"
               className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}
             >
@@ -168,6 +198,18 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 <Receipt className="h-4 w-4" />
               </span>
               <span className="truncate">Cuentas por cobrar</span>
+            </Link>
+            <Link
+              href="/admin/reports"
+              className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}
+            >
+              {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && (
+                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+              )}
+              <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}>
+                <BarChart3 className="h-4 w-4" />
+              </span>
+              <span className="truncate">Reportes</span>
             </Link>
             <Link
               href="/admin/clients"
@@ -239,6 +281,20 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
 
+          {/* Ocultar sidebar (solo desktop) */}
+          <div className="shrink-0 border-t border-neutral-800/80 px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setDesktopSidebarOpen(false)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-neutral-800/40 hover:text-neutral-200"
+              aria-label="Ocultar menú"
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-neutral-800/60 text-neutral-500">
+                <PanelLeftClose className="h-4 w-4" />
+              </span>
+              <span>Ocultar menú</span>
+            </button>
+          </div>
           {/* Logout */}
           <div className="shrink-0 border-t border-neutral-800/80 px-3 py-4">
             <button
@@ -255,30 +311,33 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile sidebar drawer: apertura y cierre suaves */}
-      <AnimatePresence>
-        {mobileSidebarOpen && (
-          <>
-            <motion.div
-              key="sidebar-backdrop"
-              className="lg:hidden fixed inset-0 z-[60] bg-neutral-950/70 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-              onClick={() => setMobileSidebarOpen(false)}
-              aria-hidden
-            />
-            <motion.aside
-              key="sidebar-panel"
-              className="lg:hidden fixed left-0 top-0 bottom-0 z-[61] w-[min(280px,85vw)] flex flex-col border-r border-neutral-800/80 bg-neutral-900/95 shadow-xl"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-              aria-modal
-              aria-label="Menú de navegación"
-            >
+      {/* Botón flotante para abrir sidebar cuando está oculto (solo desktop) */}
+      {!desktopSidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setDesktopSidebarOpen(true)}
+          className="fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 rounded-r-xl border border-l-0 border-neutral-700 bg-neutral-800/95 py-4 pl-2 pr-3 shadow-lg backdrop-blur-sm transition-colors hover:bg-neutral-700/90 lg:flex items-center justify-center"
+          aria-label="Abrir menú"
+        >
+          <PanelLeft className="h-5 w-5 text-neutral-300" />
+        </button>
+      )}
+
+      {/* Mobile sidebar drawer: solo CSS para mejor rendimiento en móvil */}
+      {mobileSidebarOpen && (
+        <>
+          <div
+            className="mobile-sidebar-backdrop lg:hidden fixed inset-0 z-[60] bg-neutral-950/70"
+            style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-hidden
+          />
+          <aside
+            className="mobile-sidebar-panel lg:hidden fixed left-0 top-0 bottom-0 z-[61] w-[min(280px,85vw)] flex flex-col border-r border-neutral-800/80 bg-neutral-900/95 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú de navegación"
+          >
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between gap-2 shrink-0 border-b border-neutral-800/80 px-4 py-3">
                 <div className="min-w-0 flex-1">
@@ -327,6 +386,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className="truncate">Pedidos</span>
                 </Link>
                 <Link
+                  href="/admin/sales"
+                  className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}
+                  onClick={() => setMobileSidebarOpen(false)}
+                >
+                  {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && (
+                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+                  )}
+                  <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
+                    <ShoppingCart className="h-4 w-4" />
+                  </span>
+                  <span className="truncate">Ventas</span>
+                </Link>
+                <Link
                   href="/admin/receivables"
                   className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}
                   onClick={() => setMobileSidebarOpen(false)}
@@ -338,6 +410,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     <Receipt className="h-4 w-4" />
                   </span>
                   <span className="truncate">Cuentas por cobrar</span>
+                </Link>
+                <Link
+                  href="/admin/reports"
+                  className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}
+                  onClick={() => setMobileSidebarOpen(false)}
+                >
+                  {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && (
+                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+                  )}
+                  <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}>
+                    <BarChart3 className="h-4 w-4" />
+                  </span>
+                  <span className="truncate">Reportes</span>
                 </Link>
                 <Link
                   href="/admin/clients"
@@ -427,10 +512,9 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
             </div>
-          </motion.aside>
+          </aside>
         </>
-        )}
-      </AnimatePresence>
+      )}
 
       {/* Mobile User Info Bar + botón para abrir sidebar */}
       {state.user && (
@@ -460,6 +544,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             <button
               onClick={handleLogout}
               className="flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-neutral-400 hover:text-neutral-200"
+              aria-label="Cerrar sesión"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -468,7 +553,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content */}
-      <main className="lg:ml-64 min-h-screen pb-4 lg:pb-0">
+      <main className={cn('min-h-screen pb-4 transition-[margin] duration-200 lg:pb-0', desktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0')}>
         <div className={cn(
           "px-2 py-4 sm:px-4 sm:py-6 lg:p-8",
           state.user && "pt-16 lg:pt-4"

@@ -94,7 +94,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950`}
       >
         <script
           dangerouslySetInnerHTML={{
@@ -109,6 +109,12 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Efectos de fondo: reducidos en móvil para mejor rendimiento */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden>
+          <div className="absolute top-0 left-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-primary-900/10 rounded-full blur-[60px] sm:blur-[120px]" />
+          <div className="absolute bottom-0 right-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-primary-800/10 rounded-full blur-[60px] sm:blur-[120px]" />
+          <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-700/5 rounded-full blur-[150px]" />
+        </div>
         <ThemeProvider>
           <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
         </ThemeProvider>

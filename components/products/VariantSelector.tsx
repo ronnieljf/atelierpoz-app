@@ -9,6 +9,8 @@ interface VariantSelectorProps {
   selectedVariantId: string | null;
   onSelect: (variantId: string) => void;
   dict: Dictionary;
+  /** Si true, el stock está en combinaciones; no deshabilitar opciones por variant.stock (que será 0). */
+  hasCombinationStock?: boolean;
 }
 
 export function VariantSelector({
@@ -16,6 +18,7 @@ export function VariantSelector({
   selectedVariantId,
   onSelect,
   dict,
+  hasCombinationStock = false,
 }: VariantSelectorProps) {
   const isColor = attribute.type === 'color';
   const isSize = attribute.type === 'size';
@@ -35,7 +38,7 @@ export function VariantSelector({
       )}>
         {attribute.variants.map((variant) => {
           const isSelected = selectedVariantId === variant.id;
-          const isOutOfStock = variant.stock === 0;
+          const isOutOfStock = !hasCombinationStock && (variant.stock === 0);
           
           if (isColor) {
             return (
@@ -96,11 +99,11 @@ export function VariantSelector({
               )}
             >
               {variant.name || variant.value}
-              {variant.price && variant.price > 0 && (
+              {variant.price != null && variant.price > 0 ? (
                 <span className="ml-2 text-xs">
                   (+${variant.price.toFixed(2)})
                 </span>
-              )}
+              ) : null}
             </button>
           );
         })}
