@@ -603,7 +603,7 @@ export default function ReceivablesPage() {
           escapeCsv(r.description),
           r.amount,
           r.currency,
-          r.requestId ? 'Pedido' : 'Manual',
+          r.requestId ? (r.orderNumber != null ? `Pedido #${r.orderNumber}` : 'Pedido') : 'Manual',
           statusLabel(r.status),
           escapeCsv(formatDate(r.createdAt)),
           escapeCsv(formatDate(r.paidAt)),
@@ -1554,6 +1554,11 @@ export default function ReceivablesPage() {
                         {rec.description}
                       </p>
                     )}
+                    {rec.itemsCount != null && rec.itemsCount > 0 && (
+                      <p className="text-xs text-neutral-500">
+                        {rec.itemsCount} {rec.itemsCount === 1 ? 'producto' : 'productos'}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-base font-semibold tabular-nums text-neutral-100">
                         {rec.currency} {rec.amount.toFixed(2)}
@@ -1567,7 +1572,7 @@ export default function ReceivablesPage() {
                         {fromPedido ? (
                           <>
                             <ShoppingBag className="h-3 w-3" />
-                            Pedido
+                            {rec.orderNumber != null ? `Pedido #${rec.orderNumber}` : 'Pedido'}
                           </>
                         ) : (
                           <>

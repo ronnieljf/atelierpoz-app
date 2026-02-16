@@ -32,17 +32,17 @@ export function HomeStoresSection({
   }
 
   return (
-    <section className="py-12 sm:py-16 md:py-20">
+    <section className="py-10 sm:py-14 md:py-16">
       <div className="container mx-auto max-w-5xl px-4 sm:px-6">
-        <div className="mb-10 sm:mb-12 text-center">
+        <div className="mb-6 sm:mb-8 text-center">
           <h2 className="text-2xl font-light tracking-tight text-white sm:text-3xl md:text-4xl">
             {heading}
           </h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm font-light text-neutral-400 sm:text-base">
+          <p className="mx-auto mt-2 max-w-lg text-sm font-light text-neutral-400 sm:text-base">
             {subheading}
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {stores.map((store) => (
             <StoreCard key={store.id} store={store} />
           ))}

@@ -11,12 +11,16 @@ export interface ReportPeriod {
 
 export interface SalesSummary {
   totalUnitsSold: number;
+  totalRevenueFromSales?: number;
+  totalRevenueFromReceivablesPaid?: number;
   totalRevenueFromOrders: number;
+  totalRevenueFromOrdersExcludingLinked?: number;
   totalRevenueFromManualReceivables: number;
   totalRevenueFromManualReceivablesByCurrency: Record<string, number>;
   totalRevenue: number;
   ordersCount: number;
   productsWithSales: number;
+  receivablesPaidCount?: number;
   manualReceivablesPaidCount: number;
 }
 
@@ -84,11 +88,15 @@ export interface UnsoldReport {
 export interface FullReportExecutive {
   period: ReportPeriod;
   totalUnitsSold: number;
+  totalRevenueFromSales?: number;
+  totalRevenueFromReceivablesPaid?: number;
   totalRevenueFromOrders: number;
+  totalRevenueFromOrdersExcludingLinked?: number;
   totalRevenueFromManualReceivables: number;
   totalRevenueFromManualReceivablesByCurrency: Record<string, number>;
   totalRevenue: number;
   ordersCompleted: number;
+  receivablesPaidCount?: number;
   manualReceivablesPaidCount: number;
   productsWithSales: number;
   productsWithNoSales: number;

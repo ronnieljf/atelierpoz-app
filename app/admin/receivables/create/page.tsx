@@ -167,8 +167,8 @@ export default function CreateReceivablePage() {
         setSelectedRequest(req);
         setFromRequestCustomerName(req.customerName ?? '');
         setFromRequestCustomerPhone(req.customerPhone ?? '');
-        const shortId = req.id.slice(0, 8);
-        setFromRequestDescription(req.customMessage?.trim() || `Pedido ${shortId}`);
+        const pedidoLabel = req.orderNumber != null ? `Pedido #${req.orderNumber}` : `Pedido ${req.id.slice(0, 8)}`;
+        setFromRequestDescription(req.customMessage?.trim() || pedidoLabel);
         setFromRequestAmount(typeof req.total === 'number' ? String(req.total) : '');
       } else if (req) {
         setMessage({
@@ -431,8 +431,8 @@ export default function CreateReceivablePage() {
                               setSelectedRequest(req);
                               setFromRequestCustomerName(req.customerName ?? '');
                               setFromRequestCustomerPhone(req.customerPhone ?? '');
-                              const shortId = req.id.slice(0, 8);
-                              setFromRequestDescription(req.customMessage?.trim() || `Pedido ${shortId}`);
+                              const pedidoLabel = req.orderNumber != null ? `Pedido #${req.orderNumber}` : `Pedido ${req.id.slice(0, 8)}`;
+                              setFromRequestDescription(req.customMessage?.trim() || pedidoLabel);
                               setFromRequestAmount(typeof req.total === 'number' ? String(req.total) : '');
                             }}
                             className={cn(

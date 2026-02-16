@@ -185,7 +185,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
                 <ShoppingCart className="h-4 w-4" />
               </span>
-              <span className="truncate">Ventas</span>
+              <span className="truncate">Punto de Venta</span>
             </Link>
             <Link
               href="/admin/receivables"
@@ -396,7 +396,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
                     <ShoppingCart className="h-4 w-4" />
                   </span>
-                  <span className="truncate">Ventas</span>
+                  <span className="truncate">Punto de Venta</span>
                 </Link>
                 <Link
                   href="/admin/receivables"

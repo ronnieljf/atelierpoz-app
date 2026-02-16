@@ -4,27 +4,25 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   getFullReport,
   getRevenueOverTime,
-  getTopProducts,
-  getCancelledOrdersReport,
   type FullReport,
   type RevenueOverTimeResponse,
-  type TopProductsResponse,
-  type CancelledOrdersReport,
+  type RevenueBucket,
 } from '@/lib/services/reports';
 import { useAuth } from '@/lib/store/auth-store';
+import { BarChart3, Loader2, Calendar, Store, DollarSign, TrendingUp } from 'lucide-react';
 import {
-  BarChart3,
-  Loader2,
-  TrendingUp,
-  Package,
-  XCircle,
-  Calendar,
-  Store,
-  ChevronDown,
-  ChevronUp,
-  DollarSign,
-} from 'lucide-react';
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 import { cn } from '@/lib/utils/cn';
+
+const ALL_STORES_ID = '';
 
 function formatDate(s: string) {
   try {
@@ -38,8 +36,8 @@ function formatMoney(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: currency || 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -52,22 +50,39 @@ function getDefaultMonthRange(): { dateFrom: string; dateTo: string } {
   return { dateFrom, dateTo };
 }
 
+/** Agrega buckets de varias tiendas por fecha (suma ingresos y pedidos). */
+function mergeRevenueBuckets(bucketsByStore: { storeName: string; buckets: RevenueBucket[] }[]): RevenueBucket[] {
+  const byDate = new Map<string, RevenueBucket>();
+  for (const { buckets } of bucketsByStore) {
+    for (const b of buckets) {
+      const existing = byDate.get(b.date);
+      if (!existing) {
+        byDate.set(b.date, { ...b });
+      } else {
+        existing.ordersCount += b.ordersCount;
+        existing.revenueFromOrders += b.revenueFromOrders;
+        existing.revenueFromManualReceivables += b.revenueFromManualReceivables;
+        existing.revenue += b.revenue;
+      }
+    }
+  }
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+}
+
 export default function ReportsPage() {
   const { state: authState, loadStores } = useAuth();
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(ALL_STORES_ID);
   const { dateFrom: defFrom, dateTo: defTo } = getDefaultMonthRange();
   const [dateFrom, setDateFrom] = useState(defFrom);
   const [dateTo, setDateTo] = useState(defTo);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [hasReport, setHasReport] = useState(false);
 
-  const [fullReport, setFullReport] = useState<FullReport | null>(null);
-  const [revenueOverTime, setRevenueOverTime] = useState<RevenueOverTimeResponse | null>(null);
-  const [topProducts, setTopProducts] = useState<TopProductsResponse | null>(null);
-  const [cancelledReport, setCancelledReport] = useState<CancelledOrdersReport | null>(null);
-
-  const [openSection, setOpenSection] = useState<string>('executive');
+  const [fullReportsByStore, setFullReportsByStore] = useState<{ storeId: string; storeName: string; report: FullReport }[]>([]);
+  const [revenueOverTimeByStore, setRevenueOverTimeByStore] = useState<{ storeId: string; storeName: string; data: RevenueOverTimeResponse }[]>([]);
+  const [aggregatedBuckets, setAggregatedBuckets] = useState<RevenueBucket[]>([]);
 
   useEffect(() => {
     if (authState.user && authState.stores.length === 0 && loadStores) {
@@ -76,36 +91,40 @@ export default function ReportsPage() {
   }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
-    if (authState.stores.length === 1 && !selectedStoreId) {
+    if (authState.stores.length === 1 && selectedStoreId === ALL_STORES_ID) {
       setSelectedStoreId(authState.stores[0].id);
     }
   }, [authState.stores, selectedStoreId]);
 
   const runReport = useCallback(async () => {
-    if (!selectedStoreId) {
-      setMessage({ type: 'error', text: 'Selecciona una tienda' });
+    const stores = selectedStoreId === ALL_STORES_ID ? authState.stores : authState.stores.filter((s) => s.id === selectedStoreId);
+    if (stores.length === 0) {
+      setMessage({ type: 'error', text: 'Selecciona al menos una tienda o "Todas las tiendas".' });
       return;
     }
     setLoading(true);
     setMessage(null);
-    setFullReport(null);
-    setRevenueOverTime(null);
-    setTopProducts(null);
-    setCancelledReport(null);
-    setHasReport(false);
+    setFullReportsByStore([]);
+    setRevenueOverTimeByStore([]);
+    setAggregatedBuckets([]);
     try {
-      const [full, revenue, top, cancelled] = await Promise.all([
-        getFullReport(selectedStoreId, { dateFrom, dateTo, limitSales: 200, limitUnsold: 200 }),
-        getRevenueOverTime(selectedStoreId, { dateFrom, dateTo, groupBy: 'day' }),
-        getTopProducts(selectedStoreId, { dateFrom, dateTo, limit: 20, sortBy: 'revenue' }),
-        getCancelledOrdersReport(selectedStoreId, { dateFrom, dateTo, limit: 50 }),
-      ]);
-      setFullReport(full);
-      setRevenueOverTime(revenue);
-      setTopProducts(top);
-      setCancelledReport(cancelled);
-      setHasReport(true);
-      setMessage({ type: 'success', text: 'Listo. Abre cada sección para ver el detalle.' });
+      const opts = { dateFrom, dateTo, limitSales: 50, limitUnsold: 50 };
+      const fullPromises = stores.map((s) =>
+        getFullReport(s.id, opts).then((report) => ({ storeId: s.id, storeName: s.name, report }))
+      );
+      const revenuePromises = stores.map((s) =>
+        getRevenueOverTime(s.id, { dateFrom, dateTo, groupBy: 'day' }).then((data) => ({ storeId: s.id, storeName: s.name, data }))
+      );
+      const fullResults = await Promise.all(fullPromises);
+      const revenueResults = await Promise.all(revenuePromises);
+
+      setFullReportsByStore(fullResults);
+      setRevenueOverTimeByStore(revenueResults);
+      if (revenueResults.length > 0) {
+        const merged = mergeRevenueBuckets(revenueResults.map((r) => ({ storeName: r.storeName, buckets: r.data.buckets })));
+        setAggregatedBuckets(merged);
+      }
+      setMessage({ type: 'success', text: 'Reporte generado.' });
     } catch (error) {
       setMessage({
         type: 'error',
@@ -114,54 +133,74 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStoreId, dateFrom, dateTo]);
+  }, [selectedStoreId, dateFrom, dateTo, authState.stores]);
 
-  const toggleSection = (id: string) => {
-    setOpenSection((s) => (s === id ? '' : id));
-  };
+  const isAllStores = selectedStoreId === ALL_STORES_ID;
+  const hasData = fullReportsByStore.length > 0;
+
+  const summary = hasData
+    ? fullReportsByStore.reduce(
+        (acc, { report }) => {
+          const e = report.executive;
+          acc.totalRevenue += e.totalRevenue;
+          acc.ordersCompleted += e.ordersCompleted;
+          acc.receivablesPaidCount += e.receivablesPaidCount ?? e.manualReceivablesPaidCount ?? 0;
+          acc.totalUnitsSold += e.totalUnitsSold;
+          acc.totalRevenueFromSales += e.totalRevenueFromSales ?? 0;
+          acc.totalRevenueFromReceivablesPaid += e.totalRevenueFromReceivablesPaid ?? 0;
+          acc.totalRevenueFromOrders += e.totalRevenueFromOrders;
+          acc.totalRevenueFromOrdersExcludingLinked += e.totalRevenueFromOrdersExcludingLinked ?? 0;
+          acc.totalRevenueFromManualReceivables += e.totalRevenueFromManualReceivables;
+          return acc;
+        },
+        {
+          totalRevenue: 0,
+          ordersCompleted: 0,
+          receivablesPaidCount: 0,
+          totalUnitsSold: 0,
+          totalRevenueFromSales: 0,
+          totalRevenueFromReceivablesPaid: 0,
+          totalRevenueFromOrders: 0,
+          totalRevenueFromOrdersExcludingLinked: 0,
+          totalRevenueFromManualReceivables: 0,
+        }
+      )
+    : null;
+
+  const chartData = aggregatedBuckets.map((b) => ({
+    fecha: formatDate(b.date),
+    date: b.date,
+    Ingresos: b.revenue,
+    Pedidos: b.revenueFromOrders,
+    CuentasCobradas: b.revenueFromManualReceivables,
+    PedidosCount: b.ordersCount,
+  }));
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0 max-w-full overflow-hidden">
-      {/* Título */}
-      <div className="min-w-0">
-        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-100 flex items-center gap-2 flex-wrap">
-          <BarChart3 className="h-6 w-6 sm:h-7 sm:w-7 text-primary-400 flex-shrink-0" />
+    <div className="space-y-6 px-2 sm:px-0 max-w-full overflow-hidden">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-semibold text-neutral-100 flex items-center gap-2">
+          <BarChart3 className="h-6 w-6 text-primary-400" />
           Reportes
         </h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Revisa ventas, ingresos, productos más vendidos y pedidos cancelados por periodo.
+          Ventas, pedidos y cuentas por cobrar por rango de fechas y por tienda.
         </p>
-        <div className="mt-3 rounded-xl border border-primary-500/15 bg-primary-500/5 px-3 py-2.5 sm:px-4 sm:py-3 text-sm">
-          <p className="font-medium text-primary-200/90 mb-1.5">¿Cómo funciona?</p>
-          <ol className="list-decimal list-inside space-y-1 text-neutral-400 text-xs sm:text-[13px]">
-            <li>Elige la tienda y las fechas que quieres ver.</li>
-            <li>Pulsa <strong className="text-neutral-300">Generar reporte</strong>.</li>
-            <li>Abre cada sección para ver el detalle (resumen, ventas, ingresos por día, etc.).</li>
-          </ol>
-        </div>
       </div>
 
       {/* Filtros */}
-      <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-3 sm:p-5 shadow-sm min-w-0">
-        {hasReport && fullReport && (
-          <p className="mb-3 text-xs font-medium text-primary-400/90">
-            Reporte: {formatDate(fullReport.period.dateFrom)} – {formatDate(fullReport.period.dateTo)}
-          </p>
-        )}
-        <p className="mb-3 text-xs text-neutral-500">
-          {hasReport ? 'Cambia tienda o fechas y vuelve a generar para ver otro periodo.' : 'Por defecto se usa el mes actual.'}
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 min-w-0">
-          <div className="min-w-0">
+      <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
             <label className="mb-1.5 block text-xs font-medium text-neutral-400">Tienda</label>
-            <div className="relative min-w-0">
+            <div className="relative">
               <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
               <select
                 value={selectedStoreId}
                 onChange={(e) => setSelectedStoreId(e.target.value)}
-                className="w-full min-w-0 min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50 touch-manipulation"
+                className="w-full min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
               >
-                <option value="">Seleccionar tienda</option>
+                <option value={ALL_STORES_ID}>Todas las tiendas</option>
                 {authState.stores.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -170,41 +209,41 @@ export default function ReportsPage() {
               </select>
             </div>
           </div>
-          <div className="min-w-0">
+          <div>
             <label className="mb-1.5 block text-xs font-medium text-neutral-400">Desde</label>
-            <div className="relative min-w-0 overflow-hidden">
+            <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 pointer-events-none" />
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full min-w-0 max-w-full min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50 touch-manipulation"
+                className="w-full min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
               />
             </div>
           </div>
-          <div className="min-w-0">
+          <div>
             <label className="mb-1.5 block text-xs font-medium text-neutral-400">Hasta</label>
-            <div className="relative min-w-0 overflow-hidden">
+            <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 pointer-events-none" />
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full min-w-0 max-w-full min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50 touch-manipulation"
+                className="w-full min-h-[44px] rounded-lg border border-neutral-700/80 bg-neutral-800/60 py-2.5 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500/50 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
               />
             </div>
           </div>
-          <div className="flex items-end sm:col-span-2 lg:col-span-1 min-w-0">
+          <div className="flex items-end">
             <button
               type="button"
               onClick={runReport}
-              disabled={loading || !selectedStoreId}
-              className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50 disabled:pointer-events-none touch-manipulation"
+              disabled={loading || authState.stores.length === 0}
+              className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50 disabled:pointer-events-none"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Analizando…
+                  Generando…
                 </>
               ) : (
                 <>
@@ -227,480 +266,158 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {!hasReport && !loading && (
-        <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-6 sm:p-10 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-neutral-800/80">
-            <BarChart3 className="h-7 w-7 sm:h-8 sm:w-8 text-neutral-500" />
-          </div>
-          <p className="mt-4 text-neutral-200 font-medium">Ver tu reporte</p>
-          <p className="mt-2 max-w-sm mx-auto text-sm text-neutral-500 px-2">
-            Elige una tienda, las fechas y pulsa <strong className="text-neutral-400">Generar reporte</strong>. En unos segundos tendrás el resumen listo.
+      {!hasData && !loading && (
+        <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-8 sm:p-12 text-center">
+          <BarChart3 className="mx-auto h-12 w-12 text-neutral-600" />
+          <p className="mt-4 text-neutral-300 font-medium">Ver reportes</p>
+          <p className="mt-2 text-sm text-neutral-500 max-w-sm mx-auto">
+            Elige el rango de fechas y una tienda (o Todas). Pulsa <strong className="text-neutral-400">Generar reporte</strong> para ver resumen, tabla por tienda y gráfico de ingresos.
           </p>
         </div>
       )}
 
-      {hasReport && fullReport && (
-        <div className="space-y-3">
-          {/* Resumen ejecutivo */}
-          <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => toggleSection('executive')}
-              className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-            >
-              <div className="text-left min-w-0 flex-1">
-                <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                  <TrendingUp className="h-4 w-4 text-primary-400 flex-shrink-0" />
-                  Resumen del periodo
-                </span>
-                <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                  Lo más importante en un vistazo: ingresos, ventas y pedidos
-                </p>
-              </div>
-              {openSection === 'executive' ? (
-                <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-              ) : (
-                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
+      {hasData && summary && (
+        <div className="space-y-6">
+          {/* Resumen: tarjetas simples. Total = Ventas + Cuentas cobradas + Pedidos (sin cuenta vinculada) */}
+          {(() => {
+            const sales = summary.totalRevenueFromSales ?? 0;
+            const receivables = summary.totalRevenueFromReceivablesPaid ?? 0;
+            const ordersExcl = summary.totalRevenueFromOrdersExcludingLinked ?? 0;
+            const computedTotal = sales + receivables + ordersExcl;
+            return (
+          <div>
+            <p className="text-xs text-neutral-500 mb-2">
+              {fullReportsByStore[0] && (
+                <>
+                  Periodo: {formatDate(fullReportsByStore[0].report.period.dateFrom)} – {formatDate(fullReportsByStore[0].report.period.dateTo)}
+                </>
               )}
-            </button>
-            {openSection === 'executive' && (
-              <div className="border-t border-neutral-800/80 px-3 pb-4 pt-2 sm:px-5 sm:pb-5 sm:pt-3">
-                <p className="text-xs text-neutral-500 mb-4">
-                  Periodo: {formatDate(fullReport.period.dateFrom)} – {formatDate(fullReport.period.dateTo)}
+            </p>
+            <h2 className="text-sm font-medium text-neutral-400 mb-3 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Resumen del periodo
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-primary-500/20 bg-primary-500/10 p-4">
+                <p className="text-xs font-medium text-primary-300/90">Ingresos totales</p>
+                <p className="text-xl font-semibold text-neutral-100 mt-1">{formatMoney(computedTotal)}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Ventas: {formatMoney(sales)} + Cuentas cobradas: {formatMoney(receivables)} + Pedidos (sin cuenta vinculada): {formatMoney(ordersExcl)}
                 </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <div className="rounded-lg border border-primary-500/20 bg-primary-500/10 p-3 min-w-0">
-                    <p className="text-xs font-medium text-primary-300/90">Ingresos totales</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Pedidos + cuentas manuales cobradas</p>
-                    <p className="text-lg sm:text-xl font-semibold text-neutral-100 mt-1 break-words">
-                      {formatMoney(fullReport.executive.totalRevenue)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-800/50 p-3 min-w-0">
-                    <p className="text-xs font-medium text-neutral-400">Unidades vendidas</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Cantidad total de productos vendidos</p>
-                    <p className="text-lg font-semibold text-neutral-100 mt-1">
-                      {fullReport.executive.totalUnitsSold.toLocaleString('es-ES')}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-800/50 p-3 min-w-0">
-                    <p className="text-xs font-medium text-neutral-400">Pedidos completados</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Número de pedidos que se cerraron</p>
-                    <p className="text-lg font-semibold text-neutral-100 mt-1">
-                      {fullReport.executive.ordersCompleted}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-800/50 p-3 min-w-0">
-                    <p className="text-xs font-medium text-neutral-400">Cuentas manuales cobradas</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Cuentas por cobrar sin pedido cobradas en el periodo</p>
-                    <p className="text-lg font-semibold text-neutral-100 mt-1">
-                      {fullReport.executive.manualReceivablesPaidCount}
-                    </p>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      {formatMoney(fullReport.executive.totalRevenueFromManualReceivables)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-800/50 p-3 min-w-0">
-                    <p className="text-xs font-medium text-neutral-400">Conversión de productos</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">% del catálogo que vendió al menos 1 unidad</p>
-                    <p className="text-lg font-semibold text-neutral-100 mt-1">
-                      {fullReport.executive.conversionProducts}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-neutral-800/60 flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-x-4 text-xs sm:text-sm text-neutral-400">
-                  <span>Ingresos por pedidos: {formatMoney(fullReport.executive.totalRevenueFromOrders)}</span>
-                  <span>Cuentas manuales cobradas: {formatMoney(fullReport.executive.totalRevenueFromManualReceivables)}</span>
-                  <span>Productos con ventas: {fullReport.executive.productsWithSales}</span>
-                  <span>Productos sin ventas: {fullReport.executive.productsWithNoSales}</span>
-                </div>
               </div>
-            )}
-          </section>
+              <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/50 p-4">
+                <p className="text-xs font-medium text-neutral-400">Pedidos completados</p>
+                <p className="text-xl font-semibold text-neutral-100 mt-1">{summary.ordersCompleted}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Ingresos por pedidos sin cuenta vinculada: {formatMoney(ordersExcl)}</p>
+              </div>
+              <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/50 p-4">
+                <p className="text-xs font-medium text-neutral-400">Cuentas por cobrar cobradas</p>
+                <p className="text-xl font-semibold text-neutral-100 mt-1">{summary.receivablesPaidCount}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Ingresos por cuentas cobradas (manual y con pedido): {formatMoney(receivables)}</p>
+              </div>
+              <div className="rounded-xl border border-neutral-700/60 bg-neutral-800/50 p-4">
+                <p className="text-xs font-medium text-neutral-400">Unidades vendidas</p>
+                <p className="text-xl font-semibold text-neutral-100 mt-1">{summary.totalUnitsSold.toLocaleString('es-ES')}</p>
+              </div>
+            </div>
+          </div>
+            );
+          })()}
 
-          {/* Ventas por producto */}
-          <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => toggleSection('sales')}
-              className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-            >
-              <div className="text-left min-w-0 flex-1">
-                <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                  <Package className="h-4 w-4 text-primary-400 flex-shrink-0" />
-                  Lo que sí vendiste ({fullReport.sales.byProduct.length} productos
-                  {(fullReport.sales.manualReceivablesPaid?.length ?? 0) > 0 &&
-                    `, ${fullReport.sales.manualReceivablesPaid?.length ?? 0} cuentas manuales cobradas`}
-                  )
-                </span>
-                <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                  Productos vendidos en el periodo y cuentas por cobrar manuales (sin pedido) cobradas
-                </p>
+          {/* Por tienda (tabla simple) */}
+          <div>
+            <h2 className="text-sm font-medium text-neutral-400 mb-3 flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Por tienda
+            </h2>
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[520px]">
+                  <thead>
+                    <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
+                      <th className="px-4 py-3 font-medium">Tienda</th>
+                      <th className="px-4 py-3 text-right font-medium">Ingresos</th>
+                      <th className="px-4 py-3 text-right font-medium">Pedidos</th>
+                      <th className="px-4 py-3 text-right font-medium">Cuentas cobradas</th>
+                      <th className="px-4 py-3 text-right font-medium">Unidades</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fullReportsByStore.map(({ storeName, report }, idx) => {
+                      const e = report.executive;
+                      const storeTotal = (e.totalRevenueFromSales ?? 0) + (e.totalRevenueFromReceivablesPaid ?? 0) + (e.totalRevenueFromOrdersExcludingLinked ?? 0);
+                      return (
+                        <tr
+                          key={report.period.dateFrom + storeName}
+                          className={cn(
+                            'border-b border-neutral-800/60',
+                            idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent'
+                          )}
+                        >
+                          <td className="px-4 py-3 text-neutral-200 font-medium">{storeName}</td>
+                          <td className="px-4 py-3 text-right text-neutral-200">{formatMoney(storeTotal)}</td>
+                          <td className="px-4 py-3 text-right text-neutral-200">{e.ordersCompleted}</td>
+                          <td className="px-4 py-3 text-right text-neutral-200">{e.receivablesPaidCount ?? e.manualReceivablesPaidCount}</td>
+                          <td className="px-4 py-3 text-right text-neutral-200">{e.totalUnitsSold}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              {openSection === 'sales' ? (
-                <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-              ) : (
-                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-              )}
-            </button>
-            {openSection === 'sales' && (
-              <div className="border-t border-neutral-800/80">
-                {fullReport.sales.byProduct.length === 0 && (!fullReport.sales.manualReceivablesPaid || fullReport.sales.manualReceivablesPaid.length === 0) ? (
-                  <p className="py-6 text-center text-sm text-neutral-500 px-3">
-                    No hubo ventas de productos ni cuentas manuales cobradas en este periodo.
-                  </p>
-                ) : (
-                  <>
-                    {/* Mobile: cards */}
-                    <div className="md:hidden divide-y divide-neutral-800/60">
-                      {fullReport.sales.byProduct.map((row) => (
-                        <div key={row.productId} className="px-3 py-3 bg-neutral-900/30 first:bg-transparent">
-                          <p className="font-medium text-neutral-100 text-sm">{row.productName}</p>
-                          <p className="text-xs text-neutral-500 mt-0.5">{row.categoryName ?? '—'}</p>
-                          <div className="mt-2 flex justify-between text-sm">
-                            <span className="text-neutral-400">Unidades</span>
-                            <span className="text-neutral-200">{row.unitsSold}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-neutral-400">Ingresos</span>
-                            <span className="text-neutral-200 font-medium">{formatMoney(row.revenue)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Desktop: table */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-sm min-w-[500px]">
-                        <thead>
-                          <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
-                            <th className="px-4 py-3 font-medium">Producto</th>
-                            <th className="px-4 py-3 font-medium">Categoría</th>
-                            <th className="px-4 py-3 font-medium text-right">Unidades</th>
-                            <th className="px-4 py-3 font-medium text-right">Ingresos</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fullReport.sales.byProduct.map((row, idx) => (
-                            <tr key={row.productId} className={cn('border-b border-neutral-800/60', idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent', 'hover:bg-neutral-800/40')}>
-                              <td className="px-4 py-2.5 text-neutral-200">{row.productName}</td>
-                              <td className="px-4 py-2.5 text-neutral-400">{row.categoryName ?? '—'}</td>
-                              <td className="px-4 py-2.5 text-right text-neutral-200">{row.unitsSold}</td>
-                              <td className="px-4 py-2.5 text-right text-neutral-200">{formatMoney(row.revenue)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {(fullReport.sales.manualReceivablesPaid?.length ?? 0) > 0 && (
-                      <div className="px-3 sm:px-4 py-3 border-t border-neutral-700/80">
-                        <p className="text-xs font-medium text-neutral-400 mb-0.5">Cuentas por cobrar manuales cobradas en el periodo</p>
-                        <p className="text-xs text-neutral-500 mb-2">Cuentas creadas sin pedido que se cobraron en el rango de fechas seleccionado.</p>
-                        <ul className="space-y-1 text-sm text-neutral-300">
-                          {(fullReport.sales.manualReceivablesPaid ?? []).map((r) => (
-                            <li key={r.receivableId}>
-                              #{r.receivableNumber} {r.customerName ?? 'Sin nombre'} – {formatMoney(r.amount, r.currency)} ({formatDate(r.paidAt)})
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </section>
+            </div>
+          </div>
 
-          {/* Productos no vendidos */}
-          <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-            <button
-              type="button"
-              onClick={() => toggleSection('unsold')}
-              className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-            >
-              <div className="text-left min-w-0 flex-1">
-                <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                  <Package className="h-4 w-4 text-amber-400 flex-shrink-0" />
-                  Lo que no vendiste ({fullReport.unsold.productsNotSold.length} productos)
-                </span>
-                <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                  Productos del catálogo que no tuvieron ninguna venta en el periodo
-                </p>
-              </div>
-              {openSection === 'unsold' ? (
-                <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-              ) : (
-                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-              )}
-            </button>
-            {openSection === 'unsold' && (
-              <div className="border-t border-neutral-800/80">
-                {fullReport.unsold.productsNotSold.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-neutral-500 px-3">Todos los productos tuvieron al menos una venta en este periodo.</p>
-                ) : (
-                  <>
-                    <div className="md:hidden divide-y divide-neutral-800/60">
-                      {fullReport.unsold.productsNotSold.map((row) => (
-                        <div key={row.productId} className="px-3 py-3 bg-neutral-900/30 first:bg-transparent">
-                          <p className="font-medium text-neutral-100 text-sm">{row.productName}</p>
-                          <p className="text-xs text-neutral-500 mt-0.5">{row.categoryName ?? '—'}</p>
-                          <div className="mt-2 flex justify-between text-sm">
-                            <span className="text-neutral-400">Precio base</span>
-                            <span className="text-neutral-200">{formatMoney(row.basePrice, row.currency)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-neutral-400">Stock</span>
-                            <span className="text-neutral-200">{row.stock}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-sm min-w-[400px]">
-                        <thead>
-                          <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
-                            <th className="px-4 py-3 font-medium">Producto</th>
-                            <th className="px-4 py-3 font-medium">Categoría</th>
-                            <th className="px-4 py-3 font-medium text-right">Precio base</th>
-                            <th className="px-4 py-3 font-medium text-right">Stock</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fullReport.unsold.productsNotSold.map((row, idx) => (
-                            <tr key={row.productId} className={cn('border-b border-neutral-800/60', idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent', 'hover:bg-neutral-800/40')}>
-                              <td className="px-4 py-2.5 text-neutral-200">{row.productName}</td>
-                              <td className="px-4 py-2.5 text-neutral-400">{row.categoryName ?? '—'}</td>
-                              <td className="px-4 py-2.5 text-right text-neutral-200">{formatMoney(row.basePrice, row.currency)}</td>
-                              <td className="px-4 py-2.5 text-right text-neutral-200">{row.stock}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Ingresos en el tiempo */}
-          {revenueOverTime && (
-            <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-              <button
-                type="button"
-                onClick={() => toggleSection('revenue')}
-                className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-              >
-                <div className="text-left min-w-0 flex-1">
-                  <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                    <DollarSign className="h-4 w-4 text-primary-400 flex-shrink-0" />
-                    Ingresos día a día
-                  </span>
-                  <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                    Cuánto entró cada día (pedidos y cuentas cobradas)
-                  </p>
+          {/* Gráfico: ingresos en el tiempo */}
+          {chartData.length > 0 && (
+            <div>
+              <h2 className="text-sm font-medium text-neutral-400 mb-3 flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Ingresos en el tiempo
+              </h2>
+              <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-4 sm:p-5">
+                <div className="h-[280px] w-full min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis
+                        dataKey="fecha"
+                        tick={{ fill: '#a3a3a3', fontSize: 11 }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: '#a3a3a3', fontSize: 11 }}
+                        tickLine={false}
+                        tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgb(38 38 38)',
+                          border: '1px solid rgb(64 64 64)',
+                          borderRadius: '8px',
+                        }}
+                        labelStyle={{ color: '#e5e5e5' }}
+                        formatter={(value: number | undefined) => [value != null ? formatMoney(value) : '—', '']}
+                        labelFormatter={(label) => `Fecha: ${label}`}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: '12px' }}
+                        formatter={() => 'Ingresos'}
+                        iconType="rect"
+                        iconSize={10}
+                      />
+                      <Bar dataKey="Ingresos" fill="rgb(168 85 247)" radius={[4, 4, 0, 0]} name="Ingresos" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                {openSection === 'revenue' ? (
-                  <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                )}
-              </button>
-              {openSection === 'revenue' && (
-                <div className="border-t border-neutral-800/80 px-3 pb-4 pt-2 sm:px-5 sm:pb-5">
-                  {revenueOverTime.buckets.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-neutral-500">No hay ingresos registrados en este periodo.</p>
-                  ) : (
-                    <>
-                      <div className="md:hidden divide-y divide-neutral-800/60">
-                        {revenueOverTime.buckets.map((b) => (
-                          <div key={b.date} className="py-3 first:pt-2">
-                            <p className="font-medium text-neutral-100 text-sm">{formatDate(b.date)}</p>
-                            <div className="mt-1 flex justify-between text-sm">
-                              <span className="text-neutral-400">Pedidos</span>
-                              <span className="text-neutral-200">{b.ordersCount}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-neutral-400">Ingresos</span>
-                              <span className="text-neutral-200 font-medium">{formatMoney(b.revenue, b.currency)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-sm min-w-[320px]">
-                          <thead>
-                            <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
-                              <th className="py-2 font-medium">Fecha</th>
-                              <th className="py-2 text-right font-medium">Pedidos</th>
-                              <th className="py-2 text-right font-medium">Ingresos</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {revenueOverTime.buckets.map((b, idx) => (
-                              <tr key={b.date} className={cn('border-b border-neutral-800/60', idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent', 'hover:bg-neutral-800/40')}>
-                                <td className="py-2 text-neutral-200">{formatDate(b.date)}</td>
-                                <td className="py-2 text-right text-neutral-200">{b.ordersCount}</td>
-                                <td className="py-2 text-right text-neutral-200">{formatMoney(b.revenue, b.currency)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
+              </div>
+            </div>
           )}
 
-          {/* Top productos */}
-          {topProducts && (
-            <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-              <button
-                type="button"
-                onClick={() => toggleSection('top')}
-                className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-              >
-                <div className="text-left min-w-0 flex-1">
-                  <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                    <TrendingUp className="h-4 w-4 text-primary-400 flex-shrink-0" />
-                    Los que más ingresos generaron {topProducts.top.length > 0 && `(${topProducts.top.length})`}
-                  </span>
-                  <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                    Ordenados por dinero generado en el periodo
-                  </p>
-                </div>
-                {openSection === 'top' ? (
-                  <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                )}
-              </button>
-              {openSection === 'top' && (
-                <div className="border-t border-neutral-800/80">
-                  {topProducts.top.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-neutral-500 px-3">No hay ventas en este periodo.</p>
-                  ) : (
-                    <>
-                      <div className="md:hidden divide-y divide-neutral-800/60">
-                        {topProducts.top.map((row, idx) => (
-                          <div key={row.productId} className="px-3 py-3 bg-neutral-900/30 first:bg-transparent">
-                            <p className="font-medium text-neutral-100 text-sm">
-                              {idx + 1}. {row.productName}
-                            </p>
-                            <p className="text-xs text-neutral-500 mt-0.5">{row.categoryName ?? '—'}</p>
-                            <div className="mt-2 flex justify-between text-sm">
-                              <span className="text-neutral-400">Unidades</span>
-                              <span className="text-neutral-200">{row.unitsSold}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-neutral-400">Ingresos</span>
-                              <span className="text-neutral-200 font-medium">{formatMoney(row.revenue)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-sm min-w-[500px]">
-                          <thead>
-                            <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
-                              <th className="px-4 py-3 font-medium">Producto</th>
-                              <th className="px-4 py-3 font-medium">Categoría</th>
-                              <th className="px-4 py-3 font-medium text-right">Unidades</th>
-                              <th className="px-4 py-3 font-medium text-right">Ingresos</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {topProducts.top.map((row, idx) => (
-                              <tr key={row.productId} className={cn('border-b border-neutral-800/60', idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent', 'hover:bg-neutral-800/40')}>
-                                <td className="px-4 py-2.5 text-neutral-200">{row.productName}</td>
-                                <td className="px-4 py-2.5 text-neutral-400">{row.categoryName ?? '—'}</td>
-                                <td className="px-4 py-2.5 text-right text-neutral-200">{row.unitsSold}</td>
-                                <td className="px-4 py-2.5 text-right text-neutral-200">{formatMoney(row.revenue)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Pedidos cancelados */}
-          {cancelledReport && (
-            <section className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 overflow-hidden shadow-sm">
-              <button
-                type="button"
-                onClick={() => toggleSection('cancelled')}
-                className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-3.5 text-left hover:bg-neutral-800/30 transition-colors rounded-t-xl touch-manipulation min-w-0"
-              >
-                <div className="text-left min-w-0 flex-1">
-                  <span className="font-medium text-neutral-100 flex items-center gap-2 flex-wrap">
-                    <XCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
-                    Pedidos cancelados ({cancelledReport.summary.cancelledOrdersCount})
-                  </span>
-                  <p className="mt-0.5 text-xs font-normal text-neutral-500">
-                    Pedidos que se cancelaron en el periodo (valor que no se cobró)
-                  </p>
-                </div>
-                {openSection === 'cancelled' ? (
-                  <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4 text-neutral-500 flex-shrink-0" />
-                )}
-              </button>
-              {openSection === 'cancelled' && (
-                <div className="border-t border-neutral-800/80 px-3 pb-4 pt-2 sm:px-5 sm:pb-5">
-                  <p className="text-sm text-neutral-400 mb-3">
-                    <strong>Valor que no se cobró:</strong> {formatMoney(cancelledReport.summary.totalValueLost)}
-                  </p>
-                  {cancelledReport.cancelledOrders.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-neutral-500">No hay pedidos cancelados en este periodo.</p>
-                  ) : (
-                    <>
-                      <div className="md:hidden divide-y divide-neutral-800/60">
-                        {cancelledReport.cancelledOrders.map((o) => (
-                          <div key={o.requestId} className="py-3 first:pt-0">
-                            <p className="font-medium text-neutral-100 text-sm">#{o.orderNumber}</p>
-                            <p className="text-xs text-neutral-500 mt-0.5">{o.customerName ?? o.customerPhone ?? '—'}</p>
-                            <div className="mt-2 flex justify-between text-sm">
-                              <span className="text-neutral-400">Total</span>
-                              <span className="text-neutral-200 font-medium">{formatMoney(o.total, o.currency)}</span>
-                            </div>
-                            <p className="text-xs text-neutral-500 mt-1">{formatDate(o.updatedAt)}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-sm min-w-[400px]">
-                          <thead>
-                            <tr className="border-b border-neutral-700/80 text-left text-neutral-400">
-                              <th className="py-2 font-medium">Pedido</th>
-                              <th className="py-2 font-medium">Cliente</th>
-                              <th className="py-2 text-right font-medium">Total</th>
-                              <th className="py-2 font-medium">Fecha</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {cancelledReport.cancelledOrders.map((o, idx) => (
-                              <tr key={o.requestId} className={cn('border-b border-neutral-800/60', idx % 2 === 0 ? 'bg-neutral-900/30' : 'bg-transparent', 'hover:bg-neutral-800/40')}>
-                                <td className="py-2 text-neutral-200">#{o.orderNumber}</td>
-                                <td className="py-2 text-neutral-400">{o.customerName ?? o.customerPhone ?? '—'}</td>
-                                <td className="py-2 text-right text-neutral-200">{formatMoney(o.total, o.currency)}</td>
-                                <td className="py-2 text-neutral-400">{formatDate(o.updatedAt)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
+          {chartData.length === 0 && hasData && (
+            <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/50 p-6 text-center text-sm text-neutral-500">
+              No hay ingresos registrados día a día en este periodo.
+            </div>
           )}
         </div>
       )}

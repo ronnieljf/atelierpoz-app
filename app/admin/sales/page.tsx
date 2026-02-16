@@ -847,7 +847,10 @@ export default function SalesPage() {
                 className="h-12 min-h-[48px] w-full rounded-xl border border-neutral-700 bg-neutral-800/50 pl-12 pr-4 text-base text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation"
               />
             </div>
-            <div className="min-h-[200px] flex-1 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900/40 lg:max-h-[320px] lg:flex-none">
+
+            {/* Resultados de búsqueda de productos (solo visible cuando hay texto en el buscador) */}
+            {productSearch.trim() && (
+            <div className="mb-4 min-h-[200px] flex-1 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900/40 lg:mb-6 lg:max-h-[320px] lg:flex-none">
               {searching ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
@@ -966,75 +969,25 @@ export default function SalesPage() {
                 </div>
               )}
             </div>
-          </div>
+            )}
 
-          {/* Col 2: Cart + Client + Payment — sticky on mobile for easy reach */}
-          <div className="sticky bottom-0 z-10 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900/95 p-4 shadow-[0_-4px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm lg:static lg:border lg:bg-neutral-900/60 lg:shadow-none lg:backdrop-blur-none">
-            {/* Client */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4">
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-neutral-500">
-                Cliente *
-              </label>
-              <div className="relative">
-                <UserCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Buscar o registrar..."
-                  value={selectedClient ? `${selectedClient.name ?? ''} ${selectedClient.phone ?? ''}`.trim() : clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value);
-                    setSelectedClient(null);
-                  }}
-                  className="h-12 min-h-[48px] w-full rounded-xl border border-neutral-700 bg-neutral-800/50 pl-11 pr-12 text-base text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation sm:h-10 sm:min-h-0 sm:rounded-lg sm:pr-10 sm:text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewClientModal(true)}
-                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 touch-manipulation active:bg-neutral-600 sm:h-8 sm:w-8"
-                  title="Nuevo cliente"
-                  aria-label="Nuevo cliente"
-                >
-                  <UserPlus className="h-5 w-5 sm:h-4 sm:w-4" />
-                </button>
-              </div>
-              {showClientDropdown && !selectedClient && clientResults.length > 0 && (
-                <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-neutral-700 bg-neutral-800 py-1 shadow-xl">
-                  {clientResults.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedClient(c);
-                          setClientSearch('');
-                          setShowClientDropdown(false);
-                        }}
-                        className="min-h-[44px] w-full touch-manipulation px-4 py-3 text-left text-sm text-neutral-200 active:bg-neutral-700 hover:bg-neutral-700"
-                      >
-                        {c.name || 'Sin nombre'} · {c.phone || ''}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Cart */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4">
+            {/* Carrito: lista de productos agregados (debajo de resultados de búsqueda) */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-3 sm:p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-neutral-200">
                 <ShoppingCart className="h-4 w-4 shrink-0" />
                 Carrito ({cart.length})
               </h3>
-              <div className="max-h-40 space-y-2 overflow-y-auto overscroll-contain sm:max-h-48">
+              <div className="max-h-56 space-y-2 overflow-y-auto overscroll-contain sm:max-h-72 lg:max-h-[280px]">
                 {cart.length === 0 ? (
                   <p className="py-4 text-center text-sm text-neutral-500">Vacío</p>
                 ) : (
                   cart.map((line, i) => (
                     <div
                       key={`${line.productId}-${line.combinationId ?? 'base'}-${i}`}
-                      className="flex items-center gap-2 rounded-xl bg-neutral-800/40 px-3 py-2.5"
+                      className="flex items-start gap-2 rounded-xl bg-neutral-800/40 px-3 py-2.5"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-neutral-100">
+                        <p className="text-sm font-medium text-neutral-100 break-words line-clamp-3">
                           {line.displayName}
                         </p>
                         {line.selectedVariants && line.selectedVariants.length > 0 && (
@@ -1092,11 +1045,64 @@ export default function SalesPage() {
                   ))
                 )}
               </div>
-              <div className="mt-3 border-t border-neutral-700 pt-3">
-                <p className="flex justify-between text-lg font-semibold text-neutral-100">
-                  Total: <span>{cartTotal.toFixed(2)} {currency}</span>
-                </p>
+            </div>
+          </div>
+
+          {/* Col 2: Client + Total + Payment — sticky on mobile for easy reach */}
+          <div className="sticky bottom-0 z-10 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900/95 p-4 shadow-[0_-4px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm lg:static lg:border lg:bg-neutral-900/60 lg:shadow-none lg:backdrop-blur-none">
+            {/* Client */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4">
+              <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-neutral-500">
+                Cliente *
+              </label>
+              <div className="relative">
+                <UserCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar o registrar..."
+                  value={selectedClient ? `${selectedClient.name ?? ''} ${selectedClient.phone ?? ''}`.trim() : clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setSelectedClient(null);
+                  }}
+                  className="h-12 min-h-[48px] w-full rounded-xl border border-neutral-700 bg-neutral-800/50 pl-11 pr-12 text-base text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation sm:h-10 sm:min-h-0 sm:rounded-lg sm:pr-10 sm:text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewClientModal(true)}
+                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 touch-manipulation active:bg-neutral-600 sm:h-8 sm:w-8"
+                  title="Nuevo cliente"
+                  aria-label="Nuevo cliente"
+                >
+                  <UserPlus className="h-5 w-5 sm:h-4 sm:w-4" />
+                </button>
               </div>
+              {showClientDropdown && !selectedClient && clientResults.length > 0 && (
+                <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-neutral-700 bg-neutral-800 py-1 shadow-xl">
+                  {clientResults.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient(c);
+                          setClientSearch('');
+                          setShowClientDropdown(false);
+                        }}
+                        className="min-h-[44px] w-full touch-manipulation px-4 py-3 text-left text-sm text-neutral-200 active:bg-neutral-700 hover:bg-neutral-700"
+                      >
+                        {c.name || 'Sin nombre'} · {c.phone || ''}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Total */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4">
+              <p className="flex justify-between items-center text-lg font-semibold text-neutral-100">
+                Total: <span className="text-xl text-primary-400">{cartTotal.toFixed(2)} {currency}</span>
+              </p>
             </div>
 
             {/* Payment type */}

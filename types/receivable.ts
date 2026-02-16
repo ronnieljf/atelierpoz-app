@@ -24,6 +24,10 @@ export interface Receivable {
   createdAt: string;
   updatedAt: string;
   storeName?: string;
+  /** Número de productos (líneas) cuando la cuenta viene de un pedido; null si es manual o no aplica. */
+  itemsCount?: number | null;
+  /** Número de pedido (order_number del request vinculado) cuando la cuenta viene de un pedido. */
+  orderNumber?: number | null;
 }
 
 export interface InitialPaymentData {

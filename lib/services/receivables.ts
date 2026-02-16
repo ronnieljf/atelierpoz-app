@@ -45,6 +45,10 @@ type ApiReceivable = Record<string, unknown> & {
   updatedAt?: unknown;
   store_name?: unknown;
   storeName?: unknown;
+  items_count?: unknown;
+  itemsCount?: unknown;
+  order_number?: unknown;
+  orderNumber?: unknown;
 };
 
 function toStringOrNull(v: unknown): string | null {
@@ -75,6 +79,18 @@ function formatReceivable(r: ApiReceivable): Receivable {
     createdAt: toStr(r.createdAt ?? r.created_at),
     updatedAt: toStr(r.updatedAt ?? r.updated_at),
     storeName: typeof r.storeName === 'string' ? r.storeName : (typeof r.store_name === 'string' ? r.store_name : undefined),
+    itemsCount:
+      typeof r.itemsCount === 'number'
+        ? r.itemsCount
+        : typeof r.items_count === 'number'
+          ? r.items_count
+          : undefined,
+    orderNumber:
+      typeof r.orderNumber === 'number'
+        ? r.orderNumber
+        : typeof r.order_number === 'number'
+          ? r.order_number
+          : undefined,
   };
 }
 
