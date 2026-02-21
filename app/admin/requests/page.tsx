@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getRequests, updateRequestStatus, type Request } from '@/lib/services/requests';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Package, CheckCircle, XCircle, ChevronLeft, ChevronRight, Loader2, Eye, PlayCircle, Receipt, MessageCircle } from 'lucide-react';
+import { Package, CheckCircle, XCircle, ChevronLeft, ChevronRight, Loader2, Eye, PlayCircle, Receipt, MessageCircle, Truck, Store, MapPin, Clock, User, Phone, MessageSquare } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { openWhatsAppForRequest } from '@/lib/utils/whatsapp';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -389,6 +389,15 @@ export default function RequestsPage() {
                             Cuenta generada
                           </span>
                         )}
+                        <span className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium border whitespace-nowrap',
+                          request.deliveryMethod === 'delivery'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : 'bg-neutral-500/10 text-neutral-400 border-neutral-500/30'
+                        )}>
+                          {request.deliveryMethod === 'delivery' ? <Truck className="h-3 w-3" /> : <Store className="h-3 w-3" />}
+                          {request.deliveryMethod === 'delivery' ? 'Delivery' : 'Retiro'}
+                        </span>
                       </div>
                     </div>
                     
@@ -683,6 +692,69 @@ export default function RequestsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Método de entrega */}
+                <div className={cn(
+                  'rounded-2xl border p-4 sm:p-6',
+                  selectedRequest.deliveryMethod === 'delivery'
+                    ? 'border-amber-500/30 bg-amber-500/5'
+                    : 'border-neutral-700/50 bg-neutral-800/30'
+                )}>
+                  <h3 className="text-sm font-medium uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
+                    {selectedRequest.deliveryMethod === 'delivery' ? <Truck className="h-4 w-4 text-amber-400" /> : <Store className="h-4 w-4 text-neutral-400" />}
+                    {selectedRequest.deliveryMethod === 'delivery' ? 'Delivery / Envío' : 'Retiro en tienda'}
+                  </h3>
+
+                  {selectedRequest.deliveryMethod === 'pickup' && (
+                    <p className="text-sm text-neutral-400">El cliente retirará el pedido en la tienda.</p>
+                  )}
+
+                  {selectedRequest.deliveryMethod === 'delivery' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {selectedRequest.deliveryAddress && (
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><MapPin className="h-3 w-3" /> Dirección</p>
+                          <p className="text-sm font-medium text-neutral-100">{selectedRequest.deliveryAddress}</p>
+                        </div>
+                      )}
+                      {selectedRequest.deliveryReference && (
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><MapPin className="h-3 w-3" /> Punto de referencia</p>
+                          <p className="text-sm font-medium text-neutral-100">{selectedRequest.deliveryReference}</p>
+                        </div>
+                      )}
+                      {selectedRequest.deliveryRecipientName && (
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><User className="h-3 w-3" /> Quien recibe</p>
+                          <p className="text-sm font-medium text-neutral-100">{selectedRequest.deliveryRecipientName}</p>
+                        </div>
+                      )}
+                      {selectedRequest.deliveryRecipientPhone && (
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><Phone className="h-3 w-3" /> Teléfono de quien recibe</p>
+                          <p className="text-sm font-medium text-neutral-100">{selectedRequest.deliveryRecipientPhone}</p>
+                        </div>
+                      )}
+                      {selectedRequest.deliveryDate && (
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><Clock className="h-3 w-3" /> Fecha y hora de entrega</p>
+                          <p className="text-sm font-medium text-neutral-100">
+                            {new Date(selectedRequest.deliveryDate).toLocaleString('es-ES', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      )}
+                      {selectedRequest.deliveryNotes && (
+                        <div className="sm:col-span-2">
+                          <p className="text-xs text-neutral-500 mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Nota / Dedicatoria</p>
+                          <p className="text-sm font-medium text-neutral-100 whitespace-pre-wrap">{selectedRequest.deliveryNotes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Productos */}

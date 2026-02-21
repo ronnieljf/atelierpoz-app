@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store/auth-store';
 import { AuthProvider } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { LogOut, Package, Users, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { LogOut, Package, Users, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
@@ -148,96 +148,99 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            {/* ── Catálogo ── */}
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-              Operaciones
+              Catálogo
             </p>
-            <Link
-              href="/admin/products"
-              className={navLinkClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}
-            >
-              {(pathname === '/admin/products' || pathname.startsWith('/admin/products/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}>
-                <Package className="h-4 w-4" />
-              </span>
+            <Link href="/admin/products" className={navLinkClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}>
+              {(pathname === '/admin/products' || pathname.startsWith('/admin/products/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}><Package className="h-4 w-4" /></span>
               <span className="truncate">{dict.admin.navigation.listProducts}</span>
             </Link>
-            <Link
-              href="/admin/requests"
-              className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}
-            >
-              {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}>
-                <ShoppingBag className="h-4 w-4" />
-              </span>
-              <span className="truncate">Pedidos</span>
-            </Link>
-            <Link
-              href="/admin/sales"
-              className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}
-            >
-              {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
-                <ShoppingCart className="h-4 w-4" />
-              </span>
-              <span className="truncate">Punto de Venta</span>
-            </Link>
-            <Link
-              href="/admin/receivables"
-              className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}
-            >
-              {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}>
-                <Receipt className="h-4 w-4" />
-              </span>
-              <span className="truncate">Cuentas por cobrar</span>
-            </Link>
-            <Link
-              href="/admin/reports"
-              className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}
-            >
-              {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}>
-                <BarChart3 className="h-4 w-4" />
-              </span>
-              <span className="truncate">Reportes</span>
-            </Link>
-            <Link
-              href="/admin/clients"
-              className={navLinkClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}
-            >
-              {(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}>
-                <UserCircle className="h-4 w-4" />
-              </span>
-              <span className="truncate">Clientes</span>
-            </Link>
-            <Link
-              href="/admin/categories"
-              className={navLinkClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}
-            >
-              {(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/')) && (
-                <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-              )}
-              <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}>
-                <FolderTree className="h-4 w-4" />
-              </span>
-              <span className="truncate">Categorías</span>
+            <Link href="/admin/categories" className={navLinkClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}>
+              {(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
+              <span className="truncate">Categorías de Productos</span>
             </Link>
 
             <div className="my-4 border-t border-neutral-800/80" />
 
+            {/* ── Ingresos ── */}
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-green-500/80">
+              Ingresos
+            </p>
+            <Link href="/admin/sales" className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
+              {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}><ShoppingCart className="h-4 w-4" /></span>
+              <span className="truncate">Ventas</span>
+            </Link>
+            <Link href="/admin/receivables" className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}>
+              {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}><Receipt className="h-4 w-4" /></span>
+              <span className="truncate">Cuentas por cobrar</span>
+            </Link>
+            <Link href="/admin/requests" className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}>
+              {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}><ShoppingBag className="h-4 w-4" /></span>
+              <span className="truncate">Pedidos</span>
+            </Link>
+            <Link href="/admin/income-categories" className={navLinkClass(pathname === '/admin/income-categories')}>
+              {pathname === '/admin/income-categories' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/income-categories')}><Tag className="h-4 w-4" /></span>
+              <span className="truncate">Categorías de Ingresos</span>
+            </Link>
+
+            <div className="my-4 border-t border-neutral-800/80" />
+
+            {/* ── Egresos ── */}
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-red-500/80">
+              Egresos
+            </p>
+            <Link href="/admin/purchases" className={navLinkClass(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/'))}>
+              {(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/'))}><ClipboardList className="h-4 w-4" /></span>
+              <span className="truncate">Compras</span>
+            </Link>
+            <Link href="/admin/expenses" className={navLinkClass(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/'))}>
+              {(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/'))}><Wallet className="h-4 w-4" /></span>
+              <span className="truncate">Cuentas por pagar</span>
+            </Link>
+            <Link href="/admin/expense-categories" className={navLinkClass(pathname === '/admin/expense-categories')}>
+              {pathname === '/admin/expense-categories' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/expense-categories')}><Tag className="h-4 w-4" /></span>
+              <span className="truncate">Categorías de Egresos</span>
+            </Link>
+
+            <div className="my-4 border-t border-neutral-800/80" />
+
+            {/* ── Contactos ── */}
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+              Contactos
+            </p>
+            <Link href="/admin/clients" className={navLinkClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}>
+              {(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}><UserCircle className="h-4 w-4" /></span>
+              <span className="truncate">Clientes</span>
+            </Link>
+            <Link href="/admin/vendors" className={navLinkClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))}>
+              {(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))}><Truck className="h-4 w-4" /></span>
+              <span className="truncate">Proveedores</span>
+            </Link>
+
+            <div className="my-4 border-t border-neutral-800/80" />
+
+            {/* ── Reportes ── */}
+            <Link href="/admin/reports" className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}>
+              {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}><BarChart3 className="h-4 w-4" /></span>
+              <span className="truncate">Reportes</span>
+            </Link>
+
+            <div className="my-4 border-t border-neutral-800/80" />
+
+            {/* ── Configuración ── */}
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Configuración
             </p>
@@ -356,104 +359,87 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                  Operaciones
-                </p>
-                <Link
-                  href="/admin/products"
-                  className={navLinkClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/products' || pathname.startsWith('/admin/products/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}>
-                    <Package className="h-4 w-4" />
-                  </span>
+                {/* ── Catálogo ── */}
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Catálogo</p>
+                <Link href="/admin/products" className={navLinkClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/products' || pathname.startsWith('/admin/products/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/products' || pathname.startsWith('/admin/products/'))}><Package className="h-4 w-4" /></span>
                   <span className="truncate">{dict.admin.navigation.listProducts}</span>
                 </Link>
-                <Link
-                  href="/admin/requests"
-                  className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}>
-                    <ShoppingBag className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Pedidos</span>
-                </Link>
-                <Link
-                  href="/admin/sales"
-                  className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}>
-                    <ShoppingCart className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Punto de Venta</span>
-                </Link>
-                <Link
-                  href="/admin/receivables"
-                  className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}>
-                    <Receipt className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Cuentas por cobrar</span>
-                </Link>
-                <Link
-                  href="/admin/reports"
-                  className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}>
-                    <BarChart3 className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Reportes</span>
-                </Link>
-                <Link
-                  href="/admin/clients"
-                  className={navLinkClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}>
-                    <UserCircle className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Clientes</span>
-                </Link>
-                <Link
-                  href="/admin/categories"
-                  className={navLinkClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}
-                  onClick={() => setMobileSidebarOpen(false)}
-                >
-                  {(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/')) && (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                  )}
-                  <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}>
-                    <FolderTree className="h-4 w-4" />
-                  </span>
-                  <span className="truncate">Categorías</span>
+                <Link href="/admin/categories" className={navLinkClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
+                  <span className="truncate">Categorías de Productos</span>
                 </Link>
                 <div className="my-4 border-t border-neutral-800/80" />
-                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                  Configuración
-                </p>
+
+                {/* ── Ingresos ── */}
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-green-500/80">Ingresos</p>
+                <Link href="/admin/sales" className={navLinkClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/sales' || pathname.startsWith('/admin/sales/'))}><ShoppingCart className="h-4 w-4" /></span>
+                  <span className="truncate">Ventas</span>
+                </Link>
+                <Link href="/admin/receivables" className={navLinkClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}><Receipt className="h-4 w-4" /></span>
+                  <span className="truncate">Cuentas por cobrar</span>
+                </Link>
+                <Link href="/admin/requests" className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}><ShoppingBag className="h-4 w-4" /></span>
+                  <span className="truncate">Pedidos</span>
+                </Link>
+                <Link href="/admin/income-categories" className={navLinkClass(pathname === '/admin/income-categories')} onClick={() => setMobileSidebarOpen(false)}>
+                  {pathname === '/admin/income-categories' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/income-categories')}><Tag className="h-4 w-4" /></span>
+                  <span className="truncate">Categorías de Ingresos</span>
+                </Link>
+                <div className="my-4 border-t border-neutral-800/80" />
+
+                {/* ── Egresos ── */}
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-red-500/80">Egresos</p>
+                <Link href="/admin/purchases" className={navLinkClass(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/purchases' || pathname.startsWith('/admin/purchases/'))}><ClipboardList className="h-4 w-4" /></span>
+                  <span className="truncate">Compras</span>
+                </Link>
+                <Link href="/admin/expenses" className={navLinkClass(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/expenses' || pathname.startsWith('/admin/expenses/'))}><Wallet className="h-4 w-4" /></span>
+                  <span className="truncate">Cuentas por pagar</span>
+                </Link>
+                <Link href="/admin/expense-categories" className={navLinkClass(pathname === '/admin/expense-categories')} onClick={() => setMobileSidebarOpen(false)}>
+                  {pathname === '/admin/expense-categories' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/expense-categories')}><Tag className="h-4 w-4" /></span>
+                  <span className="truncate">Categorías de Egresos</span>
+                </Link>
+                <div className="my-4 border-t border-neutral-800/80" />
+
+                {/* ── Contactos ── */}
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Contactos</p>
+                <Link href="/admin/clients" className={navLinkClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}><UserCircle className="h-4 w-4" /></span>
+                  <span className="truncate">Clientes</span>
+                </Link>
+                <Link href="/admin/vendors" className={navLinkClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))}><Truck className="h-4 w-4" /></span>
+                  <span className="truncate">Proveedores</span>
+                </Link>
+                <div className="my-4 border-t border-neutral-800/80" />
+
+                {/* ── Reportes ── */}
+                <Link href="/admin/reports" className={navLinkClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/reports' || pathname.startsWith('/admin/reports/'))}><BarChart3 className="h-4 w-4" /></span>
+                  <span className="truncate">Reportes</span>
+                </Link>
+                <div className="my-4 border-t border-neutral-800/80" />
+
+                {/* ── Configuración ── */}
+                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Configuración</p>
                 {isAdmin && (
                   <Link
                     href="/admin/users"

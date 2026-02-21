@@ -5,6 +5,8 @@
 import { httpClient } from '@/lib/http/client';
 import { type CartItem } from '@/types/product';
 
+export type DeliveryMethod = 'pickup' | 'delivery';
+
 export interface Request {
   id: string;
   storeId: string;
@@ -17,9 +19,15 @@ export interface Request {
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   total: number;
   currency: string;
+  deliveryMethod: DeliveryMethod;
+  deliveryAddress?: string | null;
+  deliveryReference?: string | null;
+  deliveryRecipientName?: string | null;
+  deliveryRecipientPhone?: string | null;
+  deliveryDate?: string | null;
+  deliveryNotes?: string | null;
   createdAt: string;
   updatedAt: string;
-  /** true si ya existe una cuenta por cobrar creada desde este pedido */
   hasReceivable?: boolean;
 }
 
@@ -33,6 +41,37 @@ export interface CreateRequestData {
   total: number;
   currency?: string;
   status?: 'pending' | 'processing' | 'completed' | 'cancelled';
+  deliveryMethod?: DeliveryMethod;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  deliveryRecipientName?: string;
+  deliveryRecipientPhone?: string;
+  deliveryDate?: string;
+  deliveryNotes?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRequestFromApi(raw: any): Request {
+  return {
+    ...raw,
+    storeId: raw.store_id || raw.storeId,
+    orderNumber: raw.order_number ?? raw.orderNumber,
+    customerName: raw.customer_name || raw.customerName,
+    customerPhone: raw.customer_phone || raw.customerPhone,
+    customerEmail: raw.customer_email || raw.customerEmail,
+    customMessage: raw.custom_message || raw.customMessage,
+    deliveryMethod: raw.delivery_method || raw.deliveryMethod || 'pickup',
+    deliveryAddress: raw.delivery_address ?? raw.deliveryAddress ?? null,
+    deliveryReference: raw.delivery_reference ?? raw.deliveryReference ?? null,
+    deliveryRecipientName: raw.delivery_recipient_name ?? raw.deliveryRecipientName ?? null,
+    deliveryRecipientPhone: raw.delivery_recipient_phone ?? raw.deliveryRecipientPhone ?? null,
+    deliveryDate: raw.delivery_date ?? raw.deliveryDate ?? null,
+    deliveryNotes: raw.delivery_notes ?? raw.deliveryNotes ?? null,
+    createdAt: raw.created_at || raw.createdAt,
+    updatedAt: raw.updated_at || raw.updatedAt,
+    total: typeof raw.total === 'string' ? parseFloat(raw.total) : (raw.total || 0),
+    hasReceivable: raw.has_receivable ?? raw.hasReceivable ?? false,
+  };
 }
 
 /**
@@ -59,19 +98,7 @@ export async function createRequest(data: CreateRequestData): Promise<Request | 
     const result = await response.json();
 
     if (result.success && result.request) {
-      const req = result.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
-      return {
-        ...req,
-        storeId: req.store_id || req.storeId,
-        orderNumber: req.order_number ?? req.orderNumber,
-        customerName: req.customer_name || req.customerName,
-        customerPhone: req.customer_phone || req.customerPhone,
-        customerEmail: req.customer_email || req.customerEmail,
-        customMessage: req.custom_message || req.customMessage,
-        createdAt: req.created_at || req.createdAt,
-        updatedAt: req.updated_at || req.updatedAt,
-        total: typeof req.total === 'string' ? parseFloat(req.total) : (req.total || 0),
-      };
+      return mapRequestFromApi(result.request);
     }
     return null;
   } catch (error) {
@@ -111,19 +138,7 @@ export async function getRequests(
     }>(`/api/requests?${params.toString()}`);
 
     if (response.success && response.data) {
-      const requests = (response.data.requests || []).map((req: Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string; has_receivable?: boolean }) => ({
-        ...req,
-        storeId: req.store_id || req.storeId,
-        orderNumber: req.order_number ?? req.orderNumber,
-        customerName: req.customer_name || req.customerName,
-        customerPhone: req.customer_phone || req.customerPhone,
-        customerEmail: req.customer_email || req.customerEmail,
-        customMessage: req.custom_message || req.customMessage,
-        createdAt: req.created_at || req.createdAt,
-        updatedAt: req.updated_at || req.updatedAt,
-        total: typeof req.total === 'string' ? parseFloat(req.total) : (req.total || 0),
-        hasReceivable: req.has_receivable ?? req.hasReceivable ?? false,
-      }));
+      const requests = (response.data.requests || []).map(mapRequestFromApi);
       return {
         requests,
         total: response.data.total || 0,
@@ -147,19 +162,7 @@ export async function getRequestById(requestId: string, storeId: string): Promis
     }>(`/api/requests/${requestId}?storeId=${storeId}`);
 
     if (response.success && response.data?.request) {
-      const req = response.data.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
-      return {
-        ...req,
-        storeId: req.store_id || req.storeId,
-        orderNumber: req.order_number ?? req.orderNumber,
-        customerName: req.customer_name || req.customerName,
-        customerPhone: req.customer_phone || req.customerPhone,
-        customerEmail: req.customer_email || req.customerEmail,
-        customMessage: req.custom_message || req.customMessage,
-        createdAt: req.created_at || req.createdAt,
-        updatedAt: req.updated_at || req.updatedAt,
-        total: typeof req.total === 'string' ? parseFloat(req.total) : (req.total || 0),
-      };
+      return mapRequestFromApi(response.data.request);
     }
     return null;
   } catch (error) {
@@ -186,19 +189,7 @@ export async function updateRequestStatus(
     });
 
     if (response.success && response.data?.request) {
-      const req = response.data.request as Request & { store_id?: string; order_number?: number; customer_name?: string; customer_phone?: string; customer_email?: string; custom_message?: string; created_at?: string; updated_at?: string };
-      return {
-        ...req,
-        storeId: req.store_id || req.storeId,
-        orderNumber: req.order_number ?? req.orderNumber,
-        customerName: req.customer_name || req.customerName,
-        customerPhone: req.customer_phone || req.customerPhone,
-        customerEmail: req.customer_email || req.customerEmail,
-        customMessage: req.custom_message || req.customMessage,
-        createdAt: req.created_at || req.createdAt,
-        updatedAt: req.updated_at || req.updatedAt,
-        total: typeof req.total === 'string' ? parseFloat(req.total) : (req.total || 0),
-      };
+      return mapRequestFromApi(response.data.request);
     }
     return null;
   } catch (error) {

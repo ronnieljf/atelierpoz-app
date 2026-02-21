@@ -721,14 +721,14 @@ export default function ReceivablesPage() {
               <p className="mb-4 text-sm text-neutral-400">
                 Elige el rango de fechas (por fecha de creación). Máximo 366 días.
               </p>
-              <div className="mb-4 grid gap-4 sm:grid-cols-2">
+              <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-neutral-400">Desde fecha</label>
                   <input
                     type="date"
                     value={exportDateFrom}
                     onChange={(e) => setExportDateFrom(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    className="h-12 w-full min-w-0 appearance-none rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-11 sm:text-sm"
                   />
                 </div>
                 <div>
@@ -737,7 +737,7 @@ export default function ReceivablesPage() {
                     type="date"
                     value={exportDateTo}
                     onChange={(e) => setExportDateTo(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    className="h-12 w-full min-w-0 appearance-none rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-11 sm:text-sm"
                   />
                 </div>
               </div>
@@ -1186,7 +1186,7 @@ export default function ReceivablesPage() {
               setHasLoadedOnce(false);
               setSelectedReceivableIds(new Set());
             }}
-            className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-base text-neutral-100 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3 sm:text-sm"
+            className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-base text-neutral-100 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3 sm:text-sm"
           >
             <option value="">
               {authState.stores.length === 0 ? 'No hay tiendas disponibles' : 'Selecciona una tienda...'}
@@ -1210,8 +1210,8 @@ export default function ReceivablesPage() {
                 type="text"
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="Nombre, teléfono o número de cuenta"
-                className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
+                placeholder="Nombre, teléfono o Nro de cuenta"
+                className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
               />
             </div>
             <div>
@@ -1222,7 +1222,7 @@ export default function ReceivablesPage() {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
-                className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
+                className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
               >
                 <option value="">Todos</option>
                 <option value="pending">Pendiente</option>

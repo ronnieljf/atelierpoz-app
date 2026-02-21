@@ -1,6 +1,17 @@
 import { type Cart, type CartItem } from '@/types/product';
 import { showWhatsAppBlockedNotification } from './whatsapp-fallback';
 
+export interface WhatsAppDeliveryInfo {
+  deliveryMethod: 'pickup' | 'delivery';
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  deliveryRecipientName?: string;
+  deliveryRecipientPhone?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  deliveryNotes?: string;
+}
+
 /** Imagen del ítem: variante/combinación si existe, sino imagen del producto */
 function getItemImage(item: CartItem): string {
   const variants = item.selectedVariants ?? [];
@@ -31,15 +42,14 @@ export function generateWhatsAppMessageForStore(
   locale: string,
   usdToBs?: number,
   eurToBs?: number, // eslint-disable-line @typescript-eslint/no-unused-vars
-  orderNumber?: number | null
+  orderNumber?: number | null,
+  deliveryInfo?: WhatsAppDeliveryInfo | null
 ): string {
   const isSpanish = locale === 'es';
 
   const orderRef =
     orderNumber != null && orderNumber > 0
-      ? isSpanish
-        ? ` #${orderNumber}`
-        : ` #${orderNumber}`
+      ? ` #${orderNumber}`
       : '';
   const greeting = storeName
     ? isSpanish
@@ -79,11 +89,49 @@ export function generateWhatsAppMessageForStore(
       ? '\n\nEntiendo que el precio en Bs puede variar según la tasa del día.'
       : '\n\nI understand the price in Bs may vary according to the rate of the day.';
   }
+
+  let deliveryText = '';
+  if (deliveryInfo && deliveryInfo.deliveryMethod === 'delivery') {
+    const lines: string[] = [];
+    lines.push(isSpanish ? '\n\n📦 *Datos de envío / delivery:*' : '\n\n📦 *Delivery details:*');
+    if (deliveryInfo.deliveryAddress) {
+      lines.push(`   ${isSpanish ? 'Dirección' : 'Address'}: ${deliveryInfo.deliveryAddress}`);
+    }
+    if (deliveryInfo.deliveryReference) {
+      lines.push(`   ${isSpanish ? 'Referencia' : 'Reference'}: ${deliveryInfo.deliveryReference}`);
+    }
+    if (deliveryInfo.deliveryRecipientName) {
+      lines.push(`   ${isSpanish ? 'Recibe' : 'Recipient'}: ${deliveryInfo.deliveryRecipientName}`);
+    }
+    if (deliveryInfo.deliveryRecipientPhone) {
+      lines.push(`   ${isSpanish ? 'Tlf. de quien recibe' : 'Recipient phone'}: ${deliveryInfo.deliveryRecipientPhone}`);
+    }
+    if (deliveryInfo.deliveryDate) {
+      let dateStr = deliveryInfo.deliveryDate;
+      try {
+        const d = new Date(deliveryInfo.deliveryDate);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+      } catch { /* keep raw */ }
+      const timeStr = deliveryInfo.deliveryTime || '';
+      lines.push(`   ${isSpanish ? 'Fecha' : 'Date'}: ${dateStr}${timeStr ? ` — ${timeStr}` : ''}`);
+    } else if (deliveryInfo.deliveryTime) {
+      lines.push(`   ${isSpanish ? 'Hora' : 'Time'}: ${deliveryInfo.deliveryTime}`);
+    }
+    if (deliveryInfo.deliveryNotes) {
+      lines.push(`   ${isSpanish ? 'Nota/Dedicatoria' : 'Note/Dedication'}: ${deliveryInfo.deliveryNotes}`);
+    }
+    deliveryText = lines.join('\n');
+  } else if (deliveryInfo && deliveryInfo.deliveryMethod === 'pickup') {
+    deliveryText = isSpanish ? '\n\n🏪 *Retiro en tienda*' : '\n\n🏪 *Store pickup*';
+  }
+
   const closing = isSpanish
     ? '\n\nQuedo atento. ¡Gracias!'
     : '\n\nI\'ll be waiting. Thank you!';
 
-  return greeting + itemsText + totalText + closing;
+  return greeting + itemsText + totalText + deliveryText + closing;
 }
 
 /**
@@ -108,9 +156,10 @@ export function openWhatsAppForStore(
   customMessage?: string,
   usdToBs?: number,
   eurToBs?: number,
-  orderNumber?: number | null
+  orderNumber?: number | null,
+  deliveryInfo?: WhatsAppDeliveryInfo | null
 ) {
-  const base = generateWhatsAppMessageForStore(items, storeName, locale, usdToBs, eurToBs, orderNumber);
+  const base = generateWhatsAppMessageForStore(items, storeName, locale, usdToBs, eurToBs, orderNumber, deliveryInfo);
   const prefix = customMessage?.trim();
   const message = prefix ? `${prefix}\n\n${base}` : base;
   const encodedMessage = encodeURIComponent(message);

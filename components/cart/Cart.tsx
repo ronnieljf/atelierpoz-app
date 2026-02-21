@@ -13,7 +13,7 @@ import { WHATSAPP_PHONE } from '@/constants/whatsapp';
 import { type CartItem, type StoreUser } from '@/types/product';
 import { cn } from '@/lib/utils/cn';
 import { createRequest } from '@/lib/services/requests';
-import { CustomerInfoDialog } from './CustomerInfoDialog';
+import { CustomerInfoDialog, type DeliveryInfo } from './CustomerInfoDialog';
 import { getBcvRates } from '@/lib/services/bcv';
 import { getStoreById } from '@/lib/services/stores';
 import { resolveImageUrl } from '@/lib/utils/image-url';
@@ -147,12 +147,10 @@ export function Cart({ dict, locale }: CartProps) {
     }
   };
   
-  // Manejar confirmación de datos del cliente — enviar pedido y abrir WhatsApp sin diálogo de mensaje adicional
-  const handleCustomerInfoConfirm = async (info: {
-    customerName?: string;
-    customerPhone?: string;
-  }) => {
-    // Guardar en localStorage si se proporcionaron datos
+  const handleCustomerInfoConfirm = async (
+    info: { customerName?: string; customerPhone?: string },
+    deliveryInfo: DeliveryInfo
+  ) => {
     if (info.customerName || info.customerPhone) {
       saveCustomerInfoToStorage(info);
     }
@@ -167,7 +165,12 @@ export function Cart({ dict, locale }: CartProps) {
     setCustomerInfoDialog(null);
     setCustomerInfo(null);
 
-    // Guardar el pedido en el backend y abrir WhatsApp con el número de pedido en el mensaje
+    let deliveryDateISO: string | undefined;
+    if (deliveryInfo.deliveryDate) {
+      const timePart = deliveryInfo.deliveryTime || '12:00';
+      deliveryDateISO = new Date(`${deliveryInfo.deliveryDate}T${timePart}:00`).toISOString();
+    }
+
     let orderNumber: number | undefined;
     try {
       const request = await createRequest({
@@ -177,13 +180,19 @@ export function Cart({ dict, locale }: CartProps) {
         currency: storeGroup.currency || 'USD',
         customerName: info.customerName,
         customerPhone: info.customerPhone,
+        deliveryMethod: deliveryInfo.deliveryMethod,
+        deliveryAddress: deliveryInfo.deliveryAddress,
+        deliveryReference: deliveryInfo.deliveryReference,
+        deliveryRecipientName: deliveryInfo.deliveryRecipientName,
+        deliveryRecipientPhone: deliveryInfo.deliveryRecipientPhone,
+        deliveryDate: deliveryDateISO,
+        deliveryNotes: deliveryInfo.deliveryNotes,
       });
       orderNumber = request?.orderNumber ?? undefined;
     } catch (error) {
       console.error('Error guardando pedido:', error);
     }
 
-    // eurToBs no se pasa: no enviar total a tasa euro en el mensaje de WhatsApp
     openWhatsAppForStore(
       storeGroup.items,
       storeGroup.storeName,
@@ -192,7 +201,8 @@ export function Cart({ dict, locale }: CartProps) {
       undefined,
       bcvRates.dolar > 0 ? bcvRates.dolar : undefined,
       undefined,
-      orderNumber
+      orderNumber,
+      deliveryInfo
     );
   };
   

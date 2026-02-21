@@ -95,13 +95,11 @@ export default function CategoriesPage() {
       <div className="mb-4 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
           <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">
-            Categorías
+            Categorías de Productos
           </h1>
-          {selectedStoreId && (
-            <p className="text-sm text-neutral-400">
-              {categories.length} {categories.length === 1 ? 'categoría' : 'categorías'}
-            </p>
-          )}
+          <p className="text-sm text-neutral-400">
+            Organiza tus productos por categoría{selectedStoreId ? ` · ${categories.length} ${categories.length === 1 ? 'categoría' : 'categorías'}` : ''}
+          </p>
         </div>
         <Link href="/admin/categories/create" className="w-full sm:w-auto">
           <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto">

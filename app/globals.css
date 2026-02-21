@@ -403,3 +403,14 @@ html {
 .animate-admin-loading-bar {
   animation: admin-loading-shimmer 1.2s ease-in-out infinite;
 }
+
+/* Date inputs: prevent overflow on mobile */
+input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
