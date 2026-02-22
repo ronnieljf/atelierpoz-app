@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { getExpenses, createExpense, updateExpense, createExpensePayment, getExpensePayments, getPendingTotal } from '@/lib/services/expenses';
+import { getExpenses, createExpense, updateExpense, reopenExpense, createExpensePayment, getExpensePayments, deleteExpensePayment, getPendingTotal } from '@/lib/services/expenses';
 import { getFinanceCategories, createFinanceCategory } from '@/lib/services/financeCategories';
 import { getVendors } from '@/lib/services/vendors';
 import type { Expense, ExpenseStatus, ExpensePayment, FinanceCategory } from '@/types/expense';
@@ -21,6 +21,8 @@ import {
   DollarSign,
   Tag,
   Calendar,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
@@ -82,6 +84,9 @@ export default function ExpensesPage() {
   const [creatingCat, setCreatingCat] = useState(false);
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const [detailMessage, setDetailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchExpenses = useCallback(async () => {
     if (!storeId) return;
@@ -192,8 +197,53 @@ export default function ExpensesPage() {
 
   const loadPayments = async (expense: Expense) => {
     setShowDetailModal(expense);
+    setDetailMessage(null);
     setLoadingPayments(true);
     try { setPayments(await getExpensePayments(expense.id)); } catch { setPayments([]); } finally { setLoadingPayments(false); }
+  };
+
+  const handleReopen = async () => {
+    if (!showDetailModal || !storeId) return;
+    setReopeningId(showDetailModal.id);
+    setDetailMessage(null);
+    try {
+      const updated = await reopenExpense(showDetailModal.id, storeId);
+      if (updated) {
+        setShowDetailModal(updated);
+        setPayments(await getExpensePayments(updated.id));
+        setDetailMessage({ type: 'success', text: 'Cuenta reabierta. Puedes corregir o eliminar abonos.' });
+        fetchExpenses();
+        fetchPendingTotals();
+      } else {
+        setDetailMessage({ type: 'error', text: 'No se pudo reabrir la cuenta' });
+      }
+    } catch (err) {
+      setDetailMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al reabrir' });
+    } finally {
+      setReopeningId(null);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!showDetailModal || !storeId) return;
+    setDeletingPaymentId(paymentId);
+    setDetailMessage(null);
+    try {
+      const result = await deleteExpensePayment(showDetailModal.id, paymentId, storeId);
+      if (result) {
+        setShowDetailModal(result.expense);
+        setPayments(result.payments);
+        setDetailMessage({ type: 'success', text: 'Abono eliminado. La cuenta se actualizó correctamente.' });
+        fetchExpenses();
+        fetchPendingTotals();
+      } else {
+        setDetailMessage({ type: 'error', text: 'No se pudo eliminar el abono' });
+      }
+    } catch (err) {
+      setDetailMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al eliminar' });
+    } finally {
+      setDeletingPaymentId(null);
+    }
   };
 
   const handleCreateCategory = async () => {
@@ -542,6 +592,14 @@ export default function ExpensesPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" onClick={() => setShowDetailModal(null)}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="my-auto w-full max-w-lg shrink-0 max-h-[90dvh] overflow-y-auto rounded-2xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
               <h2 className="mb-4 text-lg font-medium text-neutral-100">Cuenta #{showDetailModal.expenseNumber}</h2>
+              {detailMessage && (
+                <div className={cn(
+                  'mb-4 rounded-xl border p-3 text-sm',
+                  detailMessage.type === 'success' ? 'border-green-500/20 bg-green-500/10 text-green-400' : 'border-red-500/20 bg-red-500/10 text-red-400'
+                )}>
+                  {detailMessage.text}
+                </div>
+              )}
               <div className="space-y-2 text-sm">
                 <p className="text-neutral-300"><span className="text-neutral-500">Proveedor:</span> {showDetailModal.vendorName || '—'}</p>
                 <p className="text-neutral-300"><span className="text-neutral-500">Descripción:</span> {showDetailModal.description || '—'}</p>
@@ -565,19 +623,44 @@ export default function ExpensesPage() {
                 ) : (
                   <div className="space-y-2">
                     {payments.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between rounded-lg bg-neutral-800/40 px-3 py-2 text-sm">
-                        <div>
+                      <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-neutral-800/40 px-3 py-2 text-sm">
+                        <div className="min-w-0 flex-1">
                           <span className="font-medium text-green-400">{p.amount.toFixed(2)} {p.currency}</span>
                           {p.notes && <span className="ml-2 text-neutral-500">· {p.notes}</span>}
                         </div>
-                        <span className="text-xs text-neutral-500">{new Date(p.createdAt).toLocaleDateString('es')}</span>
+                        <span className="shrink-0 text-xs text-neutral-500">{new Date(p.createdAt).toLocaleDateString('es')}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePayment(p.id)}
+                          disabled={deletingPaymentId === p.id}
+                          className="shrink-0 rounded-lg p-1.5 text-neutral-400 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                          title="Eliminar abono"
+                          aria-label="Eliminar abono"
+                        >
+                          {deletingPaymentId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+              {showDetailModal.status === 'paid' && (
+                <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                  <p className="mb-2 text-xs text-neutral-400">Si te equivocaste al registrar el monto abonado, puedes reabrir esta cuenta para corregir o eliminar abonos.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReopen}
+                    disabled={reopeningId === showDetailModal.id}
+                    className="inline-flex items-center gap-2 text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/10"
+                  >
+                    {reopeningId === showDetailModal.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    Reabrir cuenta
+                  </Button>
+                </div>
+              )}
               <div className="mt-6 flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => setShowDetailModal(null)}>Cerrar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setShowDetailModal(null); setDetailMessage(null); }}>Cerrar</Button>
               </div>
             </motion.div>
           </motion.div>

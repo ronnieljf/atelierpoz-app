@@ -242,6 +242,22 @@ export async function updateReceivable(
 }
 
 /**
+ * Reabrir una cuenta por cobrar cobrada (volver a pendiente). Solo cuentas manuales.
+ * Permite corregir abonos si se equivocaron al registrar el monto.
+ */
+export async function reopenReceivable(receivableId: string, storeId: string): Promise<Receivable | null> {
+  const response = await httpClient.post<{ success: boolean; receivable: Receivable }>(
+    `/api/receivables/${receivableId}/reopen`,
+    { storeId }
+  );
+
+  if (response.success && response.data?.receivable) {
+    return formatReceivable(response.data.receivable as ApiReceivable);
+  }
+  return null;
+}
+
+/**
  * Cambiar los productos de una cuenta por cobrar creada desde un pedido.
  * Restaura stock de los productos viejos y descuenta el de los nuevos. Actualiza el monto de la cuenta.
  */
@@ -352,6 +368,31 @@ export async function createReceivablePayment(
     currency: data.currency ?? undefined,
     notes: data.notes ?? undefined,
   });
+
+  if (response.success && response.data) {
+    return {
+      receivable: formatReceivable(response.data.receivable as ApiReceivable),
+      payments: (response.data.payments || []).map(formatPayment),
+      totalPaid: typeof response.data.totalPaid === 'number' ? response.data.totalPaid : parseFloat(String(response.data.totalPaid ?? 0)),
+    };
+  }
+  return null;
+}
+
+/**
+ * Eliminar un abono de una cuenta por cobrar. Solo cuentas manuales.
+ */
+export async function deleteReceivablePayment(
+  receivableId: string,
+  paymentId: string,
+  storeId: string
+): Promise<{ receivable: Receivable; payments: ReceivablePayment[]; totalPaid: number } | null> {
+  const response = await httpClient.delete<{
+    success: boolean;
+    receivable: ApiReceivable;
+    payments: ApiPayment[];
+    totalPaid: number;
+  }>(`/api/receivables/${receivableId}/payments/${paymentId}?storeId=${encodeURIComponent(storeId)}`);
 
   if (response.success && response.data) {
     return {

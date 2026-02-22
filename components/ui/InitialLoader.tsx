@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 
 /**
  * Loader inicial ligero: solo CSS para no cargar framer-motion y mejorar rendimiento en móvil.
+ * Usa <img> nativo para evitar problemas con next/image en el splash (ruta estática desde public).
  */
 export function InitialLoader() {
   const [isVisible, setIsVisible] = useState(true);
@@ -28,13 +28,14 @@ export function InitialLoader() {
     >
       <div className="initial-loader-content flex flex-col items-center">
         <div className="relative w-48 sm:w-64 h-auto">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo-atelier.png"
             alt="Atelier"
             width={400}
             height={400}
             className="relative z-10 w-full h-auto object-contain"
-            priority
+            fetchPriority="high"
           />
         </div>
         <div className="mt-4 h-0.5 w-20 bg-gradient-to-r from-transparent via-primary-500/80 to-transparent initial-loader-line" />

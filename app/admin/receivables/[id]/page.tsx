@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getReceivableById, updateReceivable, getReceivablePayments, createReceivablePayment } from '@/lib/services/receivables';
+import { getReceivableById, updateReceivable, reopenReceivable, getReceivablePayments, createReceivablePayment, deleteReceivablePayment } from '@/lib/services/receivables';
 import { getRequestById, type Request } from '@/lib/services/requests';
 import type { Receivable, ReceivableStatus, ReceivablePayment } from '@/types/receivable';
 import { useAuth } from '@/lib/store/auth-store';
@@ -20,6 +20,8 @@ import {
   Wallet,
   Plus,
   MessageCircle,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { openWhatsAppForReceivable } from '@/lib/utils/whatsapp';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -72,6 +74,8 @@ export default function ReceivableDetailPage({
   const [currency, setCurrency] = useState('USD');
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<ReceivableStatus | null>(null);
+  const [reopening, setReopening] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   const [requestDetails, setRequestDetails] = useState<Request | null>(null);
   const [loadingRequest, setLoadingRequest] = useState(false);
@@ -267,6 +271,59 @@ export default function ReceivableDetailPage({
       });
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!receivable || !storeId) return;
+    setReopening(true);
+    setMessage(null);
+    try {
+      const updated = await reopenReceivable(receivable.id, storeId);
+      if (updated) {
+        setReceivable(updated);
+        loadPayments();
+        setMessage({
+          type: 'success',
+          text: 'Cuenta reabierta. Puedes corregir o agregar abonos si te equivocaste en el monto.',
+        });
+      } else {
+        setMessage({ type: 'error', text: 'No se pudo reabrir la cuenta' });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Error al reabrir la cuenta',
+      });
+    } finally {
+      setReopening(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!receivable || !storeId) return;
+    setDeletingPaymentId(paymentId);
+    setMessage(null);
+    try {
+      const result = await deleteReceivablePayment(receivable.id, paymentId, storeId);
+      if (result) {
+        setPayments(result.payments);
+        setTotalPaid(result.totalPaid);
+        setReceivable(result.receivable);
+        setMessage({
+          type: 'success',
+          text: 'Abono eliminado. La cuenta se actualizó correctamente.',
+        });
+      } else {
+        setMessage({ type: 'error', text: 'No se pudo eliminar el abono' });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Error al eliminar el abono',
+      });
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -721,6 +778,7 @@ export default function ReceivableDetailPage({
                         <th className="pb-2 pl-3 pr-2 pt-3">Fecha</th>
                         <th className="pb-2 px-2 pt-3 text-right">Monto</th>
                         <th className="pb-2 pr-3 pl-2 pt-3">Notas</th>
+                        <th className="pb-2 pr-3 pl-2 pt-3 w-12 text-right">Eliminar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800">
@@ -739,6 +797,22 @@ export default function ReceivableDetailPage({
                             {p.currency} {Number(p.amount).toFixed(2)}
                           </td>
                           <td className="pr-3 pl-2 py-2 text-neutral-400">{p.notes || '—'}</td>
+                          <td className="pr-3 pl-2 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayment(p.id)}
+                              disabled={deletingPaymentId === p.id}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                              title="Eliminar abono"
+                              aria-label="Eliminar abono"
+                            >
+                              {deletingPaymentId === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -826,6 +900,30 @@ export default function ReceivableDetailPage({
                 Cancelar cuenta
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Reabrir cuenta (cualquier cuenta cobrada) */}
+        {receivable.status === 'paid' && (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
+            <h3 className="mb-2 text-sm font-medium text-neutral-300">Reabrir cuenta</h3>
+            <p className="mb-3 text-sm text-neutral-400">
+              Si te equivocaste al registrar el monto abonado, puedes reabrir esta cuenta para que vuelva a estado pendiente y corregir o eliminar abonos. {fromPedido && 'Si la cuenta viene de un pedido, el pedido volverá a estado pendiente.'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReopen}
+              disabled={reopening}
+              className="inline-flex items-center gap-2 text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/10"
+            >
+              {reopening ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              Reabrir cuenta
+            </Button>
           </div>
         )}
       </div>

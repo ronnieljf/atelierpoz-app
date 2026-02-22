@@ -126,3 +126,35 @@ export async function createExpensePayment(expenseId: string, data: CreateExpens
   }
   return formatPayment(response.data.payment);
 }
+
+/**
+ * Reabrir una cuenta por pagar pagada (volver a pendiente).
+ */
+export async function reopenExpense(expenseId: string, storeId: string): Promise<Expense | null> {
+  const response = await httpClient.post<{ success: boolean; expense: ApiExpense }>(
+    `/api/expenses/${expenseId}/reopen`,
+    { storeId }
+  );
+  if (!response.success || !response.data?.expense) return null;
+  return formatExpense(response.data.expense);
+}
+
+/**
+ * Eliminar un abono de una cuenta por pagar.
+ */
+export async function deleteExpensePayment(
+  expenseId: string,
+  paymentId: string,
+  storeId: string
+): Promise<{ expense: Expense; payments: ExpensePayment[] } | null> {
+  const response = await httpClient.delete<{
+    success: boolean;
+    expense: ApiExpense;
+    payments: ApiPayment[];
+  }>(`/api/expenses/${expenseId}/payments/${paymentId}?storeId=${encodeURIComponent(storeId)}`);
+  if (!response.success || !response.data?.expense) return null;
+  return {
+    expense: formatExpense(response.data.expense),
+    payments: (response.data.payments || []).map(formatPayment),
+  };
+}
