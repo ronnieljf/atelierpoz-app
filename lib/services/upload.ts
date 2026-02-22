@@ -77,8 +77,34 @@ async function compressImageIfNeeded(file: File): Promise<File> {
   }
 }
 
+/** Máximo de archivos por petición (debe coincidir con el backend). Máx. 45 fotos por producto. */
+const MAX_FILES_PER_REQUEST = 45;
+
+async function uploadFilesBatch(files: File[], folder: string): Promise<UploadedFile[]> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  let url = '/api/upload';
+  if (folder) url += `?folder=${encodeURIComponent(folder)}`;
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || ''}${url}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+  }
+
+  const data: UploadResponse = await response.json();
+  if (data.success && data.files) return data.files;
+  throw new Error('Error al subir archivos');
+}
+
 /**
- * Subir uno o varios archivos
+ * Subir uno o varios archivos. Si hay más de MAX_FILES_PER_REQUEST, se envían en varios lotes.
  * @param {File[]} files - Archivos a subir
  * @param {string} folder - Carpeta donde guardar (opcional: 'products', 'posts', etc.)
  * @returns {Promise<UploadedFile[]>} Array de URLs de los archivos subidos
@@ -87,40 +113,18 @@ export async function uploadFiles(files: File[], folder: string = ''): Promise<U
   try {
     const afterHeic = await Promise.all(files.map(convertHeicToJpegIfNeeded));
     const afterCompress = await Promise.all(afterHeic.map(compressImageIfNeeded));
-    const formData = new FormData();
 
-    afterCompress.forEach((file) => {
-      formData.append('files', file);
-    });
-
-    // Construir URL con query params
-    let url = '/api/upload';
-    if (folder) {
-      url += `?folder=${encodeURIComponent(folder)}`;
+    if (afterCompress.length <= MAX_FILES_PER_REQUEST) {
+      return uploadFilesBatch(afterCompress, folder);
     }
 
-    // Hacer la petición
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || ''}${url}`, {
-      method: 'POST',
-      headers: {
-        // No establecer Content-Type, el navegador lo hará automáticamente con el boundary
-        'Authorization': `Bearer ${getAuthToken()}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    const results: UploadedFile[] = [];
+    for (let i = 0; i < afterCompress.length; i += MAX_FILES_PER_REQUEST) {
+      const chunk = afterCompress.slice(i, i + MAX_FILES_PER_REQUEST);
+      const uploaded = await uploadFilesBatch(chunk, folder);
+      results.push(...uploaded);
     }
-
-    const data: UploadResponse = await response.json();
-
-    if (data.success && data.files) {
-      return data.files;
-    }
-
-    throw new Error('Error al subir archivos');
+    return results;
   } catch (error) {
     console.error('Error subiendo archivos:', error);
     throw error;

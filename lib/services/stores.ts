@@ -271,6 +271,23 @@ export async function addUserToStore(
 }
 
 /**
+ * Eliminar un usuario de una tienda
+ * Solo el creador de la tienda puede eliminar usuarios
+ */
+export async function removeUserFromStore(storeId: string, userId: string): Promise<void> {
+  const { httpClient } = await import('@/lib/http/client');
+
+  const response = await httpClient.delete<{ success: boolean; message: string }>(
+    `/api/stores/${storeId}/users/${userId}`
+  );
+
+  if (response.error || !response.success) {
+    const errorMessage = response.error || response.message || 'Error al eliminar usuario de la tienda';
+    throw new Error(errorMessage);
+  }
+}
+
+/**
  * Actualizar el número de teléfono del usuario actual en una tienda específica
  * El usuario solo puede actualizar su propio número de teléfono
  */
@@ -313,10 +330,9 @@ export async function updateUserPhoneNumber(
 }
 
 /**
- * Obtener todos los usuarios de una tienda
- * Solo el creador de la tienda o un admin pueden ver la lista de usuarios
+ * Usuario de una tienda (con permisos si no es creador).
  */
-export async function getStoreUsers(storeId: string): Promise<Array<{
+export interface StoreUserRow {
   id: string;
   storeId: string;
   userId: string;
@@ -327,23 +343,20 @@ export async function getStoreUsers(storeId: string): Promise<Array<{
   userEmail: string;
   userName: string | null;
   userRole: string;
-}>> {
+  /** Códigos de permiso asignados; null si es creador (tiene todos). */
+  permissionCodes: string[] | null;
+}
+
+/**
+ * Obtener todos los usuarios de una tienda
+ * Solo el creador de la tienda o un admin pueden ver la lista de usuarios
+ */
+export async function getStoreUsers(storeId: string): Promise<StoreUserRow[]> {
   const { httpClient } = await import('@/lib/http/client');
   
   const response = await httpClient.get<{
     success: boolean;
-    users: Array<{
-      id: string;
-      storeId: string;
-      userId: string;
-      isCreator: boolean;
-      phoneNumber: string | null;
-      createdAt: string;
-      updatedAt: string | null;
-      userEmail: string;
-      userName: string | null;
-      userRole: string;
-    }>;
+    users: StoreUserRow[];
     count: number;
   }>(`/api/stores/${storeId}/users`);
 
@@ -354,5 +367,5 @@ export async function getStoreUsers(storeId: string): Promise<Array<{
   }
 
   // Si la respuesta es exitosa pero no tiene datos, retornar array vacío
-  return response.data?.users || [];
+  return response.data?.users ?? [];
 }

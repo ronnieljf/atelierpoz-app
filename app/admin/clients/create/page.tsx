@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils/cn';
 
 export default function CreateClientPage() {
   const router = useRouter();
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -21,12 +21,6 @@ export default function CreateClientPage() {
   const [address, setAddress] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !storeId) {

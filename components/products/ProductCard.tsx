@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
@@ -49,6 +49,42 @@ export function ProductCard({ product, dict, priority = false }: ProductCardProp
   
   const hasImage = product.images && product.images.length > 0 && product.images[0];
   const mainImage = hasImage ? product.images[0] : '';
+
+  // Todas las imágenes para el bucle: producto + variantes con fotos (sin duplicados por URL)
+  const slideshowImages = useMemo(() => {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+    if (product.images?.length) {
+      product.images.forEach((url) => {
+        if (url && !seen.has(url)) {
+          seen.add(url);
+          urls.push(url);
+        }
+      });
+    }
+    product.attributes?.forEach((attr) => {
+      attr.variants?.forEach((v) => {
+        v.images?.forEach((url) => {
+          if (url && !seen.has(url)) {
+            seen.add(url);
+            urls.push(url);
+          }
+        });
+      });
+    });
+    return urls;
+  }, [product.images, product.attributes]);
+
+  const shouldLoop = slideshowImages.length > 1;
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!shouldLoop || slideshowImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % slideshowImages.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [shouldLoop, slideshowImages.length]);
   
   // Construir URL de regreso con los parámetros actuales
   const getReturnUrl = () => {
@@ -171,19 +207,49 @@ export function ProductCard({ product, dict, priority = false }: ProductCardProp
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary-600/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-10" />
         
         {hasImage ? (
-          <Image
-            src={mainImage}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-300 sm:duration-700 group-hover:scale-105 sm:group-hover:scale-110 active:scale-95"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            loading={priority ? "eager" : "lazy"}
-            priority={priority}
-            unoptimized={mainImage.startsWith('data:') || mainImage.startsWith('blob:') || mainImage.startsWith('http')}
-            placeholder="blur"
-            blurDataURL={blurDataURL}
-            quality={85}
-          />
+          <div className="absolute inset-0">
+            {shouldLoop ? (
+              slideshowImages.map((src, idx) => (
+                <div
+                  key={`${idx}-${src.slice(-24)}`}
+                  className="absolute inset-0 transition-opacity duration-700 ease-in-out"
+                  style={{
+                    opacity: idx === currentImageIndex ? 1 : 0,
+                    pointerEvents: idx === currentImageIndex ? 'auto' : 'none',
+                  }}
+                  aria-hidden={idx !== currentImageIndex}
+                >
+                  <Image
+                    src={src}
+                    alt={product.name}
+                    fill
+                    className="object-cover transition-transform duration-300 sm:duration-700 group-hover:scale-105 sm:group-hover:scale-110 active:scale-95"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                    loading={priority && idx === 0 ? "eager" : "lazy"}
+                    priority={priority && idx === 0}
+                    unoptimized={src.startsWith('data:') || src.startsWith('blob:') || src.startsWith('http')}
+                    placeholder="blur"
+                    blurDataURL={blurDataURL}
+                    quality={85}
+                  />
+                </div>
+              ))
+            ) : (
+              <Image
+                src={mainImage}
+                alt={product.name}
+                fill
+                className="object-cover transition-transform duration-300 sm:duration-700 group-hover:scale-105 sm:group-hover:scale-110 active:scale-95"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                loading={priority ? "eager" : "lazy"}
+                priority={priority}
+                unoptimized={mainImage.startsWith('data:') || mainImage.startsWith('blob:') || mainImage.startsWith('http')}
+                placeholder="blur"
+                blurDataURL={blurDataURL}
+                quality={85}
+              />
+            )}
+          </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-800 to-neutral-900">
             <ImageOff className="h-12 w-12 sm:h-20 sm:w-20 text-neutral-500" />

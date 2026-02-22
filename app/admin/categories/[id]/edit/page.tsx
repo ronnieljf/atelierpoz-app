@@ -19,7 +19,7 @@ export default function EditCategoryPage({
   const searchParams = useSearchParams();
   const storeIdFromQuery = searchParams.get('storeId') ?? '';
 
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState(storeIdFromQuery);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -30,12 +30,6 @@ export default function EditCategoryPage({
   useEffect(() => {
     if (storeIdFromQuery) setStoreId(storeIdFromQuery);
   }, [storeIdFromQuery]);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   const loadCategory = useCallback(async () => {
     if (!categoryId) {

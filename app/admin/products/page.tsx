@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAdminProducts, deleteProduct, setProductOutOfStock, updateProduct } from '@/lib/services/products';
 import { getCategoriesForAdmin, type Category } from '@/lib/services/categories';
 import { useAuth } from '@/lib/store/auth-store';
+import { useStorePermissions } from '@/lib/hooks/useStorePermissions';
 import { type Product } from '@/types/product';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { Button } from '@/components/ui/Button';
@@ -19,11 +20,12 @@ const dict = getDictionary('es');
 const DEFAULT_PAGE_SIZE = 20;
 
 export default function ProductsListPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const { hasPermission } = useStorePermissions(selectedStoreId);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const pageSize = DEFAULT_PAGE_SIZE;
@@ -49,12 +51,6 @@ export default function ProductsListPage() {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !selectedStoreId) {
@@ -382,12 +378,14 @@ export default function ProductsListPage() {
             </p>
           )}
         </div>
-        <Link href="/admin/products/create" className="w-full sm:w-auto">
-          <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto" title="Crear un nuevo producto">
-            <Plus className="h-4 w-4 mr-2" />
-            {dict.admin.navigation.createProduct}
-          </Button>
-        </Link>
+        {hasPermission('products.create') && (
+          <Link href="/admin/products/create" className="w-full sm:w-auto">
+            <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto" title="Crear un nuevo producto">
+              <Plus className="h-4 w-4 mr-2" />
+              {dict.admin.navigation.createProduct}
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Selector de Tienda */}
@@ -540,14 +538,14 @@ export default function ProductsListPage() {
             >
               Limpiar filtros
             </Button>
-          ) : (
+          ) : hasPermission('products.create') ? (
             <Link href="/admin/products/create">
               <Button variant="primary" className="h-11 min-w-[180px] gap-2 px-5">
                 <Plus className="h-4 w-4" />
                 {dict.admin.navigation.createProduct}
               </Button>
             </Link>
-          )}
+          ) : null}
         </div>
       ) : (
         <div ref={productsListRef} className="relative">
@@ -701,6 +699,8 @@ export default function ProductsListPage() {
                   </div>
                   {/* Botones de acción organizados en bloques claros */}
                   <div className="mt-auto flex flex-col border-t border-neutral-700/60">
+                    {hasPermission('products.edit') && (
+                      <>
                     {/* Fila 1: Editar (más prominente) */}
                     <Link
                       href={`/admin/products/${product.id}/edit`}
@@ -772,6 +772,8 @@ export default function ProductsListPage() {
                         <span>Eliminar</span>
                       </button>
                     </div>
+                      </>
+                    )}
                   </div>
                 </motion.article>
               );
@@ -919,6 +921,8 @@ export default function ProductsListPage() {
                     </div>
                   </div>
                   
+                  {hasPermission('products.edit') && (
+                    <>
                   {/* Editar (más prominente) */}
                   <Link
                     href={`/admin/products/${product.id}/edit`}
@@ -994,6 +998,8 @@ export default function ProductsListPage() {
                       <span>Eliminar</span>
                     </button>
                   </div>
+                    </>
+                  )}
                 </div>
               </motion.article>
             );

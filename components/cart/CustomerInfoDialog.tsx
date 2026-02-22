@@ -78,7 +78,8 @@ export function CustomerInfoDialog({
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhoneCode, setRecipientPhoneCode] = useState(DEFAULT_COUNTRY_CODE);
   const [recipientPhoneNumber, setRecipientPhoneNumber] = useState('');
-  const [useSamePhone, setUseSamePhone] = useState(true);
+  /** Por defecto "otro número" para quien recibe el delivery (no el mismo del pedido) */
+  const [useSamePhone, setUseSamePhone] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
@@ -108,7 +109,7 @@ export function CustomerInfoDialog({
       setRecipientName('');
       setRecipientPhoneCode(DEFAULT_COUNTRY_CODE);
       setRecipientPhoneNumber('');
-      setUseSamePhone(true);
+      setUseSamePhone(false);
       setDeliveryDate('');
       setDeliveryTime('');
       setDeliveryNotes('');
@@ -415,10 +416,14 @@ export function CustomerInfoDialog({
                         </div>
 
                         <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-center mb-3 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 via-primary-300 to-neutral-100 leading-tight px-2">
-                          ¿Cómo quieres recibir tu pedido?
+                          ¿Quieres delivery?
                         </h2>
 
-                        {/* Method toggle */}
+                        <p className="text-sm text-neutral-400 text-center mb-4">
+                          Si no eliges delivery, retirarás tu pedido en tienda.
+                        </p>
+
+                        {/* Sí / No delivery */}
                         <div className="grid grid-cols-2 gap-3 mb-4 sm:mb-5">
                           <button
                             type="button"
@@ -431,7 +436,8 @@ export function CustomerInfoDialog({
                             )}
                           >
                             <Store className="h-6 w-6 sm:h-7 sm:w-7" />
-                            <span className="text-xs sm:text-sm font-medium">Retiro en tienda</span>
+                            <span className="text-xs sm:text-sm font-medium">No</span>
+                            <span className="text-[10px] sm:text-xs text-neutral-500">Retiro en tienda</span>
                           </button>
                           <button
                             type="button"
@@ -444,14 +450,15 @@ export function CustomerInfoDialog({
                             )}
                           >
                             <Truck className="h-6 w-6 sm:h-7 sm:w-7" />
-                            <span className="text-xs sm:text-sm font-medium">Delivery / Envío</span>
+                            <span className="text-xs sm:text-sm font-medium">Sí</span>
+                            <span className="text-[10px] sm:text-xs text-neutral-500">Envío a domicilio</span>
                           </button>
                         </div>
 
                         {deliveryMethod === 'pickup' && (
                           <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-3 sm:p-4 mb-4">
                             <p className="text-xs sm:text-sm text-green-300 text-center">
-                              Perfecto, la tienda te indicará la dirección y horario para retirar tu pedido.
+                              Perfecto. La tienda te indicará la dirección y horario para retirar tu pedido.
                             </p>
                           </div>
                         )}

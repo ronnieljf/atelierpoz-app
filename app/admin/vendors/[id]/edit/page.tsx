@@ -19,7 +19,7 @@ export default function EditVendorPage({
   const searchParams = useSearchParams();
   const storeIdFromQuery = searchParams.get('storeId') ?? '';
 
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState(storeIdFromQuery);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -34,12 +34,6 @@ export default function EditVendorPage({
   useEffect(() => {
     if (storeIdFromQuery) setStoreId(storeIdFromQuery);
   }, [storeIdFromQuery]);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   const loadVendor = useCallback(async () => {
     if (!vendorId || !storeId) {

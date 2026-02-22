@@ -10,7 +10,7 @@ import { getCategoriesForAdmin, type Category } from '@/lib/services/categories'
 import { uploadFiles, base64ToFile } from '@/lib/services/upload';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Plus, Trash2, X, Upload, Image as ImageIcon, Save, Zap, Copy, Loader2, Eye, HelpCircle, ChevronDown, Search, Check } from 'lucide-react';
+import { Plus, Trash2, X, Upload, Image as ImageIcon, ImagePlus, Expand, Save, Zap, Copy, Loader2, Eye, HelpCircle, ChevronDown, Search, Check } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
@@ -122,6 +122,8 @@ export function ProductForm({ productId }: ProductFormProps) {
   const [showAttributesHelp, setShowAttributesHelp] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [openVariantes, setOpenVariantes] = useState(false);
+  /** URL de la imagen del producto mostrada en grande (para confirmar al asignar a variante) */
+  const [productImagePreviewUrl, setProductImagePreviewUrl] = useState<string | null>(null);
 
   const filteredCategories = useMemo(() => {
     if (!categorySearch.trim()) return categories;
@@ -504,6 +506,28 @@ export function ProductForm({ productId }: ProductFormProps) {
                   ? {
                       ...variant,
                       images: (variant.images || []).filter((_, imgIdx) => imgIdx !== imageIndex),
+                    }
+                  : variant
+              ),
+            }
+          : attr
+      ),
+    }));
+  };
+
+  /** Añade una imagen del producto global a la variante (sin subir de nuevo). */
+  const addProductImageToVariant = (attributeIndex: number, variantIndex: number, imageUrl: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      attributes: prev.attributes.map((attr, i) =>
+        i === attributeIndex
+          ? {
+              ...attr,
+              variants: attr.variants.map((variant, vIdx) =>
+                vIdx === variantIndex
+                  ? {
+                      ...variant,
+                      images: [...(variant.images || []), imageUrl],
                     }
                   : variant
               ),
@@ -984,6 +1008,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                         inputMode="decimal"
                         value={formData.basePrice}
                         onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0"
                         className="flex-1 min-w-0 h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm"
                       />
@@ -996,7 +1021,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-1">Stock</label>
-                    <input type="number" inputMode="numeric" min={0} value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} placeholder="0" className="w-full h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm" />
+                    <input type="number" inputMode="numeric" min={0} value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="0" className="w-full h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm" />
                   </div>
                 </div>
                 <div>
@@ -1055,11 +1080,11 @@ export function ProductForm({ productId }: ProductFormProps) {
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-neutral-400 mb-1">IVA (%)</label>
-                            <input type="number" step="0.01" min={0} max={100} value={formData.iva} onChange={(e) => setFormData({ ...formData, iva: e.target.value })} placeholder="19" className="w-full h-10 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                            <input type="number" step="0.01" min={0} max={100} value={formData.iva} onChange={(e) => setFormData({ ...formData, iva: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="19" className="w-full h-10 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-neutral-400 mb-1">Orden en tienda</label>
-                            <input type="number" min={0} value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })} placeholder="Menor = primero" className="w-full h-10 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                            <input type="number" min={0} value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="Menor = primero" className="w-full h-10 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
                           </div>
                         </div>
                         <div className="border-t border-neutral-700 pt-4">
@@ -1285,7 +1310,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                               <label className="block text-xs text-neutral-500 mb-2">
                                 Fotos de esta opción (opcional)
                               </label>
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 <div className="border-2 border-dashed border-neutral-700 rounded-xl p-3 min-h-[52px] flex items-center">
                                   <input
                                     type="file"
@@ -1312,6 +1337,57 @@ export function ProductForm({ productId }: ProductFormProps) {
                                     </span>
                                   </label>
                                 </div>
+
+                                {/* Usar fotos ya subidas del producto */}
+                                {formData.images.length > 0 ? (
+                                  <div>
+                                    <p className="text-xs text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                                      <ImagePlus className="h-3.5 w-3.5" />
+                                      Usar una foto del producto (clic para asignar; botón para ver en grande)
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {formData.images.map((img, imgIdx) => (
+                                        <div
+                                          key={imgIdx}
+                                          className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border-2 border-neutral-700 hover:border-primary-500/70 flex-shrink-0 group"
+                                        >
+                                          <Image
+                                            src={img}
+                                            alt=""
+                                            width={96}
+                                            height={96}
+                                            className="w-full h-full object-cover"
+                                            unoptimized={img.startsWith('data:')}
+                                          />
+                                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                              type="button"
+                                              onClick={() => setProductImagePreviewUrl(img)}
+                                              className="p-1.5 rounded-lg bg-neutral-800/90 hover:bg-primary-600 text-white transition-colors touch-manipulation"
+                                              title="Ver en grande"
+                                              aria-label="Ver imagen en grande"
+                                            >
+                                              <Expand className="h-5 w-5 sm:h-6 sm:w-6" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => addProductImageToVariant(attrIndex, variantIndex, img)}
+                                              className="p-1.5 rounded-lg bg-primary-600/90 hover:bg-primary-500 text-white transition-colors touch-manipulation"
+                                              title="Añadir a esta opción"
+                                              aria-label="Añadir esta foto a esta opción"
+                                            >
+                                              <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-neutral-500">
+                                    Sube fotos en «Fotos» arriba para poder asignarlas a las opciones aquí.
+                                  </p>
+                                )}
 
                                 {/* Preview de imágenes */}
                                 {(variant.images && variant.images.length > 0) && (
@@ -1370,6 +1446,14 @@ export function ProductForm({ productId }: ProductFormProps) {
                     </div>
                     {formData.combinations.length > 0 && (
                       <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                        {/* Encabezados: identifican qué guarda cada columna */}
+                        <div className="grid grid-cols-[1fr_auto_auto_1fr_auto] sm:grid-cols-[minmax(120px,1fr)_auto_auto_1fr_auto] items-center gap-2 sm:gap-3 px-1 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                          <span>Combinación (opción)</span>
+                          <span className="w-16 sm:w-20 text-center">Stock</span>
+                          <span className="w-16 sm:w-20 text-center">Precio (+$)</span>
+                          <span className="min-w-[100px]">Código (SKU)</span>
+                          <span className="w-10" aria-hidden />
+                        </div>
                         {formData.combinations.map((combo, comboIndex) => {
                           const labelParts: string[] = [];
                           formData.attributes.forEach((attr) => {
@@ -1380,40 +1464,69 @@ export function ProductForm({ productId }: ProductFormProps) {
                             }
                           });
                           const label = labelParts.join(' / ') || `Combinación ${comboIndex + 1}`;
+                          const stockVal = combo.stock;
+                          const priceVal = combo.priceModifier;
+                          const safeStock = typeof stockVal === 'number' && !Number.isNaN(stockVal) ? Math.max(0, Math.floor(stockVal)) : 0;
+                          const safePrice = typeof priceVal === 'number' && !Number.isNaN(priceVal) ? Math.max(0, Math.round(priceVal * 100) / 100) : 0;
                           return (
                             <div
                               key={combo.id}
-                              className="bg-neutral-900/50 p-3 rounded-xl border border-neutral-700/50 flex flex-wrap items-center gap-2 sm:gap-3"
+                              className="bg-neutral-900/50 p-3 rounded-xl border border-neutral-700/50 grid grid-cols-[1fr_auto_auto_1fr_auto] sm:grid-cols-[minmax(120px,1fr)_auto_auto_1fr_auto] items-center gap-2 sm:gap-3"
                             >
-                              <span className="w-full sm:w-auto sm:min-w-[120px] text-sm font-medium text-neutral-200 truncate" title={label}>
+                              <span className="text-sm font-medium text-neutral-200 truncate min-w-0" title={label}>
                                 {label}
                               </span>
-                              <div className="flex flex-1 flex-wrap items-center gap-2 min-w-0">
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  value={combo.stock ?? ''}
-                                  onChange={(e) => updateCombination(comboIndex, { stock: parseInt(e.target.value, 10) || 0 })}
-                                  placeholder="Stock"
-                                  className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                                />
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  inputMode="decimal"
-                                  value={combo.priceModifier ?? ''}
-                                  onChange={(e) => updateCombination(comboIndex, { priceModifier: parseFloat(e.target.value) || 0 })}
-                                  placeholder="+$"
-                                  className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                                />
-                                <input
-                                  type="text"
-                                  value={combo.sku ?? ''}
-                                  onChange={(e) => updateCombination(comboIndex, { sku: e.target.value })}
-                                  placeholder="Código"
-                                  className="flex-1 min-w-[100px] min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                                />
-                              </div>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                value={combo.stock === undefined || combo.stock === null ? '' : safeStock}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  if (raw === '') {
+                                    updateCombination(comboIndex, { stock: 0 });
+                                    return;
+                                  }
+                                  const n = parseInt(raw, 10);
+                                  if (Number.isNaN(n)) return;
+                                  updateCombination(comboIndex, { stock: Math.max(0, Math.floor(n)) });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                placeholder="0"
+                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                aria-label="Stock (entero, sin decimales)"
+                              />
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step={0.01}
+                                value={combo.priceModifier === undefined || combo.priceModifier === null ? '' : safePrice}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  if (raw === '') {
+                                    updateCombination(comboIndex, { priceModifier: 0 });
+                                    return;
+                                  }
+                                  const n = parseFloat(raw.replace(',', '.'));
+                                  if (Number.isNaN(n)) return;
+                                  const rounded = Math.max(0, Math.round(n * 100) / 100);
+                                  updateCombination(comboIndex, { priceModifier: rounded });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                placeholder="0.00"
+                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                aria-label="Precio adicional (máx. 2 decimales)"
+                              />
+                              <input
+                                type="text"
+                                value={combo.sku ?? ''}
+                                onChange={(e) => updateCombination(comboIndex, { sku: e.target.value })}
+                                placeholder="Código"
+                                className="min-w-[100px] min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                                aria-label="Código o SKU"
+                              />
                               <button
                                 type="button"
                                 onClick={() => removeCombination(comboIndex)}
@@ -1583,6 +1696,44 @@ export function ProductForm({ productId }: ProductFormProps) {
         </div>
       </div>
     </div>
+
+    {/* Modal: ver imagen del producto en grande (al asignar a variante) */}
+    {productImagePreviewUrl &&
+      createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85"
+          onClick={() => setProductImagePreviewUrl(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ver imagen en grande"
+        >
+          <button
+            type="button"
+            onClick={() => setProductImagePreviewUrl(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-white transition-colors z-10"
+            aria-label="Cerrar"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div
+            className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={productImagePreviewUrl}
+              alt="Vista en grande"
+              width={800}
+              height={800}
+              className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-lg"
+              unoptimized={productImagePreviewUrl.startsWith('data:')}
+            />
+          </div>
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-neutral-400">
+            Clic fuera o en X para cerrar
+          </p>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

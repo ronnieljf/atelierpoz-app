@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils/cn';
 
 export default function CreateCategoryPage() {
   const router = useRouter();
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -22,12 +22,6 @@ export default function CreateCategoryPage() {
   function slugFromName(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   }
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !storeId) {

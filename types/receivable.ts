@@ -28,6 +28,8 @@ export interface Receivable {
   itemsCount?: number | null;
   /** Número de pedido (order_number del request vinculado) cuando la cuenta viene de un pedido. */
   orderNumber?: number | null;
+  /** Suma de abonos registrados (solo en listado cuando el backend lo incluye). */
+  totalPaid?: number;
 }
 
 export interface InitialPaymentData {

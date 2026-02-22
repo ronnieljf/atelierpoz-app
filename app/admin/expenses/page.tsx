@@ -34,12 +34,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bgColor: str
 };
 
 export default function ExpensesPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
 
-  useEffect(() => { loadStores(); }, [loadStores]);
   useEffect(() => {
-    if (authState.stores.length > 0 && !storeId) setStoreId(authState.stores[0].id);
+    if (authState.stores.length === 1 && !storeId) setStoreId(authState.stores[0].id);
   }, [authState.stores, storeId]);
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -227,6 +226,35 @@ export default function ExpensesPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
+        <label className="mb-2 block text-sm font-medium text-neutral-300">Tienda</label>
+        {authState.stores.length === 0 ? (
+          <div className="text-sm text-neutral-400">No tienes acceso a ninguna tienda</div>
+        ) : (
+          <select
+            value={storeId}
+            onChange={(e) => { setStoreId(e.target.value); setPage(0); }}
+            className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-base text-neutral-100 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3 sm:text-sm"
+          >
+            <option value="">Selecciona una tienda...</option>
+            {authState.stores.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {!storeId ? (
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-8 text-center backdrop-blur-sm sm:rounded-3xl sm:p-12">
+          <Wallet className="mx-auto mb-4 h-14 w-14 text-neutral-600 sm:h-16 sm:w-16" />
+          <h3 className="mb-2 text-lg font-medium text-neutral-200 sm:text-xl sm:font-light">
+            {authState.stores.length === 0 ? 'No tienes tiendas' : 'Selecciona una tienda'}
+          </h3>
+          <p className="text-sm text-neutral-400 sm:text-base">
+            {authState.stores.length === 0 ? 'Crea una tienda primero para gestionar gastos' : 'Elige una tienda arriba para ver sus gastos'}
+          </p>
+        </div>
+      ) : (<>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl">Cuentas por pagar</h1>
@@ -257,22 +285,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Filtros */}
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
-        {authState.stores.length > 1 && (
-          <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-neutral-400">Tienda</label>
-            <select
-              value={storeId}
-              onChange={(e) => { setStoreId(e.target.value); setPage(0); }}
-              className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
-            >
-              {authState.stores.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
         <p className="mb-3 text-xs font-medium uppercase tracking-wider text-neutral-500">Filtros</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
@@ -332,7 +345,26 @@ export default function ExpensesPage() {
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-lg font-semibold text-red-400">{e.amount.toFixed(2)} {e.currency}</p>
+                      <div className="space-y-0.5">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-xs text-neutral-500">Total</span>
+                          <p className="text-lg font-semibold text-red-400">{e.currency} {e.amount.toFixed(2)}</p>
+                        </div>
+                        {(e.totalPaid != null && e.totalPaid > 0) && (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-xs text-neutral-500">Abonado</span>
+                            <p className="text-sm tabular-nums text-green-400">{e.currency} {e.totalPaid.toFixed(2)}</p>
+                          </div>
+                        )}
+                        {e.status === 'pending' && (
+                          <div className="flex flex-col items-end gap-0.5 border-t border-neutral-700/60 pt-1">
+                            <span className="text-xs font-medium text-neutral-400">Pendiente</span>
+                            <p className="text-sm font-semibold tabular-nums text-amber-400">
+                              {e.currency} {Math.max(0, e.amount - (e.totalPaid ?? 0)).toFixed(2)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                       <span className={cn('mt-1 inline-block rounded-full px-2 py-0.5 text-xs', st.bgColor, st.color)}>{st.label}</span>
                     </div>
                   </div>
@@ -369,7 +401,9 @@ export default function ExpensesPage() {
                     <th className="pb-3 pr-4">Proveedor</th>
                     <th className="pb-3 pr-4">Descripción</th>
                     <th className="pb-3 pr-4">Categoría</th>
-                    <th className="pb-3 pr-4">Monto</th>
+                    <th className="pb-3 pr-4">Total</th>
+                    <th className="pb-3 pr-4">Abonado</th>
+                    <th className="pb-3 pr-4">Pendiente</th>
                     <th className="pb-3 pr-4">Vencimiento</th>
                     <th className="pb-3 pr-4">Estado</th>
                     <th className="pb-3 pr-4">Fecha</th>
@@ -387,7 +421,13 @@ export default function ExpensesPage() {
                         <td className="py-3 pr-4">
                           {e.categoryName ? <span className="rounded-full bg-neutral-700/50 px-2 py-0.5 text-xs text-neutral-300">{e.categoryName}</span> : '—'}
                         </td>
-                        <td className="py-3 pr-4 font-medium text-red-400">{e.amount.toFixed(2)} {e.currency}</td>
+                        <td className="py-3 pr-4 font-medium text-red-400">{e.currency} {e.amount.toFixed(2)}</td>
+                        <td className="py-3 pr-4 text-green-400">
+                          {(e.totalPaid != null && e.totalPaid > 0) ? `${e.currency} ${e.totalPaid.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="py-3 pr-4 font-medium text-amber-400">
+                          {e.status === 'pending' ? `${e.currency} ${Math.max(0, e.amount - (e.totalPaid ?? 0)).toFixed(2)}` : '—'}
+                        </td>
                         <td className="py-3 pr-4 text-neutral-500">{e.dueDate ? new Date(e.dueDate).toLocaleDateString('es') : '—'}</td>
                         <td className="py-3 pr-4"><span className={cn('rounded-full px-2 py-0.5 text-xs', st.bgColor, st.color)}>{st.label}</span></td>
                         <td className="py-3 pr-4 text-neutral-500">{new Date(e.createdAt).toLocaleDateString('es', { day: '2-digit', month: 'short' })}</td>
@@ -614,6 +654,7 @@ export default function ExpensesPage() {
         </AnimatePresence>,
         document.body
       )}
+    </>)}
     </div>
   );
 }

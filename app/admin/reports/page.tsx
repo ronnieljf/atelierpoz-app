@@ -64,7 +64,7 @@ interface ReportData {
 }
 
 export default function ReportsPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
   const { dateFrom: defFrom, dateTo: defTo } = getDefaultMonthRange();
   const [dateFrom, setDateFrom] = useState(defFrom);
@@ -72,12 +72,6 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<ReportData | null>(null);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores();
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length > 0 && !storeId) setStoreId(authState.stores[0].id);
@@ -177,6 +171,7 @@ export default function ReportsPage() {
                 onChange={(e) => setStoreId(e.target.value)}
                 className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 pl-9 pr-3 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
               >
+                <option value="">{authState.stores.length === 0 ? 'No hay tiendas' : 'Selecciona una tienda...'}</option>
                 {authState.stores.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}

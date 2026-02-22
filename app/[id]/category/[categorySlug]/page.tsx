@@ -4,6 +4,7 @@ import { getDictionary } from '@/lib/i18n/dictionary';
 import { defaultLocale } from '@/constants/locales';
 import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
+import { CategoryViewTracker } from '@/components/analytics/CategoryViewTracker';
 import { getStoreProducts } from '@/lib/services/products';
 import { getStoreById } from '@/lib/services/stores';
 import { getCategoriesByStore } from '@/lib/services/categories';
@@ -121,6 +122,13 @@ export default async function StoreCategoryPage({
 
   return (
     <div className="overflow-x-hidden">
+      <CategoryViewTracker
+        storeId={store.id}
+        storeName={store.name}
+        categoryName={category.name}
+        categorySlug={slugDecoded}
+        products={initialProducts}
+      />
       <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
         <StorePageHeader
           name={store.name}
@@ -132,6 +140,7 @@ export default async function StoreCategoryPage({
         />
         <ProductSearch
           storeId={store.id}
+          storeName={store.name}
           dict={dict}
           initialProducts={initialProducts}
           initialCategorySlug={slugDecoded}

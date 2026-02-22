@@ -59,7 +59,7 @@ export default function ReceivableDetailPage({
     ? resolvedSearch.storeId[0]
     : resolvedSearch?.storeId ?? '';
 
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [receivable, setReceivable] = useState<Receivable | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -84,12 +84,6 @@ export default function ReceivableDetailPage({
   const [addingPayment, setAddingPayment] = useState(false);
 
   const storeId = storeIdFromQuery || (authState.stores.length === 1 ? authState.stores[0].id : '');
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   const loadReceivable = useCallback(async () => {
     if (!storeId || !id) {

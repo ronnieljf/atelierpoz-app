@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingCart, X, Plus, Minus, MessageCircle, Store, Instagram } from 'lucide-react';
-import { useCart } from '@/lib/store/cart-store';
+import { useCart, getItemUnitPrice } from '@/lib/store/cart-store';
+import { trackViewCart, trackBeginCheckout } from '@/lib/analytics/gtag';
 import { type Dictionary } from '@/lib/i18n/dictionary';
 import { type Locale } from '@/constants/locales';
 import { Button } from '@/components/ui/Button';
@@ -78,6 +79,26 @@ export function Cart({ dict, locale }: CartProps) {
     });
   }, [storeIdsInCart]);
 
+  // Analytics: view_cart una vez al montar si hay ítems
+  const viewCartSentRef = useRef(false);
+  useEffect(() => {
+    if (viewCartSentRef.current || cart.items.length === 0) return;
+    viewCartSentRef.current = true;
+    const currency = cart.items[0]?.currency ?? 'USD';
+    trackViewCart({
+      value: cart.total,
+      currency,
+      itemCount: cart.itemCount,
+      items: cart.items.map((i) => ({
+        productId: i.productId,
+        productName: i.productName,
+        quantity: i.quantity,
+        price: getItemUnitPrice(i),
+        storeName: i.storeName,
+      })),
+    });
+  }, [cart.items.length, cart.total, cart.itemCount, cart.items]);
+
   // Diálogo de información del cliente
   const [customerInfoDialog, setCustomerInfoDialog] = useState<{
     storeGroup: StoreGroup;
@@ -122,6 +143,19 @@ export function Cart({ dict, locale }: CartProps) {
   
   // Manejar el click en "Enviar pedido"
   const handleSendOrderClick = (storeGroup: StoreGroup) => {
+    trackBeginCheckout({
+      value: storeGroup.total,
+      currency: storeGroup.currency ?? 'USD',
+      itemCount: storeGroup.items.reduce((s, i) => s + i.quantity, 0),
+      items: storeGroup.items.map((i) => ({
+        productId: i.productId,
+        productName: i.productName,
+        quantity: i.quantity,
+        price: getItemUnitPrice(i),
+        storeName: i.storeName,
+      })),
+      storeNames: [storeGroup.storeName],
+    });
     const availableUsers = (storeGroup.storeUsers || []).filter(
       (u) => u.phoneNumber && u.phoneNumber.trim() !== ''
     );

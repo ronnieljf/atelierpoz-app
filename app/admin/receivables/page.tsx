@@ -87,7 +87,7 @@ function groupReceivablesByPhone(receivables: Receivable[]): {
 }
 
 export default function ReceivablesPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -132,12 +132,6 @@ export default function ReceivablesPage() {
     pendingReceivables: Receivable[];
     skippedCount: number;
   }>({ open: false, action: null, pendingReceivables: [], skippedCount: 0 });
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !selectedStoreId) {
@@ -572,6 +566,8 @@ export default function ReceivablesPage() {
       const result = await getReceivables(selectedStoreId, {
         dateFrom: from,
         dateTo: to,
+        status: statusFilter || undefined,
+        search: customerSearchDebounced || undefined,
         limit: 50000,
       });
       const rows = result.receivables;
@@ -719,7 +715,7 @@ export default function ReceivablesPage() {
                 Exportar cuentas por cobrar a CSV
               </h3>
               <p className="mb-4 text-sm text-neutral-400">
-                Elige el rango de fechas (por fecha de creación). Máximo 366 días.
+                Elige el rango de fechas (por fecha de creación). Máximo 366 días. Se aplican también los filtros actuales (Estado y Cliente/número).
               </p>
               <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -1559,10 +1555,31 @@ export default function ReceivablesPage() {
                         {rec.itemsCount} {rec.itemsCount === 1 ? 'producto' : 'productos'}
                       </p>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-base font-semibold tabular-nums text-neutral-100">
-                        {rec.currency} {rec.amount.toFixed(2)}
-                      </span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-neutral-500">Total</span>
+                        <span className="text-base font-semibold tabular-nums text-neutral-100">
+                          {rec.currency} {rec.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      {(rec.totalPaid != null && rec.totalPaid > 0) && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-neutral-500">Abonado</span>
+                          <span className="text-sm tabular-nums text-green-400">
+                            {rec.currency} {rec.totalPaid.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {rec.status === 'pending' && (
+                        <div className="flex items-center justify-between gap-2 border-t border-neutral-700/60 pt-1.5">
+                          <span className="text-xs font-medium text-neutral-400">Pendiente</span>
+                          <span className="text-sm font-semibold tabular-nums text-amber-400">
+                            {rec.currency} {Math.max(0, rec.amount - (rec.totalPaid ?? 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end">
                       <span
                         className={cn(
                           'inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs',

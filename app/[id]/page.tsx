@@ -4,6 +4,7 @@ import { getDictionary } from '@/lib/i18n/dictionary';
 import { defaultLocale } from '@/constants/locales';
 import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
+import { StoreViewTracker } from '@/components/analytics/StoreViewTracker';
 import { getStoreProducts } from '@/lib/services/products';
 import { getStoreById } from '@/lib/services/stores';
 import { type Product } from '@/types/product';
@@ -118,8 +119,16 @@ export default async function StorePage({
     console.error('Error obteniendo productos de la tienda:', error);
   }
 
+  const storeSlug = store.store_id ?? id;
+
   return (
     <div className="overflow-x-hidden">
+      <StoreViewTracker
+        storeId={store.id}
+        storeName={store.name}
+        storeSlug={storeSlug}
+        products={initialProducts}
+      />
       <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
         <StorePageHeader
           name={store.name}
@@ -129,7 +138,7 @@ export default async function StorePage({
           instagram={store.instagram}
           tiktok={store.tiktok}
         />
-        <ProductSearch storeId={store.id} dict={dict} initialProducts={initialProducts} />
+        <ProductSearch storeId={store.id} storeName={store.name} dict={dict} initialProducts={initialProducts} />
         <ScrollToTop />
       </div>
     </div>

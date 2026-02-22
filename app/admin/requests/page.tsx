@@ -43,7 +43,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bgColor: str
 };
 
 export default function RequestsPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [requests, setRequests] = useState<Request[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -57,12 +57,6 @@ export default function RequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !selectedStoreId) {

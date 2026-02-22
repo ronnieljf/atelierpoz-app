@@ -8,6 +8,7 @@ interface Store {
   name: string;
   state: string;
   logo?: string | null;
+  description?: string | null;
   location?: string | null;
   instagram?: string | null;
   tiktok?: string | null;
@@ -27,18 +28,26 @@ interface AuthState {
     email: string;
     name: string | null;
     role: string;
+    number_stores: number;
   } | null;
   stores: Store[];
+  /** Máximo de tiendas que el usuario puede crear (viene del backend). */
+  storeLimit: number;
+  /** Cantidad actual de tiendas donde el usuario es creador. */
+  storeCountAsCreator: number;
   /** True cuando loadAuth ha terminado (éxito o fallo). Usado para mostrar loading en admin hasta verificar. */
   authHydrated: boolean;
+  /** True cuando loadUserStores se ha ejecutado al menos una vez (el array stores puede estar vacío). */
+  storesLoaded: boolean;
 }
 
 type AuthAction =
-  | { type: 'LOGIN'; payload: { id: string; email: string; name: string | null; role: string } }
+  | { type: 'LOGIN'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number } }
   | { type: 'LOGOUT' }
-  | { type: 'LOAD_AUTH'; payload: { id: string; email: string; name: string | null; role: string } | null }
-  | { type: 'SET_STORES'; payload: Store[] }
-  | { type: 'AUTH_HYDRATED' };
+  | { type: 'LOAD_AUTH'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number } | null }
+  | { type: 'SET_STORES'; payload: { stores: Store[]; storeLimit: number; storeCountAsCreator: number } }
+  | { type: 'AUTH_HYDRATED' }
+  | { type: 'STORES_LOADED' };
 
 interface AuthContextType {
   state: AuthState;
@@ -62,11 +71,14 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
           email: action.payload.email,
           name: action.payload.name,
           role: action.payload.role,
+          number_stores: action.payload.number_stores ?? 1,
         },
         stores: [],
+        storeLimit: action.payload.number_stores ?? 1,
+        storeCountAsCreator: 0,
+        storesLoaded: false,
       };
       
-      // Guardar en localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('admin_auth', JSON.stringify({ ...newState, authHydrated: undefined }));
       }
@@ -80,6 +92,9 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isAuthenticated: false,
         user: null,
         stores: [],
+        storeLimit: 1,
+        storeCountAsCreator: 0,
+        storesLoaded: false,
       };
       
       if (typeof window !== 'undefined') {
@@ -101,7 +116,9 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
             email: action.payload.email,
             name: action.payload.name,
             role: action.payload.role,
+            number_stores: action.payload.number_stores ?? 1,
           },
+          storeLimit: action.payload.number_stores ?? 1,
           stores: [],
         };
       }
@@ -116,12 +133,18 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
     case 'SET_STORES': {
       return {
         ...state,
-        stores: action.payload,
+        stores: action.payload.stores,
+        storeLimit: action.payload.storeLimit,
+        storeCountAsCreator: action.payload.storeCountAsCreator,
       };
     }
 
     case 'AUTH_HYDRATED': {
       return { ...state, authHydrated: true };
+    }
+
+    case 'STORES_LOADED': {
+      return { ...state, storesLoaded: true };
     }
     
     default:
@@ -133,7 +156,10 @@ const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
   stores: [],
+  storeLimit: 1,
+  storeCountAsCreator: 0,
   authHydrated: false,
+  storesLoaded: false,
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -151,17 +177,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         success: boolean;
         stores: Store[];
         count: number;
+        storeLimit: number;
+        storeCountAsCreator: number;
       }>('/api/stores');
 
       if (response.success && response.data?.stores) {
         dispatch({
           type: 'SET_STORES',
-          payload: response.data.stores,
+          payload: {
+            stores: response.data.stores,
+            storeLimit: response.data.storeLimit ?? 1,
+            storeCountAsCreator: response.data.storeCountAsCreator ?? 0,
+          },
         });
       }
     } catch (error) {
       console.error('Error cargando tiendas:', error);
-      // No fallar silenciosamente, pero no bloquear el flujo
+    } finally {
+      dispatch({ type: 'STORES_LOADED' });
     }
   }, []);
   
@@ -188,11 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Validar el token con el backend
             const response = await httpClient.get<{
               success: boolean;
-              user: { id: string; email: string; name: string | null; role: string };
+              user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
             }>('/api/auth/me');
 
             if (response.success && response.data?.user) {
-              // Token válido: hacer login automático
               dispatch({ 
                 type: 'LOGIN', 
                 payload: { 
@@ -200,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   email: response.data.user.email,
                   name: response.data.user.name || null,
                   role: response.data.user.role || 'user',
+                  number_stores: response.data.user.number_stores ?? 1,
                 } 
               });
               
@@ -265,13 +298,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { httpClient } = await import('@/lib/http/client');
         const response = await httpClient.get<{
           success: boolean;
-          user: { id: string; email: string; name: string | null; role: string };
+          user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
         }>('/api/auth/me', { signal: controller.signal });
 
         if (response.success && response.data?.user) {
           clearTimeout(timeoutId);
           authSucceeded = true;
-          dispatch({ type: 'LOAD_AUTH', payload: response.data.user });
+          dispatch({ type: 'LOAD_AUTH', payload: { ...response.data.user, number_stores: response.data.user.number_stores ?? 1 } });
           await loadUserStores();
           dispatch({ type: 'AUTH_HYDRATED' });
           return;
@@ -324,15 +357,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { httpClient } = await import('@/lib/http/client');
       
-      // Usar el cliente HTTP para el login (skipAuth porque el login no requiere token)
       const response = await httpClient.post<{
         success: boolean;
-        user: { id: string; email: string; name: string | null; role: string };
+        user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
         token?: string;
       }>('/api/auth/login', { email, password }, { skipAuth: true });
 
       if (response.success && response.data?.user) {
-        // Guardar el token si viene en la respuesta
         if (response.data.token) {
           httpClient.setToken(response.data.token);
         }
@@ -344,10 +375,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: response.data.user.email,
             name: response.data.user.name || null,
             role: response.data.user.role || 'admin',
+            number_stores: response.data.user.number_stores ?? 1,
           } 
         });
         
-        // Cargar tiendas del usuario después del login exitoso
         await loadUserStores();
         
         return true;

@@ -16,7 +16,7 @@ const PAGE_SIZE = 20;
 export default function VendorsPage() {
   const searchParams = useSearchParams();
   const storeIdFromUrl = searchParams.get('storeId') ?? '';
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -35,12 +35,6 @@ export default function VendorsPage() {
     }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (storeIdFromUrl && authState.stores.some((s) => s.id === storeIdFromUrl)) {

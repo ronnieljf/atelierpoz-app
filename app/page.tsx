@@ -9,6 +9,7 @@ import { type Store } from '@/lib/services/stores';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { getSeoLogoUrl } from '@/lib/utils/seo';
 import { HomeStoresSection } from '@/components/home/HomeStoresSection';
+import { HomeViewTracker } from '@/components/analytics/HomeViewTracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +112,7 @@ export default async function HomePage() {
 
   return (
     <div className="overflow-x-hidden relative">
+      <HomeViewTracker />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

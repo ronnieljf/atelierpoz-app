@@ -49,6 +49,8 @@ type ApiReceivable = Record<string, unknown> & {
   itemsCount?: unknown;
   order_number?: unknown;
   orderNumber?: unknown;
+  total_paid?: unknown;
+  totalPaid?: unknown;
 };
 
 function toStringOrNull(v: unknown): string | null {
@@ -91,6 +93,14 @@ function formatReceivable(r: ApiReceivable): Receivable {
         : typeof r.order_number === 'number'
           ? r.order_number
           : undefined,
+    totalPaid:
+      typeof r.totalPaid === 'number'
+        ? r.totalPaid
+        : typeof r.total_paid === 'number'
+          ? r.total_paid
+          : typeof r.total_paid === 'string'
+            ? parseFloat(r.total_paid)
+            : undefined,
   };
 }
 

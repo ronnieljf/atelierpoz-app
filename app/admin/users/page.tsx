@@ -32,19 +32,9 @@ export default function UsersListPage() {
     role: 'user',
   });
 
-  // Verificar que el usuario sea admin
   useEffect(() => {
-    if (authState.user?.role !== 'admin') {
-      router.push('/admin/products');
-    }
-  }, [authState.user, router]);
-
-  useEffect(() => {
-    // Solo cargar usuarios si el usuario es admin
-    if (authState.user?.role === 'admin') {
-      loadUsers();
-    }
-  }, [authState.user?.role]);
+    router.push('/admin/products');
+  }, [router]);
 
   const loadUsers = async () => {
     try {

@@ -179,6 +179,14 @@ class HttpClient {
       }
     }
 
+    // Permisos insuficientes: notificar globalmente para mostrar mensaje en cualquier vista
+    if (response.status === 403 && typeof window !== 'undefined') {
+      const msg = typeof data === 'object' && data !== null && 'error' in data && typeof (data as { error: string }).error === 'string'
+        ? (data as { error: string }).error
+        : 'No tienes permiso para realizar esta acción';
+      window.dispatchEvent(new CustomEvent('api:permission-denied', { detail: { message: msg } }));
+    }
+
     // Retornar error
     // El data puede ser un objeto con error directamente, o estar dentro de data
     let errorMessage: string;

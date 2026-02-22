@@ -28,18 +28,12 @@ export default function SaleDetailPage() {
   const searchParams = useSearchParams();
   const saleId = params?.id as string;
   const storeId = searchParams?.get('storeId') ?? '';
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<'refund' | 'cancel' | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showPrint, setShowPrint] = useState(false);
-
-  useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
 
   useEffect(() => {
     if (!saleId || !storeId) return;
@@ -264,7 +258,7 @@ export default function SaleDetailPage() {
         </div>
       </div>
 
-      {/* Print ticket / Descargar factura PDF */}
+      {/* Print ticket / Descargar comprobante PDF */}
       {showPrint && sale && (() => {
         const store = authState.stores.find((s) => s.id === storeId);
         const storeInfo = {
@@ -276,7 +270,7 @@ export default function SaleDetailPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-neutral-700 bg-white p-6 text-neutral-900 shadow-xl">
               <h3 className="mb-4 border-b border-neutral-200 pb-2 text-center font-semibold">
-                Factura #{sale.saleNumber}
+                Comprobante #{sale.saleNumber}
               </h3>
               <p className="text-sm text-neutral-600">{storeInfo.name}</p>
               <p className="mt-1 text-sm text-neutral-600">
@@ -288,13 +282,16 @@ export default function SaleDetailPage() {
               <p className="mt-3 border-t border-neutral-200 pt-3 text-center text-xl font-bold">
                 Total: {sale.total.toFixed(2)} {sale.currency}
               </p>
+              <p className="mt-1 text-center text-xs text-neutral-500">
+                IVA incluido cuando aplique
+              </p>
               <div className="mt-4 flex gap-3">
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={() => {
                     generateSalePdf(sale, storeInfo, {
-                      fileName: `factura-${sale.saleNumber}.pdf`,
+                      fileName: `comprobante-${sale.saleNumber}.pdf`,
                     });
                   }}
                   className="flex-1 bg-neutral-800 text-white border-0 hover:bg-neutral-700 focus:ring-neutral-600 shadow-md"

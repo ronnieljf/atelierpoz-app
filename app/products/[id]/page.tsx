@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { defaultLocale } from '@/constants/locales';
 import { ProductDetail } from '@/components/products/ProductDetail';
+import { ProductViewTracker } from '@/components/analytics/ProductViewTracker';
 import { getProductByIdPublic } from '@/lib/services/products';
 import Link from 'next/link';
 import { getSeoLogoUrl } from '@/lib/utils/seo';
@@ -204,6 +205,7 @@ export default async function ProductPage({
       />
       
       <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
+        <ProductViewTracker product={product} />
         <nav className="mb-4 sm:mb-6 text-xs sm:text-sm">
           <Link
             href={backUrl}

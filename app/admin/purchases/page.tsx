@@ -33,12 +33,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bgColor: str
 };
 
 export default function PurchasesPage() {
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
 
-  useEffect(() => { loadStores(); }, [loadStores]);
   useEffect(() => {
-    if (authState.stores.length > 0 && !storeId) setStoreId(authState.stores[0].id);
+    if (authState.stores.length === 1 && !storeId) setStoreId(authState.stores[0].id);
   }, [authState.stores, storeId]);
 
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -185,21 +184,35 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
-      {authState.stores.length > 1 && (
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-neutral-500">Tienda:</label>
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
+        <label className="mb-2 block text-sm font-medium text-neutral-300">Tienda</label>
+        {authState.stores.length === 0 ? (
+          <div className="text-sm text-neutral-400">No tienes acceso a ninguna tienda</div>
+        ) : (
           <select
             value={storeId}
             onChange={(e) => { setStoreId(e.target.value); setPage(0); }}
-            className="h-10 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none"
+            className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-base text-neutral-100 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3 sm:text-sm"
           >
+            <option value="">Selecciona una tienda...</option>
             {authState.stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-        </div>
-      )}
+        )}
+      </div>
 
+      {!storeId ? (
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-8 text-center backdrop-blur-sm sm:rounded-3xl sm:p-12">
+          <ShoppingCart className="mx-auto mb-4 h-14 w-14 text-neutral-600 sm:h-16 sm:w-16" />
+          <h3 className="mb-2 text-lg font-medium text-neutral-200 sm:text-xl sm:font-light">
+            {authState.stores.length === 0 ? 'No tienes tiendas' : 'Selecciona una tienda'}
+          </h3>
+          <p className="text-sm text-neutral-400 sm:text-base">
+            {authState.stores.length === 0 ? 'Crea una tienda primero para gestionar compras' : 'Elige una tienda arriba para ver sus compras'}
+          </p>
+        </div>
+      ) : (<>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-medium text-neutral-100 sm:text-2xl">Compras</h1>
@@ -502,6 +515,7 @@ export default function PurchasesPage() {
         </AnimatePresence>,
         document.body
       )}
+    </>)}
     </div>
   );
 }

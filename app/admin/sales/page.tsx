@@ -37,6 +37,7 @@ import {
   Printer,
   History,
   FileDown,
+  ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -45,6 +46,8 @@ type PaymentType = 'contado' | 'cuenta';
 interface CartLine extends SaleItem {
   displayName: string;
   selectedVariants?: POSProduct['selectedVariants'];
+  /** IVA efectivo en % (producto si > 0, si no el de la tienda). Para calcular total = subtotal + IVA. */
+  iva?: number;
 }
 
 function isHexColor(value: string | undefined): boolean {
@@ -54,7 +57,7 @@ function isHexColor(value: string | undefined): boolean {
 
 export default function SalesPage() {
   const router = useRouter();
-  const { state: authState, loadStores } = useAuth();
+  const { state: authState } = useAuth();
   const [storeId, setStoreId] = useState('');
   const [view, setView] = useState<'pos' | 'history'>('pos');
 
@@ -120,13 +123,7 @@ export default function SalesPage() {
   const historySentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (authState.user && authState.stores.length === 0 && loadStores) {
-      loadStores().catch(() => setMessage({ type: 'error', text: 'Error al cargar tiendas' }));
-    }
-  }, [authState.user, authState.stores.length, loadStores]);
-
-  useEffect(() => {
-    if (authState.stores.length === 1 && !storeId) {
+    if (authState.stores.length > 0 && !storeId) {
       setStoreId(authState.stores[0].id);
     }
   }, [authState.stores, storeId]);
@@ -240,9 +237,11 @@ export default function SalesPage() {
 
   const addToCart = useCallback(
     (p: POSProduct, qty = 1) => {
-      const unitPrice = p.unitPriceWithIva ?? p.unitPrice;
+      const storeIva = authState.stores.find((s) => s.id === storeId)?.iva ?? 0;
+      const effectiveIva = p.iva != null && p.iva > 0 ? p.iva : storeIva;
+      const unitPrice = p.unitPrice; // base sin IVA
       const quantity = Math.max(1, Math.min(qty, p.stock));
-      const total = unitPrice * quantity;
+      const total = Math.round(unitPrice * quantity * (1 + effectiveIva / 100) * 100) / 100;
       const key = `${p.productId}-${p.combinationId ?? 'base'}`;
       setCart((prev) => {
         const idx = prev.findIndex(
@@ -250,7 +249,8 @@ export default function SalesPage() {
         );
         if (idx >= 0) {
           const newQty = Math.min(prev[idx].quantity + quantity, p.stock);
-          const newTotal = unitPrice * newQty;
+          const lineIva = prev[idx].iva ?? 0;
+          const newTotal = Math.round(prev[idx].unitPrice * newQty * (1 + lineIva / 100) * 100) / 100;
           const next = [...prev];
           next[idx] = { ...next[idx], quantity: newQty, total: newTotal };
           return next;
@@ -266,11 +266,12 @@ export default function SalesPage() {
           currency: p.currency,
           displayName: p.displayName,
           selectedVariants: p.selectedVariants,
+          iva: effectiveIva,
         };
         return [...prev, line];
       });
     },
-    []
+    [storeId, authState.stores]
   );
 
   const updateCartQty = useCallback((index: number, delta: number) => {
@@ -283,7 +284,9 @@ export default function SalesPage() {
         next.splice(index, 1);
         return next;
       }
-      next[index] = { ...item, quantity: newQty, total: item.unitPrice * newQty };
+      const lineIva = item.iva ?? 0;
+      const newTotal = Math.round(item.unitPrice * newQty * (1 + lineIva / 100) * 100) / 100;
+      next[index] = { ...item, quantity: newQty, total: newTotal };
       return next;
     });
   }, []);
@@ -292,7 +295,12 @@ export default function SalesPage() {
     setCart((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const cartTotal = cart.reduce((s, c) => s + c.total, 0);
+  const cartSubtotal = cart.reduce((s, c) => s + c.unitPrice * c.quantity, 0);
+  const cartIvaAmount = cart.reduce(
+    (s, c) => s + c.unitPrice * c.quantity * ((c.iva ?? 0) / 100),
+    0
+  );
+  const cartTotal = Math.round((cartSubtotal + cartIvaAmount) * 100) / 100;
 
   const handleNewClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -560,7 +568,7 @@ export default function SalesPage() {
               logo: store?.logo ?? null,
               location: store?.location ?? null,
             },
-            { fileName: `factura-${sale.saleNumber}.pdf` }
+            { fileName: `comprobante-${sale.saleNumber}.pdf` }
           );
         }
       } finally {
@@ -590,10 +598,39 @@ export default function SalesPage() {
     return () => observer.disconnect();
   }, [view, hasMoreHistory, loadingMoreHistory, loadingHistory, loadMoreHistory]);
 
-  if (!storeId && authState.stores.length > 0) {
+  if (!storeId) {
+    if (authState.stores.length > 0) {
+      return (
+        <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
+          <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+            <p className="text-sm text-neutral-400">Selecciona una tienda para continuar</p>
+            <select
+              value=""
+              onChange={(e) => setStoreId(e.target.value)}
+              className="h-12 min-w-[200px] rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            >
+              <option value="">Elige una tienda...</option>
+              {authState.stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-neutral-500" />
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-8 text-center backdrop-blur-sm sm:rounded-3xl sm:p-12">
+          <ShoppingBag className="mx-auto mb-4 h-14 w-14 text-neutral-600 sm:h-16 sm:w-16" />
+          <h3 className="mb-2 text-lg font-medium text-neutral-200 sm:text-xl sm:font-light">
+            No tienes tiendas
+          </h3>
+          <p className="text-sm text-neutral-400 sm:text-base">
+            Crea una tienda primero para registrar ventas
+          </p>
+        </div>
       </div>
     );
   }
@@ -733,7 +770,7 @@ export default function SalesPage() {
                         ) : (
                           <FileDown className="h-4 w-4" />
                         )}
-                        <span className="ml-1.5">Factura PDF</span>
+                        <span className="ml-1.5">Comprobante PDF</span>
                       </Button>
                     </div>
                   </div>
@@ -805,7 +842,7 @@ export default function SalesPage() {
                                 ) : (
                                   <FileDown className="h-3.5 w-3.5" />
                                 )}
-                                Factura
+                                Comprobante
                               </button>
                             </div>
                           </td>
@@ -866,11 +903,13 @@ export default function SalesPage() {
                       list.push(p);
                       byProductId.set(p.productId, list);
                     }
+                    const storeIva = authState.stores.find((s) => s.id === storeId)?.iva ?? 0;
                     return Array.from(byProductId.entries()).map(([productId, options]) => {
                       const single = options.length === 1;
                       const p = options[0]!;
                       const isVariant = p.combinationId != null || (p.selectedVariants?.length ?? 0) > 0;
-                      const priceDisplay = p.unitPriceWithIva ?? p.unitPrice;
+                      const effectiveIva = p.iva != null && p.iva > 0 ? p.iva : storeIva;
+                      const priceDisplay = p.unitPrice * (1 + effectiveIva / 100);
                       const hasStock = options.some((o) => o.stock > 0);
                       const productHasVariants =
                         p.combinationId != null || (p.selectedVariants?.length ?? 0) > 0;
@@ -1011,7 +1050,7 @@ export default function SalesPage() {
                           </p>
                         )}
                         <p className="text-xs text-neutral-500">
-                          {line.quantity} × {line.unitPrice.toFixed(2)} = {line.total.toFixed(2)}
+                          {line.quantity} × {(line.unitPrice * (1 + (line.iva ?? 0) / 100)).toFixed(2)} = {line.total.toFixed(2)}
                         </p>
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1">
@@ -1098,10 +1137,20 @@ export default function SalesPage() {
               )}
             </div>
 
-            {/* Total */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4">
-              <p className="flex justify-between items-center text-lg font-semibold text-neutral-100">
-                Total: <span className="text-xl text-primary-400">{cartTotal.toFixed(2)} {currency}</span>
+            {/* Subtotal, IVA y Total */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-3 sm:p-4 space-y-1.5">
+              {cartIvaAmount > 0 && (
+                <>
+                  <p className="flex justify-between text-sm text-neutral-400">
+                    Subtotal: <span className="tabular-nums">{cartSubtotal.toFixed(2)} {currency}</span>
+                  </p>
+                  <p className="flex justify-between text-sm text-neutral-400">
+                    IVA: <span className="tabular-nums">{cartIvaAmount.toFixed(2)} {currency}</span>
+                  </p>
+                </>
+              )}
+              <p className="flex justify-between items-center text-lg font-semibold text-neutral-100 pt-1 border-t border-neutral-700/60">
+                Total: <span className="text-xl text-primary-400 tabular-nums">{cartTotal.toFixed(2)} {currency}</span>
               </p>
             </div>
 
@@ -1422,7 +1471,9 @@ export default function SalesPage() {
             </p>
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
               {variantChoiceModal.options.map((opt) => {
-                const priceDisplay = opt.unitPriceWithIva ?? opt.unitPrice;
+                const storeIvaForOpt = authState.stores.find((s) => s.id === storeId)?.iva ?? 0;
+                const effectiveIvaOpt = opt.iva != null && opt.iva > 0 ? opt.iva : storeIvaForOpt;
+                const priceDisplay = opt.unitPrice * (1 + effectiveIvaOpt / 100);
                 const isVariant = opt.combinationId != null || (opt.selectedVariants?.length ?? 0) > 0;
                 const displayTitle = (() => {
                   let title = opt.displayName;
@@ -1505,7 +1556,7 @@ export default function SalesPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-neutral-700 bg-white p-6 text-neutral-900 shadow-xl">
               <h3 className="mb-4 border-b border-neutral-200 pb-2 text-center font-semibold">
-                Factura #{lastSale.saleNumber}
+                Comprobante #{lastSale.saleNumber}
               </h3>
               <p className="text-center text-2xl font-bold">
                 {lastSale.total.toFixed(2)} {lastSale.currency}
@@ -1513,13 +1564,16 @@ export default function SalesPage() {
               <p className="mt-2 text-center text-sm text-neutral-600">
                 {new Date(lastSale.createdAt).toLocaleString('es')}
               </p>
+              <p className="mt-1 text-center text-xs text-neutral-500">
+                IVA incluido cuando aplique
+              </p>
               <div className="mt-6 flex gap-3">
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={() => {
                     generateSalePdf(lastSale, storeInfo, {
-                      fileName: `factura-${lastSale.saleNumber}.pdf`,
+                      fileName: `comprobante-${lastSale.saleNumber}.pdf`,
                     });
                   }}
                   className="flex-1 bg-neutral-800 text-white border-0 hover:bg-neutral-700 focus:ring-neutral-600 shadow-md"

@@ -4,6 +4,8 @@ import { getDictionary } from '@/lib/i18n/dictionary';
 import { defaultLocale } from '@/constants/locales';
 import { ThemeProvider } from '@/lib/store/theme-store';
 import { PublicLayoutWrapper } from '@/components/layout/PublicLayoutWrapper';
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
+import { PageViewTracker } from '@/components/analytics/PageViewTracker';
 import { getSeoLogoUrl } from '@/lib/utils/seo';
 import './globals.css';
 
@@ -115,6 +117,8 @@ export default function RootLayout({
           <div className="absolute bottom-0 right-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-primary-800/10 rounded-full blur-[60px] sm:blur-[120px]" />
           <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-700/5 rounded-full blur-[150px]" />
         </div>
+        <GoogleAnalytics />
+        <PageViewTracker />
         <ThemeProvider>
           <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
         </ThemeProvider>

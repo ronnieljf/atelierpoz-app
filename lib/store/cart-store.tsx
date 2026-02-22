@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react';
 import { type Cart, type CartItem, type Product, type StoreUser } from '@/types/product';
+import { trackAddToCart, trackRemoveFromCart } from '@/lib/analytics/gtag';
 
 interface CartState {
   cart: Cart;
@@ -33,8 +34,8 @@ function toNumber(value: unknown, fallback: number): number {
   return Number.isNaN(n) ? fallback : n;
 }
 
-/** Precio unitario a partir de un CartItem (base + variantes). Usado para recalcular al cambiar cantidad o al cargar. */
-function getItemUnitPrice(item: CartItem): number {
+/** Precio unitario a partir de un CartItem (base + variantes). Usado para recalcular al cambiar cantidad o al cargar. Exportado para analytics. */
+export function getItemUnitPrice(item: CartItem): number {
   const base = toNumber(item.basePrice, 0);
   const modifiers = (item.selectedVariants || []).reduce(
     (sum, v) => sum + toNumber(v.priceModifier, 0),
@@ -276,9 +277,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
   
   const addItem = (product: Product, quantity: number, selectedVariants: CartItem['selectedVariants']) => {
     dispatch({ type: 'ADD_ITEM', payload: { product, quantity, selectedVariants } });
+    const basePrice = toNumber(product.basePrice, 0);
+    const modifierSum = (selectedVariants || []).reduce((sum, v) => {
+      const attr = product.attributes?.find((a) => a.id === v.attributeId);
+      const variantData = attr?.variants?.find((vr) => vr.id === v.variantId);
+      const mod =
+        v.priceModifier != null
+          ? toNumber(v.priceModifier, 0)
+          : toNumber((variantData as { price?: number } | undefined)?.price, 0);
+      return sum + mod;
+    }, 0);
+    const unitPrice = basePrice + modifierSum;
+    trackAddToCart({
+      productId: product.id,
+      productName: product.name,
+      quantity,
+      price: unitPrice,
+      currency: product.currency ?? 'USD',
+      category: product.category,
+      storeId: product.storeId,
+      storeName: product.storeName ?? undefined,
+    });
   };
-  
+
   const removeItem = (itemId: string) => {
+    const item = state.cart.items.find((i) => i.id === itemId);
+    if (item) {
+      const unitPrice = getItemUnitPrice(item);
+      trackRemoveFromCart({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        price: unitPrice,
+        currency: item.currency ?? 'USD',
+        storeId: item.storeId,
+        storeName: item.storeName,
+      });
+    }
     dispatch({ type: 'REMOVE_ITEM', payload: { itemId } });
   };
   

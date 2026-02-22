@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store/auth-store';
 import { AuthProvider } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { LogOut, Package, Users, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag } from 'lucide-react';
+import { LogOut, Package, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
@@ -17,10 +17,18 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, logout, state, loadStores } = useAuth();
-  const isAdmin = state.user?.role === 'admin';
   const hydrated = state.authHydrated;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [permissionDeniedMessage, setPermissionDeniedMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ message: string }>) => {
+      setPermissionDeniedMessage(e.detail?.message ?? 'No tienes permiso para realizar esta acción');
+    };
+    window.addEventListener('api:permission-denied', handler as EventListener);
+    return () => window.removeEventListener('api:permission-denied', handler as EventListener);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -72,22 +80,21 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (state.user && state.stores.length === 0 && loadStores) {
+      if (state.user && !state.storesLoaded && loadStores) {
         loadStores().catch((err) => console.error('Error cargando tiendas:', err));
       }
     };
 
     checkAuth();
-  }, [hydrated, isAuthenticated, pathname, router, state.user, state.stores.length, loadStores]);
+  }, [hydrated, isAuthenticated, pathname, router, state.user, state.storesLoaded, loadStores]);
 
   const handleLogout = () => {
     logout();
     router.push('/admin/login');
   };
 
-  // Una sola pantalla de carga hasta que auth y tiendas estén listos (en rutas protegidas)
   const isProtectedRoute = pathname !== '/admin' && pathname !== '/admin/login';
-  const waitingForStores = isProtectedRoute && !!state.user && state.stores.length === 0;
+  const waitingForStores = isProtectedRoute && !!state.user && !state.storesLoaded;
   const showLoading =
     pathname === '/admin' ||
     (!hydrated && pathname !== '/admin/login') ||
@@ -244,20 +251,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Configuración
             </p>
-            {isAdmin && (
-              <Link
-                href="/admin/users"
-                className={navLinkClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}
-              >
-                {(pathname === '/admin/users' || pathname.startsWith('/admin/users/')) && (
-                  <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                )}
-                <span className={navIconClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}>
-                  <Users className="h-4 w-4" />
-                </span>
-                <span className="truncate">Usuarios</span>
-              </Link>
-            )}
             <Link
               href="/admin/stores"
               className={navLinkClass(pathname === '/admin/stores' || pathname.startsWith('/admin/stores/'))}
@@ -440,21 +433,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
                 {/* ── Configuración ── */}
                 <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Configuración</p>
-                {isAdmin && (
-                  <Link
-                    href="/admin/users"
-                    className={navLinkClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}
-                    onClick={() => setMobileSidebarOpen(false)}
-                  >
-                    {(pathname === '/admin/users' || pathname.startsWith('/admin/users/')) && (
-                      <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
-                    )}
-                    <span className={navIconClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}>
-                      <Users className="h-4 w-4" />
-                    </span>
-                    <span className="truncate">Usuarios</span>
-                  </Link>
-                )}
                 <Link
                   href="/admin/stores"
                   className={navLinkClass(pathname === '/admin/stores' || pathname.startsWith('/admin/stores/'))}
@@ -538,11 +516,33 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Banner global: sin permiso (403) */}
+      {permissionDeniedMessage && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between gap-4 px-4 py-3 bg-amber-950/95 border-b border-amber-700/50 text-amber-200 shadow-lg"
+          role="alert"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-amber-400" />
+            <span className="text-sm font-medium truncate">{permissionDeniedMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPermissionDeniedMessage(null)}
+            className="shrink-0 p-1.5 rounded-lg text-amber-300 hover:bg-amber-500/20 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className={cn('min-h-screen pb-4 transition-[margin] duration-200 lg:pb-0', desktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0')}>
         <div className={cn(
           "px-2 py-4 sm:px-4 sm:py-6 lg:p-8",
-          state.user && "pt-16 lg:pt-4"
+          state.user && "pt-16 lg:pt-4",
+          permissionDeniedMessage && "pt-14"
         )}>
           <PageTransition>
             {children}

@@ -26,6 +26,8 @@ export interface Expense {
   paidAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Suma de abonos registrados (solo en listado cuando el backend lo incluye). */
+  totalPaid?: number;
 }
 
 export interface CreateExpenseData {

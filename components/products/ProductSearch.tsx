@@ -12,10 +12,12 @@ import { PackageSearch, Search, X, Check, Tag, ChevronDown, ChevronUp, SlidersHo
 import { cn } from '@/lib/utils/cn';
 import { getRecentProducts, getStoreProducts, type ProductsResponse } from '@/lib/services/products';
 import { getCategoriesByStore, type Category } from '@/lib/services/categories';
+import { trackSearch } from '@/lib/analytics/gtag';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProductSearchProps {
   storeId?: string; // Si se proporciona, carga productos de esa tienda
+  storeName?: string; // Nombre de la tienda (para analytics)
   dict: Dictionary;
   initialProducts?: Product[]; // Productos iniciales (opcional, para SSR)
   /** Slug de categoría desde la URL (ej. /tienda-id/category/ropa) para filtrar y sincronizar estado */
@@ -67,7 +69,7 @@ function loadSearchState(storeId?: string): { page: number; search: string } | n
   return null;
 }
 
-export function ProductSearch({ storeId, dict, initialProducts = [], initialCategorySlug }: ProductSearchProps) {
+export function ProductSearch({ storeId, storeName, dict, initialProducts = [], initialCategorySlug }: ProductSearchProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -157,6 +159,9 @@ export function ProductSearch({ storeId, dict, initialProducts = [], initialCate
     filterMinPrice?: number,
     filterMaxPrice?: number
   ) => {
+    if (searchQuery?.trim() && page === 1) {
+      trackSearch(searchQuery.trim(), storeId, storeName);
+    }
     const isFirstPage = page === 1;
     if (isFirstPage) {
       setLoading(true);
@@ -199,7 +204,7 @@ export function ProductSearch({ storeId, dict, initialProducts = [], initialCate
         setLoadingMore(false);
       }
     }
-  }, [storeId]);
+  }, [storeId, storeName]);
 
   // Estado para el término de búsqueda con debounce
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');

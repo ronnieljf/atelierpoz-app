@@ -32,6 +32,14 @@ function formatExpense(r: ApiExpense): Expense {
     paidAt: r.paidAt ?? r.paid_at ?? null,
     createdAt: r.createdAt ?? r.created_at,
     updatedAt: r.updatedAt ?? r.updated_at,
+    totalPaid:
+      typeof r.totalPaid === 'number'
+        ? r.totalPaid
+        : typeof r.total_paid === 'number'
+          ? r.total_paid
+          : typeof r.total_paid === 'string'
+            ? parseFloat(r.total_paid)
+            : undefined,
   };
 }
 
