@@ -1,7 +1,11 @@
 /**
  * Google Analytics (GA4) – helpers para enviar page_view y eventos.
- * Usar solo en cliente (typeof window !== 'undefined').
+ * Solo activo en producción (NEXT_PUBLIC_BACKEND_URL contiene atelierpoz.com).
  */
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+export const isProductionAnalytics =
+  typeof BACKEND_URL === 'string' && BACKEND_URL.includes('atelierpoz.com');
 
 export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-CXPECJE9Y8';
 
@@ -13,7 +17,7 @@ declare global {
 }
 
 export function gtag(...args: unknown[]): void {
-  if (typeof window === 'undefined' || !window.gtag) return;
+  if (!isProductionAnalytics || typeof window === 'undefined' || !window.gtag) return;
   window.gtag(...args);
 }
 

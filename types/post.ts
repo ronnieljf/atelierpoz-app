@@ -13,6 +13,7 @@ export interface Post {
   createdAt: string;
   scheduledAt?: string;
   status: 'draft' | 'published' | 'scheduled';
+  storeId?: string;
 }
 
 export interface PostFormData {

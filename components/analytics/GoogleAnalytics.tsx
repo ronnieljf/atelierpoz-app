@@ -1,10 +1,10 @@
 'use client';
 
 import Script from 'next/script';
-import { GA_MEASUREMENT_ID } from '@/lib/analytics/gtag';
+import { GA_MEASUREMENT_ID, isProductionAnalytics } from '@/lib/analytics/gtag';
 
 export function GoogleAnalytics() {
-  if (!GA_MEASUREMENT_ID) return null;
+  if (!isProductionAnalytics || !GA_MEASUREMENT_ID) return null;
 
   return (
     <>

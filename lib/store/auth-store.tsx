@@ -29,6 +29,9 @@ interface AuthState {
     name: string | null;
     role: string;
     number_stores: number;
+    reminders_enabled?: boolean;
+    reminder_days_after_creation?: number;
+    reminder_days_after_last_payment?: number;
   } | null;
   stores: Store[];
   /** Máximo de tiendas que el usuario puede crear (viene del backend). */
@@ -42,9 +45,9 @@ interface AuthState {
 }
 
 type AuthAction =
-  | { type: 'LOGIN'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number } }
+  | { type: 'LOGIN'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number } }
   | { type: 'LOGOUT' }
-  | { type: 'LOAD_AUTH'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number } | null }
+  | { type: 'LOAD_AUTH'; payload: { id: string; email: string; name: string | null; role: string; number_stores: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number } | null }
   | { type: 'SET_STORES'; payload: { stores: Store[]; storeLimit: number; storeCountAsCreator: number } }
   | { type: 'AUTH_HYDRATED' }
   | { type: 'STORES_LOADED' };
@@ -72,6 +75,9 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
           name: action.payload.name,
           role: action.payload.role,
           number_stores: action.payload.number_stores ?? 1,
+          reminders_enabled: action.payload.reminders_enabled,
+          reminder_days_after_creation: action.payload.reminder_days_after_creation,
+          reminder_days_after_last_payment: action.payload.reminder_days_after_last_payment,
         },
         stores: [],
         storeLimit: action.payload.number_stores ?? 1,
@@ -117,6 +123,9 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
             name: action.payload.name,
             role: action.payload.role,
             number_stores: action.payload.number_stores ?? 1,
+            reminders_enabled: action.payload.reminders_enabled,
+            reminder_days_after_creation: action.payload.reminder_days_after_creation,
+            reminder_days_after_last_payment: action.payload.reminder_days_after_last_payment,
           },
           storeLimit: action.payload.number_stores ?? 1,
           stores: [],
@@ -219,20 +228,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             httpClient.setToken(urlToken);
             
             // Validar el token con el backend
-            const response = await httpClient.get<{
-              success: boolean;
-              user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
-            }>('/api/auth/me');
+        const response = await httpClient.get<{
+          success: boolean;
+          user: { id: string; email: string; name: string | null; role: string; number_stores?: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number };
+        }>('/api/auth/me');
 
             if (response.success && response.data?.user) {
+              const u = response.data.user;
               dispatch({ 
                 type: 'LOGIN', 
                 payload: { 
-                  id: response.data.user.id,
-                  email: response.data.user.email,
-                  name: response.data.user.name || null,
-                  role: response.data.user.role || 'user',
-                  number_stores: response.data.user.number_stores ?? 1,
+                  id: u.id,
+                  email: u.email,
+                  name: u.name || null,
+                  role: u.role || 'user',
+                  number_stores: u.number_stores ?? 1,
+                  reminders_enabled: u.reminders_enabled,
+                  reminder_days_after_creation: u.reminder_days_after_creation,
+                  reminder_days_after_last_payment: u.reminder_days_after_last_payment,
                 } 
               });
               
@@ -298,13 +311,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { httpClient } = await import('@/lib/http/client');
         const response = await httpClient.get<{
           success: boolean;
-          user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
+          user: { id: string; email: string; name: string | null; role: string; number_stores?: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number };
         }>('/api/auth/me', { signal: controller.signal });
 
         if (response.success && response.data?.user) {
           clearTimeout(timeoutId);
           authSucceeded = true;
-          dispatch({ type: 'LOAD_AUTH', payload: { ...response.data.user, number_stores: response.data.user.number_stores ?? 1 } });
+          const u = response.data.user;
+          dispatch({ type: 'LOAD_AUTH', payload: { ...u, number_stores: u.number_stores ?? 1 } });
           await loadUserStores();
           dispatch({ type: 'AUTH_HYDRATED' });
           return;
@@ -359,7 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const response = await httpClient.post<{
         success: boolean;
-        user: { id: string; email: string; name: string | null; role: string; number_stores?: number };
+        user: { id: string; email: string; name: string | null; role: string; number_stores?: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number };
         token?: string;
       }>('/api/auth/login', { email, password }, { skipAuth: true });
 
@@ -367,15 +381,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.data.token) {
           httpClient.setToken(response.data.token);
         }
-
+        const u = response.data.user;
         dispatch({ 
           type: 'LOGIN', 
           payload: { 
-            id: response.data.user.id,
-            email: response.data.user.email,
-            name: response.data.user.name || null,
-            role: response.data.user.role || 'admin',
-            number_stores: response.data.user.number_stores ?? 1,
+            id: u.id,
+            email: u.email,
+            name: u.name || null,
+            role: u.role || 'admin',
+            number_stores: u.number_stores ?? 1,
+            reminders_enabled: u.reminders_enabled,
+            reminder_days_after_creation: u.reminder_days_after_creation,
+            reminder_days_after_last_payment: u.reminder_days_after_last_payment,
           } 
         });
         

@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllPosts, deletePost } from '@/lib/services/posts';
+import { getAllPosts, deletePost, publishPostToInstagram } from '@/lib/services/posts';
+import { getMetaIntegrationStatus } from '@/lib/services/meta';
 import { type Post } from '@/types/post';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { Button } from '@/components/ui/Button';
-import { Plus, Edit, Trash2, Instagram, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Instagram, Image as ImageIcon, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import Image from 'next/image';
-// import { InstagramConnection } from '@/components/admin/InstagramConnection';
+import { InstagramConnection } from '@/components/admin/InstagramConnection';
 
 const dict = getDictionary('es');
 
@@ -18,9 +19,12 @@ export default function PostsListPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [instagramConnected, setInstagramConnected] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPosts();
+    getMetaIntegrationStatus().then((status) => setInstagramConnected(status.connected));
   }, []);
 
   const loadPosts = async () => {
@@ -49,6 +53,25 @@ export default function PostsListPage() {
       }
     } catch {
       setMessage({ type: 'error', text: 'Error al eliminar el post' });
+    }
+  };
+
+  const handlePublishToInstagram = async (postId: string) => {
+    setPublishingId(postId);
+    setMessage(null);
+    try {
+      const result = await publishPostToInstagram(postId);
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Post publicado en Instagram correctamente' });
+        await loadPosts();
+        getMetaIntegrationStatus().then((s) => setInstagramConnected(s.connected));
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Error al publicar en Instagram' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Error al publicar en Instagram' });
+    } finally {
+      setPublishingId(null);
     }
   };
 
@@ -100,10 +123,9 @@ export default function PostsListPage() {
         )}
       </AnimatePresence>
 
-      {/* Instagram Connection Status - Oculto por ahora */}
-      {/* <div className="mb-6">
+      <div className="mb-6">
         <InstagramConnection />
-      </div> */}
+      </div>
 
       {posts.length === 0 ? (
         <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-3xl p-12 text-center">
@@ -181,9 +203,34 @@ export default function PostsListPage() {
 
                 <div className="flex items-center justify-between pt-3 border-t border-neutral-800">
                   <span className="text-xs text-neutral-500">
-                    {post.selectedProducts.length} productos
+                    {post.status === 'published' ? (
+                      <span className="text-green-500/90">Publicado en Instagram</span>
+                    ) : (
+                      <>{post.selectedProducts.length} productos</>
+                    )}
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    {post.status === 'draft' && instagramConnected && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handlePublishToInstagram(post.id)}
+                        disabled={!!publishingId}
+                        className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 border-0"
+                      >
+                        {publishingId === post.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 animate-spin" />
+                            Publicando...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                            <span className="hidden sm:inline">Publicar en Instagram</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Link href={`/admin/posts/${post.id}/edit`}>
                       <Button variant="outline" size="sm" className="text-xs">
                         <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />

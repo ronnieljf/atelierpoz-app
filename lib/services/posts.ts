@@ -32,6 +32,7 @@ function formatPostFromAPI(post: BackendPost): Post {
     createdAt: post.createdAt,
     scheduledAt: post.scheduledAt || undefined,
     status: post.status,
+    storeId: post.storeId,
   };
 }
 
@@ -71,24 +72,30 @@ export async function getPostById(id: string): Promise<Post | null> {
 
 /**
  * Crear un nuevo post
+ * @param post - Datos del post
+ * @param storeIdOverride - Si se indica, se usa esta tienda; si no, se usa la primera del usuario (localStorage)
  */
-export async function createPost(post: Omit<Post, 'id' | 'createdAt'>): Promise<Post> {
+export async function createPost(
+  post: Omit<Post, 'id' | 'createdAt'>,
+  storeIdOverride?: string
+): Promise<Post> {
   try {
-    // Obtener storeId del usuario autenticado
-    const authData = typeof window !== 'undefined' ? localStorage.getItem('admin_auth') : null;
-    let storeId: string | undefined;
-    
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        if (parsed.stores && parsed.stores.length > 0) {
-          storeId = parsed.stores[0].id;
+    let storeId: string | undefined = storeIdOverride;
+
+    if (storeId == null && typeof window !== 'undefined') {
+      const authData = localStorage.getItem('admin_auth');
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          if (parsed.stores && parsed.stores.length > 0) {
+            storeId = parsed.stores[0].id;
+          }
+        } catch {
+          // Ignorar error de parsing
         }
-      } catch {
-        // Ignorar error de parsing
       }
     }
-    
+
     const response = await httpClient.post<{ post: BackendPost }>('/api/posts', {
       title: post.title,
       description: post.description,
@@ -151,5 +158,27 @@ export async function deletePost(id: string): Promise<boolean> {
   } catch (error) {
     console.error('Error deleting post:', error);
     return false;
+  }
+}
+
+/**
+ * Publicar un post en Instagram (requiere tener la cuenta conectada)
+ */
+export async function publishPostToInstagram(postId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await httpClient.post<{ message?: string; data?: { instagramMediaId?: string } }>(
+      `/api/posts/${postId}/publish`
+    );
+    if (response.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error: response.error || 'Error al publicar en Instagram',
+    };
+  } catch (error) {
+    console.error('Error publishing post to Instagram:', error);
+    const message = error && typeof error === 'object' && 'message' in error ? String((error as { message: string }).message) : 'Error al publicar en Instagram';
+    return { success: false, error: message };
   }
 }

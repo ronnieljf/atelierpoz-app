@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store/auth-store';
 import { AuthProvider } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { LogOut, Package, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag, ShieldAlert } from 'lucide-react';
+import { LogOut, Package, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag, ShieldAlert, Image, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
@@ -169,6 +169,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
               <span className="truncate">Categorías de Productos</span>
             </Link>
+            <Link href="/admin/posts" className={navLinkClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}>
+              {(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}><Image className="h-4 w-4" /></span>
+              <span className="truncate">Publicaciones (Instagram)</span>
+            </Link>
 
             <div className="my-4 border-t border-neutral-800/80" />
 
@@ -185,6 +190,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
               <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}><Receipt className="h-4 w-4" /></span>
               <span className="truncate">Cuentas por cobrar</span>
+            </Link>
+            <Link href="/admin/recordatorios" className={navLinkClass(pathname === '/admin/recordatorios')}>
+              {pathname === '/admin/recordatorios' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/recordatorios')}><Bell className="h-4 w-4" /></span>
+              <span className="truncate">Recordatorios</span>
             </Link>
             <Link href="/admin/requests" className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))}>
               {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
@@ -364,6 +374,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
                   <span className="truncate">Categorías de Productos</span>
                 </Link>
+                <Link href="/admin/posts" className={navLinkClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}><Image className="h-4 w-4" /></span>
+                  <span className="truncate">Publicaciones (Instagram)</span>
+                </Link>
                 <div className="my-4 border-t border-neutral-800/80" />
 
                 {/* ── Ingresos ── */}
@@ -377,6 +392,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   {(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
                   <span className={navIconClass(pathname === '/admin/receivables' || pathname.startsWith('/admin/receivables/'))}><Receipt className="h-4 w-4" /></span>
                   <span className="truncate">Cuentas por cobrar</span>
+                </Link>
+                <Link href="/admin/recordatorios" className={navLinkClass(pathname === '/admin/recordatorios')} onClick={() => setMobileSidebarOpen(false)}>
+                  {pathname === '/admin/recordatorios' && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/recordatorios')}><Bell className="h-4 w-4" /></span>
+                  <span className="truncate">Recordatorios</span>
                 </Link>
                 <Link href="/admin/requests" className={navLinkClass(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/'))} onClick={() => setMobileSidebarOpen(false)}>
                   {(pathname === '/admin/requests' || pathname.startsWith('/admin/requests/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}

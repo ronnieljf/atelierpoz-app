@@ -32,8 +32,20 @@ export function Footer({ locale }: FooterProps) {
             </p>
           </div>
           
-          {/* Redes Sociales mejoradas */}
-          <div className="flex items-center gap-6">
+          {/* Legal + Redes */}
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            <Link
+              href="/politica-de-privacidad"
+              className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
+            >
+              Política de privacidad
+            </Link>
+            <Link
+              href="/terminos-y-condiciones"
+              className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
+            >
+              Términos y condiciones
+            </Link>
             <Link
               href="https://instagram.com/atelierpoz"
               target="_blank"
