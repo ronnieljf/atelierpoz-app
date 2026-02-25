@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store/auth-store';
-import { AuthProvider } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { LogOut, Package, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle, FolderTree, KeyRound, BarChart3, ShoppingCart, PanelLeftClose, PanelLeft, Wallet, Truck, ClipboardList, Tag, ShieldAlert, Image, Bell } from 'lucide-react';
 import Link from 'next/link';
@@ -48,16 +47,29 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
 
     const checkAuth = async () => {
-      // /admin: redirigir a products o login
+      // /admin: redirigir según tenga o no tiendas (esperar storesLoaded si está autenticado)
       if (pathname === '/admin') {
-        if (isAuthenticated()) router.push('/admin/products');
-        else router.push('/admin/login');
+        if (!isAuthenticated()) {
+          router.push('/admin/login');
+          return;
+        }
+        // Autenticado: redirigir solo cuando las tiendas ya estén cargadas
+        if (state.storesLoaded) {
+          const dest = state.stores.length === 0 ? '/admin/stores' : '/admin/products';
+          router.push(dest);
+        }
         return;
       }
 
-      // Login: si ya está autenticado, ir a products
+      // Login: si ya está autenticado, ir a /admin (que redirige a tiendas o productos)
       if (pathname === '/admin/login') {
-        if (isAuthenticated()) router.push('/admin/products');
+        if (isAuthenticated()) router.push('/admin');
+        return;
+      }
+
+      // Usuario sin tiendas en /admin/products → llevar a tiendas
+      if (pathname === '/admin/products' && isAuthenticated() && state.storesLoaded && state.stores.length === 0) {
+        router.push('/admin/stores');
         return;
       }
 
@@ -86,7 +98,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
-  }, [hydrated, isAuthenticated, pathname, router, state.user, state.storesLoaded, loadStores]);
+  }, [hydrated, isAuthenticated, pathname, router, state.user, state.storesLoaded, state.stores.length, loadStores]);
 
   const handleLogout = () => {
     logout();
@@ -574,9 +586,5 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
-    </AuthProvider>
-  );
+  return <AdminLayoutContent>{children}</AdminLayoutContent>;
 }

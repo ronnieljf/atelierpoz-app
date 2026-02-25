@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { setUserForAnalytics } from '@/lib/analytics/gtag';
 
 interface Store {
   id: string;
@@ -55,6 +56,8 @@ type AuthAction =
 interface AuthContextType {
   state: AuthState;
   login: (email: string, password: string) => Promise<boolean>;
+  /** Iniciar sesión con datos ya obtenidos (ej. tras verificar registro) */
+  loginWithData: (user: { id: string; email: string; name: string | null; role: string; number_stores?: number }, token: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: () => boolean;
   loadStores: () => Promise<void>;
@@ -408,9 +411,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
+  const loginWithData = async (
+    user: { id: string; email: string; name: string | null; role: string; number_stores?: number },
+    token: string
+  ) => {
+    const { httpClient } = await import('@/lib/http/client');
+    httpClient.setToken(token);
+    dispatch({
+      type: 'LOGIN',
+      payload: {
+        id: user.id,
+        email: user.email,
+        name: user.name || null,
+        role: user.role || 'user',
+        number_stores: user.number_stores ?? 1,
+      },
+    });
+    await loadUserStores();
+  };
+
   const logout = () => {
     dispatch({ type: 'LOGOUT' });
   };
+
+  // Sincronizar usuario autenticado con Google Analytics
+  useEffect(() => {
+    if (state.isAuthenticated && state.user) {
+      setUserForAnalytics({ id: state.user.id, role: state.user.role });
+    } else {
+      setUserForAnalytics(null);
+    }
+  }, [state.isAuthenticated, state.user?.id, state.user?.role]);
 
   const isAuthenticated = useCallback(() => state.isAuthenticated, [state.isAuthenticated]);
 
@@ -419,6 +450,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         login,
+        loginWithData,
         logout,
         isAuthenticated,
         loadStores: loadUserStores,

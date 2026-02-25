@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { AuthProvider } from '@/lib/store/auth-store';
 import { CartProvider } from '@/lib/store/cart-store';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -14,13 +15,10 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 
-  // Si es una ruta del admin, renderizar solo el children sin Header/Footer
-  if (isAdminRoute) {
-    return <>{children}</>;
-  }
-
-  // Para rutas públicas, renderizar con Header, Footer, etc.
-  return (
+  // AuthProvider envuelve toda la app para que Header y admin puedan usar useAuth
+  const content = isAdminRoute ? (
+    <>{children}</>
+  ) : (
     <CartProvider>
       <InitialLoader />
       <CartRestoreDialogWrapper locale={defaultLocale} />
@@ -36,4 +34,6 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
       </div>
     </CartProvider>
   );
+
+  return <AuthProvider>{content}</AuthProvider>;
 }

@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { createStore, updateStore, addUserToStore, updateUserPhoneNumber, getStoreUsers, uploadStoreLogo, removeUserFromStore, type StoreUserRow } from '@/lib/services/stores';
-import { getMyPermissions, getAllPermissions, setUserPermissions, type PermissionItem } from '@/lib/services/permissions';
+import { trackStoreCreated } from '@/lib/analytics/gtag';
+import { getAllPermissions, setUserPermissions, type PermissionItem } from '@/lib/services/permissions';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
 import {
   Plus, Store as StoreIcon, CheckCircle, XCircle, Edit, X, Users, UserPlus,
   Phone, ImagePlus, Loader2, ChevronDown, MapPin, Instagram, Hash, Percent,
-  Crown, Shield, TriangleAlert, Trash2, KeyRound,
+  Crown, Shield, TriangleAlert, Trash2, KeyRound, ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
@@ -201,6 +203,7 @@ export default function StoresPage() {
         setMessage({ type: 'success', text: 'Tienda creada exitosamente' });
         setShowCreateForm(false);
         setFormData({ ...EMPTY_FORM });
+        trackStoreCreated(newStore.id, newStore.name);
         if (loadStores) await loadStores();
       }
     } catch (error: unknown) {
@@ -736,6 +739,17 @@ export default function StoresPage() {
                                       </Button>
                                     </form>
                                   )}
+                                  {/* Ver tienda pública */}
+                                  <Link
+                                    href={`/${store.store_id && store.store_id.trim() ? store.store_id : store.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Button type="button" variant="outline" size="sm">
+                                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                                      Ver tienda en la web
+                                    </Button>
+                                  </Link>
                                 </div>
                               </div>
                             )}

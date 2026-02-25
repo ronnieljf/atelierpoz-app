@@ -35,6 +35,33 @@ export function trackEvent(eventName: string, params?: Record<string, unknown>):
   gtag('event', eventName, params);
 }
 
+/**
+ * Asociar datos del usuario autenticado a GA (user_id + user_properties).
+ * No enviamos email en claro, solo id y rol.
+ */
+export function setUserForAnalytics(user: { id: string; role?: string } | null): void {
+  if (!isProductionAnalytics || typeof window === 'undefined') return;
+
+  if (user) {
+    // user_id para GA4
+    gtag('config', GA_MEASUREMENT_ID, {
+      user_id: user.id,
+    });
+    // user_properties para segmentación
+    gtag('set', 'user_properties', {
+      role: user.role ?? 'user',
+    });
+  } else {
+    // Limpiar user_id y user_properties
+    gtag('config', GA_MEASUREMENT_ID, {
+      user_id: undefined,
+    });
+    gtag('set', 'user_properties', {
+      role: undefined,
+    });
+  }
+}
+
 /** Usuario entró a la home / listado de tiendas. */
 export function trackViewHome(): void {
   trackEvent('view_home', { page: 'home' });
@@ -227,6 +254,38 @@ export function trackBeginCheckout(params: {
 export function trackSearch(searchTerm: string, storeId?: string, storeName?: string): void {
   trackEvent('search', {
     search_term: searchTerm,
+    store_id: storeId,
+    store_name: storeName,
+  });
+}
+
+/** Login exitoso (GA4 login). */
+export function trackLogin(method: string): void {
+  trackEvent('login', {
+    method,
+  });
+}
+
+/** Registro exitoso (GA4 sign_up). */
+export function trackSignUp(method: string): void {
+  trackEvent('sign_up', {
+    method,
+  });
+}
+
+/** Flujo de recuperar contraseña: código solicitado. */
+export function trackPasswordResetRequested(): void {
+  trackEvent('password_reset_request');
+}
+
+/** Flujo de recuperar contraseña: contraseña cambiada. */
+export function trackPasswordResetCompleted(): void {
+  trackEvent('password_reset_complete');
+}
+
+/** Creación de tienda nueva desde el admin. */
+export function trackStoreCreated(storeId: string, storeName: string): void {
+  trackEvent('create_store', {
     store_id: storeId,
     store_name: storeName,
   });

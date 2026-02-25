@@ -35,6 +35,12 @@ export function Footer({ locale }: FooterProps) {
           {/* Legal + Redes */}
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             <Link
+              href="/landing"
+              className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
+            >
+              Para tu negocio
+            </Link>
+            <Link
               href="/politica-de-privacidad"
               className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
             >

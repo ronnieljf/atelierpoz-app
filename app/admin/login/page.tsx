@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { Button } from '@/components/ui/Button';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, UserPlus } from 'lucide-react';
+import { trackLogin } from '@/lib/analytics/gtag';
 
 // Por ahora usamos español por defecto para el admin
 const dict = getDictionary('es');
@@ -38,7 +40,8 @@ export default function AdminLoginPage() {
       ]);
       
       if (success) {
-        router.push('/admin/products');
+        trackLogin('admin_email_password');
+        router.push('/admin');
       } else {
         setError(dict.admin.login.error);
         setIsLoading(false);
@@ -144,6 +147,34 @@ export default function AdminLoginPage() {
                 >
                   {isLoading ? dict.common.loading : dict.admin.login.submit}
                 </Button>
+
+                <div className="mt-6 space-y-3">
+                  <div className="text-center">
+                    <Link
+                      href="/recuperar-contrasena"
+                      className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </Link>
+                  </div>
+
+                  <div className="pt-3 border-t border-neutral-800/70">
+                    <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 text-center mb-3">
+                      ¿Aún no tienes cuenta para tu negocio?
+                    </p>
+                    <Link href="/registro" className="block">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="lg"
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span>Crear cuenta para mi negocio</span>
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
               </form>
             </div>
           </div>
