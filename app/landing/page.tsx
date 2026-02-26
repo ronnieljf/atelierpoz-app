@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion, useInView } from 'framer-motion';
-import { useRef } from 'react';
 import {
   Package,
   Receipt,
@@ -10,382 +8,251 @@ import {
   BarChart3,
   Store,
   Users,
-  ShoppingCart,
   Mail,
   ArrowRight,
-  Sparkles,
-  Zap,
   Check,
 } from 'lucide-react';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.2 },
-  },
-};
-
 export default function LandingPage() {
-  const heroRef = useRef(null);
-  const heroInView = useInView(heroRef, { once: true, amount: 0.3 });
-
   const features = [
-    { icon: Package, title: 'Catálogo de productos', desc: 'Fotos, precios, stock y variantes. Todo organizado.' },
-    { icon: Receipt, title: 'Cuentas por cobrar', desc: 'Registra lo que te deben, los abonos y el estado de cada cuenta.' },
-    { icon: Bell, title: 'Recordatorios por WhatsApp', desc: 'Avisos automáticos cuando una cuenta requiere seguimiento.' },
-    { icon: BarChart3, title: 'Reportes', desc: 'Ventas, productos más vendidos, lo que no se movió y más.' },
-    { icon: Store, title: 'Una o varias tiendas', desc: 'Gestiona múltiples marcas o locales desde un solo lugar.' },
+    { icon: Package, title: 'Catálogo de productos', desc: 'Fotos, precios, stock y variantes. Todo organizado en un solo lugar.' },
+    { icon: Receipt, title: 'Cuentas por cobrar', desc: 'Registra lo que te deben, los abonos y el estado de cada cuenta. Recordatorios automáticos por WhatsApp.' },
+    { icon: Bell, title: 'Recordatorios por WhatsApp', desc: 'Avisos automáticos cuando una cuenta requiere seguimiento. Configúralos a tu medida.' },
+    { icon: BarChart3, title: 'Reportes y ventas', desc: 'Ventas, productos más vendidos, lo que no se movió. Decisiones basadas en datos.' },
+    { icon: Store, title: 'Una o varias tiendas', desc: 'Gestiona múltiples marcas o locales desde un solo acceso.' },
     { icon: Users, title: 'Clientes y proveedores', desc: 'Tu libreta de contactos integrada al negocio.' },
   ];
 
   const audiences = [
-    { icon: ShoppingCart, title: 'Negocio pequeño', desc: 'Un solo local, catálogo, ventas y recordatorios de cobro por WhatsApp. Empieza sin complicarte.' },
-    { icon: Store, title: 'Negocio mediano', desc: 'Varias tiendas o marcas, más usuarios, reportes completos y mejor control.' },
-    { icon: Package, title: 'Distribuidora', desc: 'Muchos productos y marcas, varios usuarios, reportes por marca y soporte prioritario.' },
+    { title: 'Emprendedor / Negocio pequeño', desc: 'Un solo local. Catálogo, ventas y recordatorios de cobro por WhatsApp. Empieza sin complicarte.' },
+    { title: 'Negocio mediano', desc: 'Varias tiendas o marcas. Más usuarios, reportes completos y mejor control de inventario y cobranzas.' },
+    { title: 'Distribuidor', desc: 'Muchos productos y marcas. Varios usuarios, reportes por tienda y soporte prioritario.' },
   ];
 
   const benefits = [
-    'Todo en un solo lugar: productos, ventas, cobranzas y reportes.',
-    'Recordatorios por WhatsApp configurados a tu medida.',
-    'Funciona en celular y computadora.',
+    'Todo en un solo lugar: productos, ventas, cuentas por cobrar y reportes.',
+    'Deja de perseguir pagos: recordatorios automáticos por WhatsApp.',
+    'Funciona en celular y computadora. Usa donde estés.',
     'Varias tiendas o marcas con un solo acceso.',
-    'Reportes para tomar mejores decisiones.',
+    'Reportes claros para tomar mejores decisiones.',
     'Plan gratis para probar sin compromiso.',
   ];
 
+  const painPoints = [
+    '¿Se te pierden los pedidos entre WhatsApp e Instagram?',
+    '¿Pasas horas escribiendo «¿me pagas?» a tus clientes?',
+    '¿Llevas quién te debe en la cabeza o en notas sueltas?',
+  ];
+
   return (
-    <div className="overflow-x-hidden relative">
-      {/* Fondo global: grid + dots */}
-      <div className="fixed inset-0 landing-grid-pattern landing-dots-pattern pointer-events-none z-0" aria-hidden />
-      <div className="fixed inset-0 bg-gradient-to-b from-neutral-950/80 via-transparent to-neutral-950/90 pointer-events-none z-0" aria-hidden />
+    <div className="relative min-h-screen">
+      <div className="fixed inset-0 bg-neutral-950 pointer-events-none z-0" aria-hidden />
 
-      {/* Hero - Impacto máximo */}
-      <section
-        ref={heroRef}
-        className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 sm:px-6 py-24 sm:py-32"
-      >
-        {/* Orbes animados de fondo */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <motion.div
-            className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] bg-primary-500/25"
-            animate={{
-              x: [0, 40, -20, 0],
-              y: [0, -30, 20, 0],
-              scale: [1, 1.15, 0.95, 1],
-            }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] rounded-full blur-[100px] bg-secondary-500/20"
-            animate={{
-              x: [0, -30, 25, 0],
-              y: [0, 25, -15, 0],
-              scale: [1, 0.9, 1.1, 1],
-            }}
-            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="absolute top-1/2 left-1/2 w-[200px] h-[200px] rounded-full blur-[80px] bg-primary-400/15 -translate-x-1/2 -translate-y-1/2"
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.3, 0.6, 0.3],
-            }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        </div>
-
-        <div className="relative z-10 max-w-5xl mx-auto text-center">
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={heroInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary-500/10 border border-primary-500/30 text-primary-300 text-sm font-medium uppercase tracking-[0.2em] mb-10 shadow-lg shadow-primary-500/10"
-          >
-            <Sparkles className="h-4 w-4" />
-            Plataforma para tu negocio
-          </motion.p>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={heroInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light tracking-tight text-white mb-6 leading-[1.1]"
-          >
-            <span className="block">Lleva tu negocio</span>
-            <span className="block mt-2 landing-text-shine">
-              al siguiente nivel
-            </span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={heroInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="text-lg sm:text-xl text-neutral-400 font-light max-w-2xl mx-auto mb-14 leading-relaxed"
-          >
-            Productos, ventas, cuentas por cobrar, recordatorios por WhatsApp y reportes.{' '}
-            <span className="text-primary-300/90">Todo en un solo lugar</span>, desde tu celular o computadora.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={heroInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
+      {/* Hero */}
+      <section className="relative z-10 px-4 sm:px-6 py-16 sm:py-24">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-primary-400 text-sm font-medium uppercase tracking-wider mb-4">
+            Plataforma para emprendedores y pequeñas tiendas
+          </p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-light tracking-tight text-white mb-5 leading-tight">
+            Gestiona tu negocio
+            <br />
+            <span className="text-primary-400">sin complicarte</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-neutral-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Productos, ventas, cuentas por cobrar, recordatorios por WhatsApp y reportes. Todo en un solo lugar, desde tu celular o computadora.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/registro"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary-500 text-white font-semibold text-base"
+            >
+              Crear cuenta gratis
+              <ArrowRight className="h-4 w-4" />
+            </Link>
             <Link
               href="#contacto"
-              className="group inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-primary-500 hover:bg-primary-400 text-white font-semibold text-lg transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl shadow-primary-500/30 hover:shadow-2xl hover:shadow-primary-500/40 border border-primary-400/20"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-neutral-600 text-neutral-300 font-medium text-base"
             >
               Contáctanos
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-          </motion.div>
-
-          {/* Scroll indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={heroInView ? { opacity: 1 } : {}}
-            transition={{ delay: 1 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          >
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-6 h-10 rounded-full border-2 border-neutral-600 flex justify-center pt-2"
-            >
-              <motion.div className="w-1 h-2 rounded-full bg-primary-500" />
-            </motion.div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Qué hace */}
-      <section className="relative z-10 container mx-auto max-w-6xl px-4 sm:px-6 py-24 sm:py-32">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
-        >
-          <p className="inline-flex items-center gap-2 text-primary-400 text-sm font-medium uppercase tracking-wider mb-4">
-            <Zap className="h-4 w-4" />
-            ¿Qué hace Atelier Poz?
-          </p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-light text-white mb-4">
-            Una herramienta completa
+      {/* Qué es Atelier Poz */}
+      <section className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-12">
+          <h2 className="text-xl font-semibold text-white mb-4 text-center">
+            Qué es Atelier Poz
           </h2>
-          <p className="text-neutral-400 text-lg max-w-xl mx-auto">
-            Para gestionar tu negocio sin complicaciones.
+          <p className="text-neutral-400 leading-relaxed text-center">
+            Plataforma para que emprendedores y pequeñas tiendas gestionen su negocio en un solo lugar: catálogo de productos, ventas, cuentas por cobrar con recordatorios automáticos por WhatsApp y reportes. Sin complicaciones, desde el celular o la computadora.
           </p>
-        </motion.div>
+        </div>
+      </section>
 
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.05 }}
-          className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {features.map(({ icon: Icon, title, desc }, i) => (
-            <motion.div
-              key={title}
-              variants={fadeUp}
-              custom={i}
-              whileHover="hover"
-              initial="rest"
-              className="group relative p-8 rounded-2xl border border-neutral-800/60 bg-neutral-900/50 hover:bg-neutral-900/70 hover:border-primary-700/40 transition-colors overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative">
-                <motion.div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-400 mb-5 group-hover:bg-primary-500/20 group-hover:scale-110 transition-all duration-300"
-                  whileHover={{ rotate: [0, -5, 5, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <Icon className="h-7 w-7" />
-                </motion.div>
-                <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
-                <p className="text-neutral-400 leading-relaxed">{desc}</p>
+      {/* Problemas que resolvemos */}
+      <section className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-4xl px-4 sm:px-6 py-12">
+          <h2 className="text-2xl font-light text-white mb-6 text-center">
+            ¿Te suena familiar?
+          </h2>
+          <ul className="space-y-3">
+            {painPoints.map((item, i) => (
+              <li key={i} className="flex items-start gap-3 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/40">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-500/20 text-primary-400 text-sm mt-0.5">?</span>
+                <span className="text-neutral-300">{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-center text-primary-400 font-medium mt-6">
+            Atelier Poz te ayuda a organizar todo eso.
+          </p>
+        </div>
+      </section>
+
+      {/* Casos de uso */}
+      <section className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-4xl px-4 sm:px-6 py-12">
+          <h2 className="text-2xl font-light text-white mb-2 text-center">
+            Casos de uso
+          </h2>
+          <p className="text-neutral-400 text-center mb-10">
+            Situaciones de todos los días que ya no tienen que ser un drama.
+          </p>
+          <div className="space-y-6">
+            <div className="p-5 rounded-xl border border-neutral-800/60 bg-neutral-900/50">
+              <h3 className="text-base font-semibold text-white mb-2">Las 11 de la noche y el cliente que «mañana te pago»</h3>
+              <p className="text-neutral-400 text-sm leading-relaxed">
+                Llevas semanas con la misma conversación: «¿Me pasas el total?», «Sí, mañana te deposito», y al día siguiente… silencio. Revuelves chats de WhatsApp, notas en el celular y una hoja con números que ya no sabes si están al día. Con Atelier Poz registras la cuenta por cobrar, ves quién debe y desde cuándo, y los recordatorios salen solos por WhatsApp. Tú solo revisas; el sistema hace el recordatorio incómodo por ti.
+              </p>
+            </div>
+            <div className="p-5 rounded-xl border border-neutral-800/60 bg-neutral-900/50">
+              <h3 className="text-base font-semibold text-white mb-2">El pedido que se perdió entre historias, DMs y un «te escribo por aquí»</h3>
+              <p className="text-neutral-400 text-sm leading-relaxed">
+                Un cliente pide por Instagram, otro confirma por WhatsApp y un tercero dice que te escribió por Facebook. Al final no sabes qué quedó pendiente, qué precio ofreciste ni si tenías ese producto. Todo queda en capturas y esperanza. Con un catálogo en línea y pedidos organizados en un solo lugar, cada pedido tiene su lugar, su monto y su estado. Nada se pierde en el limbo de las redes.
+              </p>
+            </div>
+            <div className="p-5 rounded-xl border border-neutral-800/60 bg-neutral-900/50">
+              <h3 className="text-base font-semibold text-white mb-2">El cierre de mes: «¿en qué se fue la plata?»</h3>
+              <p className="text-neutral-400 text-sm leading-relaxed">
+                Llega fin de mes y toca cuadrar. Ventas que anotaste en un lado, pagos que te hicieron en otro, y lo que «te deben» repartido entre memoria y promesas. No hay forma de saber si el número de la libreta es real o un sueño. Con reportes de ventas, cuentas por cobrar y pagos recibidos en un solo sitio, ves en segundos qué vendiste, qué te han pagado y qué sigue pendiente. Sin adivinar, sin drama.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Funcionalidades */}
+      <section className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-6xl px-4 sm:px-6 py-12">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-light text-white mb-2">
+              Una herramienta completa
+            </h2>
+            <p className="text-neutral-400">
+              Para gestionar tu negocio sin complicaciones.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {features.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="p-5 rounded-xl border border-neutral-800/60 bg-neutral-900/40"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10 text-primary-400 mb-3">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-semibold text-white mb-2">{title}</h3>
+                <p className="text-neutral-400 text-sm leading-relaxed">{desc}</p>
               </div>
-            </motion.div>
-          ))}
-        </motion.div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* A quién va dirigida */}
       <section className="relative z-10 border-t border-neutral-800/60">
-        <div className="container mx-auto max-w-6xl px-4 sm:px-6 py-24 sm:py-32">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-20"
-          >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-light text-white mb-4">
+        <div className="container mx-auto max-w-4xl px-4 sm:px-6 py-12">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-light text-white mb-2">
               ¿Para quién es?
             </h2>
-            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+            <p className="text-neutral-400">
               Desde un emprendimiento hasta una distribuidora con varias marcas.
             </p>
-          </motion.div>
-
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.1 }}
-            className="grid md:grid-cols-3 gap-8"
-          >
-            {audiences.map(({ icon: Icon, title, desc }, i) => (
-              <motion.div
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            {audiences.map(({ title, desc }) => (
+              <div
                 key={title}
-                variants={fadeUp}
-                custom={i}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className="group relative text-center p-10 rounded-3xl bg-gradient-to-b from-primary-900/30 to-neutral-900/50 border border-primary-800/30 hover:border-primary-600/50 transition-all duration-300 overflow-hidden"
+                className="p-5 rounded-xl border border-neutral-800/60 bg-neutral-900/40"
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <motion.div
-                  className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-500/20 text-primary-400 mb-6 group-hover:bg-primary-500/30 transition-colors"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.6 }}
-                >
-                  <Icon className="h-8 w-8" />
-                </motion.div>
-                <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
+                <h3 className="text-sm font-semibold text-white mb-2">{title}</h3>
                 <p className="text-neutral-400 text-sm leading-relaxed">{desc}</p>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Beneficios */}
-      <section className="relative z-10 container mx-auto max-w-4xl px-4 sm:px-6 py-24 sm:py-32">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
-        >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-light text-white mb-4">
-            Beneficios
-          </h2>
-          <p className="text-neutral-400 text-lg">
-            Lo que ganas al usar Atelier Poz.
-          </p>
-        </motion.div>
-
-        <motion.ul
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          className="space-y-4"
-        >
-          {benefits.map((item, i) => (
-            <motion.li
-              key={i}
-              variants={fadeUp}
-              custom={i}
-              className="flex items-center gap-4 p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800/40 hover:border-primary-800/40 hover:bg-neutral-900/70 transition-all duration-300 group"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-500/20 text-primary-400 group-hover:bg-primary-500/30 group-hover:scale-110 transition-all">
-                <Check className="h-4 w-4" strokeWidth={3} />
-              </span>
-              <span className="text-neutral-300 group-hover:text-white transition-colors">{item}</span>
-            </motion.li>
-          ))}
-        </motion.ul>
+      <section className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-12">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-light text-white mb-2">
+              Beneficios
+            </h2>
+            <p className="text-neutral-400">
+              Lo que ganas al usar Atelier Poz.
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {benefits.map((item, i) => (
+              <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/40">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </span>
+                <span className="text-neutral-300 text-sm">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
-      {/* Contacto - Sección impactante */}
-      <section
-        id="contacto"
-        className="relative z-10 border-t border-neutral-800/60 overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary-950/20 to-transparent pointer-events-none" />
-        <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-24 sm:py-32 text-center relative">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="relative p-12 sm:p-16 rounded-3xl border-2 border-primary-500/30 bg-gradient-to-br from-primary-950/40 via-neutral-900/80 to-primary-950/40 shadow-2xl shadow-primary-500/10"
+      {/* Contacto */}
+      <section id="contacto" className="relative z-10 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-2xl px-4 sm:px-6 py-12 text-center">
+          <h2 className="text-2xl font-light text-white mb-2">
+            ¿Te interesa?
+          </h2>
+          <p className="text-neutral-400 mb-6">
+            Escríbenos y te contamos cómo puede ayudarte Atelier Poz.
+          </p>
+          <a
+            href="mailto:ronnieljf@gmail.com"
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary-500/15 border border-primary-500/40 text-primary-300 font-semibold"
           >
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-primary-500/5 via-transparent to-secondary-500/5 opacity-0 hover:opacity-100 transition-opacity pointer-events-none" />
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl sm:text-4xl font-light text-white mb-4"
-            >
-              ¿Te interesa?
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-neutral-400 text-lg mb-10"
-            >
-              Escríbenos y te contamos cómo puede ayudarte Atelier Poz.
-            </motion.p>
-            <motion.a
-              href="mailto:ronnieljf@gmail.com"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center justify-center gap-3 sm:gap-4 px-4 py-4 sm:px-10 sm:py-5 w-full max-w-full sm:w-auto rounded-2xl bg-primary-500/15 border-2 border-primary-500/40 hover:bg-primary-500/25 hover:border-primary-400/60 text-primary-300 transition-all duration-300 group shadow-lg shadow-primary-500/20 min-w-0"
-            >
-              <Mail className="h-5 w-5 sm:h-6 sm:w-6 shrink-0 group-hover:scale-110 transition-transform" />
-              <span className="text-base sm:text-xl font-semibold min-w-0 break-all sm:break-normal">ronnieljf@gmail.com</span>
-            </motion.a>
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="text-sm text-primary-400/80 mt-6 font-medium"
-            >
-              Responde en menos de 24 horas
-            </motion.p>
-          </motion.div>
+            <Mail className="h-5 w-5" />
+            ronnieljf@gmail.com
+          </a>
+          <p className="text-sm text-neutral-500 mt-3">
+            Responde en menos de 24 horas
+          </p>
         </div>
       </section>
 
       {/* CTA final */}
-      <section className="relative z-10 pb-24">
-        <div className="container mx-auto max-w-2xl px-4 sm:px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
+      <section className="relative z-10 pb-16 border-t border-neutral-800/60">
+        <div className="container mx-auto max-w-2xl px-4 sm:px-6 py-10 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-neutral-400 font-medium"
           >
-            <Link
-              href="/"
-              className="group inline-flex items-center gap-2 text-neutral-400 hover:text-primary-400 transition-colors text-base font-light"
-            >
-              Ver tiendas en la plataforma
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </motion.div>
+            Ver tiendas en la plataforma
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
     </div>
