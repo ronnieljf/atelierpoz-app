@@ -95,6 +95,24 @@
     "oneColumn": "Una columna",
     "twoColumns": "Dos columnas"
   },
+  "firstVisit": {
+    "createAccount": "Crear mi tienda",
+    "continueBrowsing": "Solo estoy mirando",
+    "variants": [
+      {
+        "title": "¿Pasas horas escribiendo «¿me pagas?» por WhatsApp?",
+        "description": "Deja de perseguir pagos a mano. Lleva tus cuentas por cobrar en orden y envía recordatorios automáticos desde tu tienda."
+      },
+      {
+        "title": "¿Cansado de repetir qué tienes, cuánto vale y si hay stock?",
+        "description": "Pon tu catálogo en línea. Tus clientes ven precios y disponibilidad al instante; tú vendes sin explicar lo mismo mil veces."
+      },
+      {
+        "title": "¿Llevas quién te debe en la cabeza o en notas sueltas?",
+        "description": "Organiza tus cuentas por cobrar en un solo lugar. Controla quién debe, cuánto y desde cuándo, y envía recordatorios automáticos sin estrés."
+      }
+    ]
+  },
   "admin": {
     "title": "Panel de Administración",
     "login": {

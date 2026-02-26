@@ -8,6 +8,7 @@ import { LogOut, Package, Store, User, ShoppingBag, Receipt, Menu, X, UserCircle
 import Link from 'next/link';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
+import { OnboardingSurveyModal } from '@/components/admin/OnboardingSurveyModal';
 import { cn } from '@/lib/utils/cn';
 
 const dict = getDictionary('es');
@@ -20,6 +21,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [permissionDeniedMessage, setPermissionDeniedMessage] = useState<string | null>(null);
+  const [onboardingSurveyFetched, setOnboardingSurveyFetched] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
   useEffect(() => {
     const handler = (e: CustomEvent<{ message: string }>) => {
@@ -42,6 +45,29 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [pathname]);
+
+  // Encuesta de onboarding: mostrar modal a cualquier usuario del admin (nuevo o existente) que no la haya completado. Solo dentro del admin, nunca en login.
+  useEffect(() => {
+    if (pathname === '/admin/login' || !hydrated || !state.user) return;
+    if (onboardingSurveyFetched) return;
+
+    const fetchSurvey = async () => {
+      try {
+        const { httpClient } = await import('@/lib/http/client');
+        const res = await httpClient.get<{ success?: boolean; survey?: unknown }>('/api/auth/onboarding-survey');
+        setOnboardingSurveyFetched(true);
+        const body = res.data as { success?: boolean; survey?: unknown } | undefined;
+        // Sin encuesta guardada → mostrar formulario (usuarios recién registrados o usuarios que ya tenían cuenta y nunca la llenaron)
+        if (body && (body.survey === null || body.survey === undefined)) {
+          setShowOnboardingModal(true);
+        }
+      } catch {
+        setOnboardingSurveyFetched(true);
+      }
+    };
+
+    fetchSurvey();
+  }, [pathname, hydrated, state.user, onboardingSurveyFetched]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -568,6 +594,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       )}
+
+      {/* Modal encuesta onboarding (post-registro) */}
+      <OnboardingSurveyModal
+        isOpen={showOnboardingModal}
+        onClose={() => setShowOnboardingModal(false)}
+        onSaved={() => setShowOnboardingModal(false)}
+      />
 
       {/* Main Content */}
       <main className={cn('min-h-screen pb-4 transition-[margin] duration-200 lg:pb-0', desktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0')}>

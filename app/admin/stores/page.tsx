@@ -552,7 +552,17 @@ export default function StoresPage() {
                           Creador
                         </span>
                       )}
+                      {store.approved === false && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          Pendiente de aprobación
+                        </span>
+                      )}
                     </div>
+                    {store.approved === false && (
+                      <p className="mt-1 text-xs text-amber-400/90">
+                        Tu tienda podrá ser visible cuando sea aprobada por el sistema.
+                      </p>
+                    )}
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-neutral-500">
                       {store.state === 'active' ? (
                         <span className="flex items-center gap-1 text-green-500">

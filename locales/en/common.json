@@ -95,6 +95,24 @@
     "oneColumn": "One column",
     "twoColumns": "Two columns"
   },
+  "firstVisit": {
+    "createAccount": "Create my store",
+    "continueBrowsing": "Just browsing",
+    "variants": [
+      {
+        "title": "Spending hours texting «when can you pay?» on WhatsApp?",
+        "description": "Stop chasing payments by hand. Keep your receivables in order and send automatic reminders—all from your store."
+      },
+      {
+        "title": "Tired of repeating what you have, how much it costs, and if it's in stock?",
+        "description": "Put your catalog online. Customers see prices and availability instantly; you sell without explaining the same thing a thousand times."
+      },
+      {
+        "title": "Keeping track of who owes you in your head or on sticky notes?",
+        "description": "Organize your receivables in one place. See who owes what and since when, and send automatic reminders—without the stress."
+      }
+    ]
+  },
   "admin": {
     "title": "Admin Panel",
     "login": {

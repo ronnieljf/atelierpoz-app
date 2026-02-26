@@ -290,3 +290,11 @@ export function trackStoreCreated(storeId: string, storeName: string): void {
     store_name: storeName,
   });
 }
+
+/** Diálogo primera visita: clic en "Crear mi tienda". variant: 1, 2 o 3 (mensaje mostrado). */
+export function trackFirstVisitCreateAccountClick(variant: number): void {
+  trackEvent('first_visit_create_account_click', {
+    variant,
+    variant_label: `mensaje_${variant}`,
+  });
+}

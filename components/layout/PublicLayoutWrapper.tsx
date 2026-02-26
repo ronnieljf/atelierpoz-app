@@ -9,6 +9,7 @@ import { WhatsAppFloatingButtonWrapper } from '@/components/cart/WhatsAppFloatin
 import { PageTransition } from '@/components/ui/PageTransition';
 import { InitialLoader } from '@/components/ui/InitialLoader';
 import { CartRestoreDialogWrapper } from '@/components/ui/CartRestoreDialogWrapper';
+import { FirstVisitDialogWrapper } from '@/components/ui/FirstVisitDialogWrapper';
 import { defaultLocale } from '@/constants/locales';
 
 export function PublicLayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,7 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
     <CartProvider>
       <InitialLoader />
       <CartRestoreDialogWrapper locale={defaultLocale} />
+      <FirstVisitDialogWrapper locale={defaultLocale} />
       <div className="flex min-h-screen flex-col">
         <Header locale={defaultLocale} />
         <main className="flex-1">

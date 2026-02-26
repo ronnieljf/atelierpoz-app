@@ -20,6 +20,7 @@ interface Store {
   updated_at: string;
   joined_at: string;
   feature_send_reminder_receivables_whatsapp?: boolean;
+  approved?: boolean;
 }
 
 interface AuthState {
