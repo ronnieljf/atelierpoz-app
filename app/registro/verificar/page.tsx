@@ -8,10 +8,14 @@ import { Mail, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/store/auth-store';
 import { trackSignUp } from '@/lib/analytics/gtag';
 import { httpClient } from '@/lib/http/client';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 function VerificarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const locale = useLocaleContext();
+  const { auth, common } = getDictionary(locale);
   const { loginWithData } = useAuth();
   const emailParam = searchParams.get('email') || '';
   const [email, setEmail] = useState(emailParam);
@@ -41,12 +45,12 @@ function VerificarContent() {
         trackSignUp('email_code');
         router.push('/admin');
       } else {
-        setError((res.data as { error?: string })?.error || res.error || 'Código inválido');
+        setError((res.data as { error?: string })?.error || res.error || auth.invalidCode);
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Error verificando:', err);
-      setError('Error de conexión. Intenta de nuevo.');
+      setError(auth.connectionError);
       setIsLoading(false);
     }
   };
@@ -55,9 +59,9 @@ function VerificarContent() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12">
         <div className="text-center">
-          <p className="text-neutral-400 mb-4">Falta el correo. Vuelve al registro.</p>
+          <p className="text-neutral-400 mb-4">{auth.missingEmail}</p>
           <Link href="/registro" className="text-primary-400 hover:text-primary-300">
-            Ir a registro
+            {auth.goToRegister}
           </Link>
         </div>
       </div>
@@ -77,17 +81,17 @@ function VerificarContent() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-950/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-primary-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                Registro
+                {auth.register}
               </span>
-              <span className="text-[11px] text-neutral-500">Paso 2 de 2</span>
+              <span className="text-[11px] text-neutral-500">{auth.step.replace('{{current}}', '2').replace('{{total}}', '2')}</span>
             </div>
             <div className="text-center">
               <div className="inline-flex items-center justify-center mb-4 rounded-2xl p-4 bg-primary-600/20 border border-primary-500/20">
                 <Mail className="h-10 w-10 text-primary-400" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">Verifica tu correo</h1>
+              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">{auth.verifyCode}</h1>
               <p className="text-neutral-400 text-sm">
-                Ingresa el código de 6 dígitos que enviamos a
+                {auth.verifyCodeDescSent}
               </p>
               <p className="text-primary-400 font-medium mt-1 truncate text-sm">{email}</p>
             </div>
@@ -103,7 +107,7 @@ function VerificarContent() {
 
             <div className="space-y-1">
               <label htmlFor="code" className="block text-sm font-medium text-neutral-300 mb-2">
-                Código de verificación
+                {auth.verifyCode}
               </label>
               <input
                 id="code"
@@ -113,23 +117,23 @@ function VerificarContent() {
                 maxLength={6}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
+                placeholder={auth.codePlaceholder}
                 required
                 className="w-full px-4 py-4 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
               />
               <p className="mt-1 text-[11px] text-neutral-500 text-center">
-                Si no te llega el correo, revisa la carpeta de spam o solicita uno nuevo.
+                {auth.verifyCodeHint}
               </p>
             </div>
 
             <Button type="submit" variant="primary" size="lg" className="w-full mt-1" disabled={isLoading || code.length !== 6}>
-              {isLoading ? 'Verificando...' : 'Verificar y crear cuenta'}
+              {isLoading ? auth.verifying : auth.verifyAndCreate}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
             <Link href="/registro" className="text-primary-400 hover:text-primary-300 transition-colors">
-              ← Solicitar nuevo código
+              {auth.requestNewCode}
             </Link>
           </p>
         </div>
@@ -138,9 +142,19 @@ function VerificarContent() {
   );
 }
 
+function AuthLoadingFallback() {
+  const locale = useLocaleContext();
+  const { common } = getDictionary(locale);
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      {common.loading}
+    </div>
+  );
+}
+
 export default function VerificarPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando...</div>}>
+    <Suspense fallback={<AuthLoadingFallback />}>
       <VerificarContent />
     </Suspense>
   );

@@ -7,9 +7,13 @@ import { Button } from '@/components/ui/Button';
 import { Mail, AlertCircle } from 'lucide-react';
 import { httpClient } from '@/lib/http/client';
 import { trackPasswordResetRequested } from '@/lib/analytics/gtag';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 export default function RecuperarContrasenaPage() {
   const router = useRouter();
+  const locale = useLocaleContext();
+  const { auth } = getDictionary(locale);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +27,7 @@ export default function RecuperarContrasenaPage() {
     try {
       const res = await httpClient.post<{ success?: boolean; error?: string }>(
         '/api/auth/forgot-password',
-        { email: email.trim().toLowerCase() },
+        { email: email.trim().toLowerCase(), locale },
         { skipAuth: true }
       );
 
@@ -32,12 +36,12 @@ export default function RecuperarContrasenaPage() {
         trackPasswordResetRequested();
         router.push(`/recuperar-contrasena/restablecer?email=${encodeURIComponent(email.trim().toLowerCase())}`);
       } else {
-        setError(res.error || 'Error al enviar el código');
+        setError(res.error || auth.sendCodeError);
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Error de conexión. Intenta de nuevo.');
+      setError(auth.connectionError);
       setIsLoading(false);
     }
   };
@@ -55,17 +59,17 @@ export default function RecuperarContrasenaPage() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-950/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-primary-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                Recuperar contraseña
+                {auth.recoverPassword}
               </span>
-              <span className="text-[11px] text-neutral-500">Paso 1 de 2</span>
+              <span className="text-[11px] text-neutral-500">{auth.step.replace('{{current}}', '1').replace('{{total}}', '2')}</span>
             </div>
             <div className="text-center">
               <div className="inline-flex items-center justify-center mb-4 rounded-2xl p-4 bg-primary-600/20 border border-primary-500/20">
                 <Mail className="h-10 w-10 text-primary-400" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">Recuperar contraseña</h1>
+              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">{auth.recoverPassword}</h1>
               <p className="text-neutral-400 text-sm sm:text-[15px]">
-                Te enviaremos un código de verificación a tu correo para que puedas crear una nueva contraseña.
+                {auth.recoverPasswordDesc}
               </p>
             </div>
           </div>
@@ -80,7 +84,7 @@ export default function RecuperarContrasenaPage() {
 
             <div className="space-y-1">
               <label htmlFor="email" className="block text-sm font-medium text-neutral-300 mb-2">
-                Correo electrónico
+                {auth.email}
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -89,24 +93,24 @@ export default function RecuperarContrasenaPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
+                  placeholder={auth.emailPlaceholder}
                   required
                   className="w-full pl-12 pr-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                 />
               </div>
               <p className="text-[11px] text-neutral-500 mt-1">
-                Usa el mismo correo con el que inicias sesión en el panel de administración.
+                {auth.emailHintRecover}
               </p>
             </div>
 
             <Button type="submit" variant="primary" size="lg" className="w-full mt-1" disabled={isLoading}>
-              {isLoading ? 'Enviando...' : 'Enviar código'}
+              {isLoading ? auth.sending : auth.sendCode}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
             <Link href="/admin/login" className="text-primary-400 hover:text-primary-300 transition-colors">
-              ← Volver a iniciar sesión
+              {auth.backToSignIn}
             </Link>
           </p>
         </div>

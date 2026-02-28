@@ -10,12 +10,15 @@ import { PageTransition } from '@/components/ui/PageTransition';
 import { AdminAuthLoading } from '@/components/admin/AdminAuthLoading';
 import { OnboardingSurveyModal } from '@/components/admin/OnboardingSurveyModal';
 import { cn } from '@/lib/utils/cn';
+import { AuthPageHeader } from '@/components/layout/AuthPageHeader';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
 
 const dict = getDictionary('es');
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const locale = useLocaleContext();
   const { isAuthenticated, logout, state, loadStores } = useAuth();
   const hydrated = state.authHydrated;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -144,7 +147,12 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (pathname === '/admin/login') {
-    return <>{children}</>;
+    return (
+      <div className="min-h-screen flex flex-col">
+        <AuthPageHeader locale={locale} />
+        <main className="flex-1">{children}</main>
+      </div>
+    );
   }
 
   const navLinkClass = (isActive: boolean) =>

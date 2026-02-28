@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { getLocaleFromRequest } from '@/lib/i18n/server';
 import { ThemeProvider } from '@/lib/store/theme-store';
+import { LocaleProvider } from '@/lib/context/LocaleContext';
 import { PublicLayoutWrapper } from '@/components/layout/PublicLayoutWrapper';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { PageViewTracker } from '@/components/analytics/PageViewTracker';
@@ -123,9 +124,11 @@ export default async function RootLayout({
         </div>
         <GoogleAnalytics />
         <PageViewTracker />
-        <ThemeProvider>
-          <PublicLayoutWrapper locale={locale}>{children}</PublicLayoutWrapper>
-        </ThemeProvider>
+        <LocaleProvider locale={locale}>
+          <ThemeProvider>
+            <PublicLayoutWrapper locale={locale}>{children}</PublicLayoutWrapper>
+          </ThemeProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

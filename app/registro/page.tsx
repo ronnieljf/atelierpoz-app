@@ -4,11 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { Mail, Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { httpClient } from '@/lib/http/client';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 export default function RegistroPage() {
   const router = useRouter();
+  const locale = useLocaleContext();
+  const { auth } = getDictionary(locale);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -23,19 +27,19 @@ export default function RegistroPage() {
     try {
       const res = await httpClient.post<{ success?: boolean; error?: string }>(
         '/api/auth/register/send-code',
-        { email: email.trim().toLowerCase(), name: name.trim() || undefined, password },
+        { email: email.trim().toLowerCase(), name: name.trim() || undefined, password, locale },
         { skipAuth: true }
       );
 
       if (res.success) {
         router.push(`/registro/verificar?email=${encodeURIComponent(email.trim().toLowerCase())}`);
       } else {
-        setError(res.error || 'Error al enviar el código');
+        setError(res.error || auth.sendCodeError);
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Error en registro:', err);
-      setError('Error de conexión. Intenta de nuevo.');
+      setError(auth.connectionError);
       setIsLoading(false);
     }
   };
@@ -53,17 +57,17 @@ export default function RegistroPage() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-950/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-primary-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                Registro
+                {auth.register}
               </span>
-              <span className="text-[11px] text-neutral-500">Paso 1 de 2</span>
+              <span className="text-[11px] text-neutral-500">{auth.step.replace('{{current}}', '1').replace('{{total}}', '2')}</span>
             </div>
             <div className="text-center">
               <div className="inline-flex items-center justify-center mb-4 rounded-2xl p-4 bg-primary-600/20 border border-primary-500/20">
                 <User className="h-10 w-10 text-primary-400" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">Crear cuenta</h1>
+              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">{auth.createAccount}</h1>
               <p className="text-neutral-400 text-sm sm:text-[15px]">
-                Crea tu usuario para administrar tus tiendas y tus cuentas por cobrar en Atelier Poz.
+                {auth.createAccountDesc}
               </p>
             </div>
           </div>
@@ -78,7 +82,7 @@ export default function RegistroPage() {
 
             <div className="space-y-1">
               <label htmlFor="email" className="block text-sm font-medium text-neutral-300 mb-2">
-                Correo electrónico
+                {auth.email}
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -87,19 +91,19 @@ export default function RegistroPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@correo.com"
+                  placeholder={auth.emailPlaceholder}
                   required
                   className="w-full pl-12 pr-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                 />
               </div>
               <p className="text-[11px] text-neutral-500 mt-1">
-                Usaremos este correo para enviarte el código de verificación y notificaciones importantes.
+                {auth.emailHint}
               </p>
             </div>
 
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-neutral-300 mb-2">
-                Nombre (opcional)
+                {auth.nameOptional}
               </label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -108,7 +112,7 @@ export default function RegistroPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Tu nombre"
+                  placeholder={auth.namePlaceholder}
                   className="w-full pl-12 pr-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
                 />
               </div>
@@ -116,7 +120,7 @@ export default function RegistroPage() {
 
             <div className="space-y-1">
               <label htmlFor="password" className="block text-sm font-medium text-neutral-300 mb-2">
-                Contraseña (mínimo 6 caracteres)
+                {auth.password}
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -125,7 +129,7 @@ export default function RegistroPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={auth.passwordPlaceholder}
                   required
                   minLength={6}
                   className="w-full pl-12 pr-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
@@ -134,14 +138,14 @@ export default function RegistroPage() {
             </div>
 
             <Button type="submit" variant="primary" size="lg" className="w-full mt-1" disabled={isLoading}>
-              {isLoading ? 'Enviando...' : 'Continuar y recibir código'}
+              {isLoading ? auth.sending : auth.continueAndReceive}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
-            ¿Ya tienes cuenta?{' '}
+            {auth.alreadyHaveAccount}{' '}
             <Link href="/admin/login" className="text-primary-400 hover:text-primary-300 transition-colors">
-              Iniciar sesión
+              {auth.signIn}
             </Link>
           </p>
         </div>

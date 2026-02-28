@@ -4,13 +4,17 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle } from 'lucide-react';
 import { httpClient } from '@/lib/http/client';
 import { trackPasswordResetCompleted } from '@/lib/analytics/gtag';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
+import { getDictionary } from '@/lib/i18n/dictionary';
 
 function RestablecerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const locale = useLocaleContext();
+  const { auth, common } = getDictionary(locale);
   const emailParam = searchParams.get('email') || '';
   const [email, setEmail] = useState(emailParam);
   const [code, setCode] = useState('');
@@ -40,12 +44,12 @@ function RestablecerContent() {
         trackPasswordResetCompleted();
         setTimeout(() => router.push('/admin/login'), 2000);
       } else {
-        setError((res.data as { error?: string })?.error || res.error || 'Código inválido o expirado');
+        setError((res.data as { error?: string })?.error || res.error || auth.invalidCode);
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Error de conexión. Intenta de nuevo.');
+      setError(auth.connectionError);
       setIsLoading(false);
     }
   };
@@ -54,9 +58,9 @@ function RestablecerContent() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12">
         <div className="text-center">
-          <p className="text-neutral-400 mb-4">Falta el correo. Vuelve a solicitar recuperación.</p>
+          <p className="text-neutral-400 mb-4">{auth.missingEmailRecover}</p>
           <Link href="/recuperar-contrasena" className="text-primary-400 hover:text-primary-300">
-            Recuperar contraseña
+            {auth.goToRecover}
           </Link>
         </div>
       </div>
@@ -70,12 +74,12 @@ function RestablecerContent() {
           <div className="inline-flex items-center justify-center mb-4 rounded-2xl p-4 bg-green-500/20 border border-green-500/30">
             <Lock className="h-10 w-10 text-green-400" />
           </div>
-          <h1 className="text-2xl font-light text-white mb-2">Contraseña actualizada</h1>
+          <h1 className="text-2xl font-light text-white mb-2">{auth.passwordUpdated}</h1>
           <p className="text-neutral-400 mb-6">
-            Redirigiendo al inicio de sesión...
+            {auth.redirectingToSignIn}
           </p>
           <Link href="/admin/login" className="text-primary-400 hover:text-primary-300">
-            Ir a iniciar sesión
+            {auth.goToSignIn}
           </Link>
         </div>
       </div>
@@ -95,17 +99,17 @@ function RestablecerContent() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-950/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-primary-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400" />
-                Recuperar contraseña
+                {auth.recoverPassword}
               </span>
-              <span className="text-[11px] text-neutral-500">Paso 2 de 2</span>
+              <span className="text-[11px] text-neutral-500">{auth.step.replace('{{current}}', '2').replace('{{total}}', '2')}</span>
             </div>
             <div className="text-center">
               <div className="inline-flex items-center justify-center mb-4 rounded-2xl p-4 bg-primary-600/20 border border-primary-500/20">
                 <Lock className="h-10 w-10 text-primary-400" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">Nueva contraseña</h1>
+              <h1 className="text-2xl sm:text-3xl font-light text-white mb-2">{auth.newPassword}</h1>
               <p className="text-neutral-400 text-sm">
-                Ingresa el código que enviamos y elige tu nueva contraseña.
+                {auth.restablecerDesc}
               </p>
               <p className="text-primary-400 font-medium mt-1 truncate text-sm">{email}</p>
             </div>
@@ -121,7 +125,7 @@ function RestablecerContent() {
 
             <div className="space-y-1">
               <label htmlFor="code" className="block text-sm font-medium text-neutral-300 mb-2">
-                Código de verificación
+                {auth.verifyCode}
               </label>
               <input
                 id="code"
@@ -131,18 +135,18 @@ function RestablecerContent() {
                 maxLength={6}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
+                placeholder={auth.codePlaceholder}
                 required
                 className="w-full px-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white text-center text-xl tracking-[0.4em] placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
               />
               <p className="mt-1 text-[11px] text-neutral-500 text-center">
-                El código tiene 6 dígitos. Si expiró, puedes solicitar uno nuevo.
+                {auth.codeHint}
               </p>
             </div>
 
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-neutral-300 mb-2">
-                Nueva contraseña (mínimo 6 caracteres)
+                {auth.newPasswordLabel}
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500" />
@@ -151,7 +155,7 @@ function RestablecerContent() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={auth.passwordPlaceholder}
                   required
                   minLength={6}
                   className="w-full pl-12 pr-4 py-3.5 bg-neutral-800/60 border border-neutral-700/50 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50"
@@ -166,13 +170,13 @@ function RestablecerContent() {
               className="w-full"
               disabled={isLoading || code.length !== 6 || newPassword.length < 6}
             >
-              {isLoading ? 'Actualizando...' : 'Restablecer contraseña'}
+              {isLoading ? auth.updating : auth.resetPassword}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
             <Link href="/recuperar-contrasena" className="text-primary-400 hover:text-primary-300 transition-colors">
-              ← Solicitar nuevo código
+              {auth.requestNewCode}
             </Link>
           </p>
         </div>
@@ -181,9 +185,19 @@ function RestablecerContent() {
   );
 }
 
+function RestablecerLoadingFallback() {
+  const locale = useLocaleContext();
+  const { common } = getDictionary(locale);
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      {common.loading}
+    </div>
+  );
+}
+
 export default function RestablecerPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando...</div>}>
+    <Suspense fallback={<RestablecerLoadingFallback />}>
       <RestablecerContent />
     </Suspense>
   );

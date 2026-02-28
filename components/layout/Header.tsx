@@ -111,10 +111,10 @@ export function Header({ locale }: HeaderProps) {
                 'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-light text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white',
                 'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
               )}
-              title="Iniciar sesión"
+              title={dict.auth.signIn}
             >
               <LogIn className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Iniciar sesión</span>
+              <span className="hidden sm:inline">{dict.auth.signIn}</span>
             </Link>
           )}
           <CartIcon locale={locale} dict={dict} />

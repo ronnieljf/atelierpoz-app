@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/store/auth-store';
 import { getDictionary } from '@/lib/i18n/dictionary';
+import { useLocaleContext } from '@/lib/context/LocaleContext';
 import { Button } from '@/components/ui/Button';
 import { Mail, Lock, AlertCircle, UserPlus } from 'lucide-react';
 import { trackLogin } from '@/lib/analytics/gtag';
 
-// Por ahora usamos español por defecto para el admin
-const dict = getDictionary('es');
-
 export default function AdminLoginPage() {
+  const locale = useLocaleContext();
+  const dict = getDictionary(locale);
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -51,10 +51,10 @@ export default function AdminLoginPage() {
       const isTimeout = err instanceof Error && err.message === 'timeout';
       setError(
         isTimeout
-          ? 'La conexión está tardando mucho. Revisa tu internet e intenta de nuevo.'
+          ? dict.admin.login.connectionTimeout
           : err instanceof Error
             ? err.message
-            : 'Error de conexión. Por favor, intenta de nuevo.'
+            : dict.admin.login.connectionError
       );
       setIsLoading(false);
     }
@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
                   {dict.admin.login.title}
                 </h1>
                 <p className="text-neutral-400 text-sm sm:text-base">
-                  Panel de Administración
+                  {dict.admin.login.panelTitle}
                 </p>
               </div>
 
@@ -154,13 +154,13 @@ export default function AdminLoginPage() {
                       href="/recuperar-contrasena"
                       className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
                     >
-                      ¿Olvidaste tu contraseña?
+                      {dict.admin.login.forgotPassword}
                     </Link>
                   </div>
 
                   <div className="pt-3 border-t border-neutral-800/70">
                     <p className="text-xs uppercase tracking-[0.18em] text-neutral-500 text-center mb-3">
-                      ¿Aún no tienes cuenta para tu negocio?
+                      {dict.admin.login.noAccount}
                     </p>
                     <Link href="/registro" className="block">
                       <Button
@@ -170,7 +170,7 @@ export default function AdminLoginPage() {
                         className="w-full flex items-center justify-center gap-2"
                       >
                         <UserPlus className="h-4 w-4" />
-                        <span>Crear cuenta para mi negocio</span>
+                        <span>{dict.admin.login.createAccount}</span>
                       </Button>
                     </Link>
                   </div>
