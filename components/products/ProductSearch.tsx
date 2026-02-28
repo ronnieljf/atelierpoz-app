@@ -115,11 +115,11 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
     if (!minStr || !maxStr) return { minPrice: undefined as number | undefined, maxPrice: undefined as number | undefined, error: null as string | null };
     const min = parseFloat(minStr);
     const max = parseFloat(maxStr);
-    if (Number.isNaN(min) || Number.isNaN(max)) return { minPrice: undefined, maxPrice: undefined, error: 'Ingresa valores numéricos válidos' };
-    if (min < 0 || max < 0) return { minPrice: undefined, maxPrice: undefined, error: 'Los precios deben ser mayor o igual a 0' };
-    if (min >= max) return { minPrice: undefined, maxPrice: undefined, error: 'El precio mínimo debe ser menor al máximo' };
+    if (Number.isNaN(min) || Number.isNaN(max)) return { minPrice: undefined, maxPrice: undefined, error: dict.filters.priceErrorInvalid };
+    if (min < 0 || max < 0) return { minPrice: undefined, maxPrice: undefined, error: dict.filters.priceErrorMinZero };
+    if (min >= max) return { minPrice: undefined, maxPrice: undefined, error: dict.filters.priceErrorMinLessMax };
     return { minPrice: min, maxPrice: max, error: null };
-  }, [debouncedPriceMin, debouncedPriceMax]);
+  }, [debouncedPriceMin, debouncedPriceMax, dict]);
 
   // Solo en página de tienda: cargar categorías de la tienda para el filtro
   useEffect(() => {
@@ -196,7 +196,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
       setHasMoreProducts(result.products.length === PRODUCTS_PER_PAGE);
     } catch (err: unknown) {
       console.error('Error cargando productos:', err);
-      setError(err instanceof Error ? err.message : 'Error al cargar productos');
+      setError(err instanceof Error ? err.message : dict.search.loadError);
     } finally {
       if (isFirstPage) {
         setLoading(false);
@@ -204,7 +204,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
         setLoadingMore(false);
       }
     }
-  }, [storeId, storeName]);
+  }, [storeId, storeName, dict]);
 
   // Estado para el término de búsqueda con debounce
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -321,7 +321,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
             aria-controls="product-filters-panel"
           >
             <SlidersHorizontal className="h-4 w-4" aria-hidden />
-            <span>Filtros</span>
+            <span>{dict.filters.title}</span>
             {(effectiveCategoryId || priceMin || priceMax) && (
               <span className="min-w-[18px] h-[18px] rounded-full bg-primary-500/30 text-primary-200 text-xs flex items-center justify-center" aria-hidden>
                 •
@@ -346,7 +346,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {storeId && (
             <div>
-              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">Categoría</label>
+              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">{dict.filters.category}</label>
               <button
                 type="button"
                 onClick={() => setShowCategoryDialog(true)}
@@ -360,7 +360,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                 <span className="flex items-center gap-2.5 min-w-0">
                   <Tag className="h-4 w-4 flex-shrink-0 text-neutral-500" />
                   <span className="truncate font-medium">
-                    {categoryId ? (categories.find((c) => c.id === categoryId)?.name ?? 'Categoría') : 'Todas las categorías'}
+                    {categoryId ? (categories.find((c) => c.id === categoryId)?.name ?? dict.filters.category) : dict.filters.allCategories}
                   </span>
                 </span>
                 <ChevronDown className="h-4 w-4 flex-shrink-0 text-neutral-500" />
@@ -368,7 +368,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
             </div>
             )}
             <div className="space-y-1.5">
-              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">Precio mínimo</label>
+              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">{dict.filters.minPrice}</label>
               <div className="relative">
                 <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 pointer-events-none" />
                 <input
@@ -390,7 +390,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">Precio máximo</label>
+              <label className="mb-1.5 block text-xs font-medium tracking-wide text-neutral-400">{dict.filters.maxPrice}</label>
               <div className="relative">
                 <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 pointer-events-none" />
                 <input
@@ -435,7 +435,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                   className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-600/80 bg-neutral-800/30 py-3 px-3.5 text-sm font-medium text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 hover:bg-neutral-800/50 transition-all duration-200"
                 >
                   <FilterX className="h-4 w-4" />
-                  Limpiar filtros
+                  {dict.filters.clear}
                 </button>
               </div>
             )}
@@ -469,13 +469,13 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                   >
                     <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/60">
                       <h3 className="text-sm font-medium tracking-wide text-neutral-200">
-                        Elegir categoría
+                        {dict.filters.chooseCategory}
                       </h3>
                       <button
                         type="button"
                         onClick={() => { setShowCategoryDialog(false); setCategorySearch(''); }}
                         className="flex items-center justify-center min-w-[36px] min-h-[36px] rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/50 transition-colors duration-200"
-                        aria-label="Cerrar"
+                        aria-label={dict.common.close}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -487,7 +487,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                           type="text"
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
-                          placeholder="Buscar categoría..."
+                          placeholder={dict.search.searchCategory}
                           className="w-full min-h-[42px] pl-10 pr-4 py-2.5 rounded-xl text-sm text-neutral-100 placeholder-neutral-500 bg-neutral-800/40 border border-neutral-700/60 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500/50 transition-all duration-200"
                           autoFocus
                         />
@@ -496,11 +496,11 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                     <div className="category-dialog-scroll flex-1 overflow-y-auto overscroll-contain min-h-0 p-4">
                       {filteredCategories.length === 0 && !categorySearch.trim() ? (
                         <p className="text-sm text-neutral-500 text-center py-10">
-                          No hay categorías disponibles.
+                          {dict.filters.noCategoriesAvailable}
                         </p>
                       ) : filteredCategories.length === 0 ? (
                         <p className="text-sm text-neutral-500 text-center py-10">
-                          Ninguna categoría coincide con &quot;{categorySearch.trim()}&quot;.
+                          {dict.filters.noCategoryMatch.replace('{{query}}', categorySearch.trim())}
                         </p>
                       ) : (
                         <ul className="space-y-1">
@@ -524,7 +524,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
                                   : 'bg-neutral-800/20 border border-transparent text-neutral-300 hover:bg-neutral-800/40 hover:border-neutral-700/50'
                               )}
                             >
-                              <span className="font-medium text-sm">Todas las categorías</span>
+                              <span className="font-medium text-sm">{dict.filters.allCategories}</span>
                               {!categoryId && <Check className="h-4 w-4 flex-shrink-0 text-primary-400/90" />}
                             </button>
                           </li>
@@ -616,7 +616,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
         <div className="flex flex-col items-center justify-center py-24">
           <PackageSearch className="mb-6 h-12 w-12 text-red-500" />
           <h3 className="mb-2 text-sm font-light text-red-400">
-            Error al cargar productos
+            {dict.search.loadError}
           </h3>
           <p className="text-xs font-light text-neutral-500">
             {error}
@@ -670,7 +670,7 @@ export function ProductSearch({ storeId, storeName, dict, initialProducts = [], 
 
           {!hasMoreProducts && products.length > 0 && (
             <p className="text-center text-xs text-neutral-500 py-6">
-              No hay más productos
+              {dict.search.noMoreProducts}
             </p>
           )}
         </>

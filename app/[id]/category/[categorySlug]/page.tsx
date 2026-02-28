@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
 import { CategoryViewTracker } from '@/components/analytics/CategoryViewTracker';
@@ -10,7 +10,7 @@ import { getStoreById } from '@/lib/services/stores';
 import { getCategoriesByStore } from '@/lib/services/categories';
 import { type Product } from '@/types/product';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
-import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +32,8 @@ export async function generateMetadata({
   if (RESERVED_SEGMENTS.includes(id)) {
     return { title: 'Not Found' };
   }
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
   const siteName = dict.title;
   const defaultLogoUrl = getSeoLogoUrl();
@@ -46,9 +47,10 @@ export async function generateMetadata({
   const categoryName = category?.name ?? slugDecoded;
 
   const title = `${categoryName} – ${store.name}`;
+  const exploreText = locale === 'es' ? `Explora ${categoryName} en ${store.name}.` : `Explore ${categoryName} at ${store.name}.`;
   const description = store?.description?.trim()
     ? store.description.trim()
-    : `Explora ${categoryName} en ${store.name}. ${dict.description}`;
+    : `${exploreText} ${dict.description}`;
 
   const seoImageUrls: string[] = [];
   if (store?.logo) {
@@ -65,13 +67,16 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description,
-    keywords: `${store.name}, ${categoryName}, productos, ${dict.title}`,
+    keywords: `${store.name}, ${categoryName}, ${getSeoKeywords(dict)}`,
     authors: [{ name: siteName }],
     metadataBase: new URL(baseUrl),
-    alternates: { canonical: canonicalPath },
+    alternates: {
+      canonical: canonicalPath,
+      languages: { es: canonicalPath, en: canonicalPath, 'x-default': canonicalPath },
+    },
     openGraph: {
       type: 'website',
-      locale: 'es_ES',
+      locale: getOgLocale(locale),
       url: `${baseUrl}${canonicalPath}`,
       siteName,
       title,
@@ -98,7 +103,7 @@ export default async function StoreCategoryPage({
   if (RESERVED_SEGMENTS.includes(id)) {
     notFound();
   }
-  const dict = getDictionary(defaultLocale);
+  const dict = getDictionary(await getLocaleFromRequest());
   const store = await getStoreById(id);
 
   if (!store) {

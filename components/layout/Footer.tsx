@@ -28,7 +28,7 @@ export function Footer({ locale }: FooterProps) {
               © {new Date().getFullYear()} {dict.title}
             </p>
             <p className="text-[10px] font-light text-neutral-600">
-              Plataforma multitienda - Todos los derechos reservados
+              {dict.footer.allRightsReserved}
             </p>
           </div>
           
@@ -38,26 +38,26 @@ export function Footer({ locale }: FooterProps) {
               href="/landing"
               className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
             >
-              Para tu negocio
+              {dict.footer.forBusiness}
             </Link>
             <Link
               href="/politica-de-privacidad"
               className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
             >
-              Política de privacidad
+              {dict.footer.privacyPolicy}
             </Link>
             <Link
               href="/terminos-y-condiciones"
               className="text-xs font-light text-neutral-500 hover:text-primary-400 transition-colors"
             >
-              Términos y condiciones
+              {dict.footer.termsAndConditions}
             </Link>
             <Link
               href="https://instagram.com/atelierpoz"
               target="_blank"
               rel="noopener noreferrer"
               className="group relative flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800/30 hover:bg-neutral-800/50 border border-neutral-700/30 hover:border-primary-600/30 text-neutral-400 hover:text-primary-300 transition-all duration-300 hover:scale-105 active:scale-95 backdrop-blur-sm"
-              aria-label="Síguenos en Instagram"
+              aria-label={dict.footer.followUs}
             >
               {/* Resplandor de fondo */}
               <div className="absolute inset-0 bg-primary-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity blur-lg" />

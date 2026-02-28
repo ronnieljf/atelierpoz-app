@@ -9,6 +9,19 @@
     "contact": "Contacto",
     "cart": "Carrito"
   },
+  "footer": {
+    "forBusiness": "Para tu negocio",
+    "privacyPolicy": "Política de privacidad",
+    "termsAndConditions": "Términos y condiciones",
+    "allRightsReserved": "Plataforma multitienda - Todos los derechos reservados",
+    "followUs": "Síguenos en Instagram"
+  },
+  "homeStores": {
+    "heading": "Nuestras tiendas",
+    "subheading": "Elige una tienda y descubre sus productos.",
+    "emptyHeading": "No hay tiendas disponibles",
+    "emptyDescription": "Pronto podrás explorar nuestras tiendas y sus productos."
+  },
   "common": {
     "loading": "Cargando...",
     "error": "Ocurrió un error",
@@ -33,8 +46,15 @@
     "selectVariant": "Seleccionar",
     "quantity": "Cantidad",
     "price": "Precio",
+    "basePrice": "Precio base",
     "total": "Total",
     "description": "Descripción",
+    "notAvailable": "Producto no disponible",
+    "notAvailableDescription": "Este producto ya no está visible en la tienda.",
+    "combination": "Combinación",
+    "closeGallery": "Cerrar galería",
+    "previousImage": "Imagen anterior",
+    "nextImage": "Siguiente imagen",
     "specifications": "Especificaciones",
     "reviews": "Reseñas",
     "relatedProducts": "Productos Relacionados",
@@ -68,7 +88,28 @@
     "customMessageTitle": "¿Quieres añadir algo más?",
     "customMessageDescription": "Si es urgente, es un regalo o tienes alguna indicación especial, escríbelo aquí. Lo verán al inicio, antes de tu pedido.",
     "customMessagePlaceholder": "P. ej. Es un regalo, lo necesito para el viernes…",
-    "customMessageSubmit": "Enviar a WhatsApp"
+    "customMessageSubmit": "Enviar a WhatsApp",
+    "priceOnRequest": "Precio a convenir",
+    "perUnit": "c/u",
+    "addedToCartTitle": "Añadido al carrito",
+    "addedToCartDescription": "El producto se ha añadido correctamente. Puedes seguir comprando o ir al carrito para finalizar.",
+    "viewCart": "Ver carrito",
+    "productCount": "{{count}} producto",
+    "productCountPlural": "{{count}} productos",
+    "sendOrderTo": "Enviar pedido a",
+    "creator": "Creador",
+    "noContactConfigured": "Sin contacto configurado. Se usará el de la tienda.",
+    "totalInBs": "Total en Bs. (tasa BCV USD)",
+    "rateLabel": "Tasa: Bs. {{rate}} / USD",
+    "rateUsd": "(tasa USD)"
+  },
+  "store": {
+    "defaultName": "Tienda"
+  },
+  "seo": {
+    "keywords": "plataforma multitienda, marketplace, tiendas independientes, varias tiendas, productos, comprar online, tienda online, marcas independientes, ecommerce, venta por WhatsApp",
+    "keywordsEn": "multi-store platform, marketplace, independent shops, multiple stores, products, buy online, online store, independent brands, ecommerce, WhatsApp sales",
+    "ogImageAlt": "Atelier Poz - Plataforma multitienda"
   },
   "theme": {
     "light": "Claro",
@@ -80,16 +121,26 @@
     "noResults": "No se encontraron productos",
     "noResultsDescription": "Intenta ajustar tus términos de búsqueda",
     "results": "resultados encontrados",
-    "result": "resultado encontrado"
+    "result": "resultado encontrado",
+    "loadError": "Error al cargar productos",
+    "noMoreProducts": "No hay más productos",
+    "searchCategory": "Buscar categoría..."
   },
   "filters": {
     "title": "Filtros",
     "clear": "Limpiar filtros",
     "category": "Categoría",
     "all": "Todos",
+    "allCategories": "Todas las categorías",
+    "chooseCategory": "Elegir categoría",
     "priceRange": "Rango de Precio",
     "minPrice": "Precio Mínimo",
-    "maxPrice": "Precio Máximo"
+    "maxPrice": "Precio Máximo",
+    "noCategoriesAvailable": "No hay categorías disponibles.",
+    "noCategoryMatch": "Ninguna categoría coincide con \"{{query}}\".",
+    "priceErrorInvalid": "Ingresa valores numéricos válidos",
+    "priceErrorMinZero": "Los precios deben ser mayor o igual a 0",
+    "priceErrorMinLessMax": "El precio mínimo debe ser menor al máximo"
   },
   "view": {
     "oneColumn": "Una columna",

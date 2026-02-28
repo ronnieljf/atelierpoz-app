@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
 import { StoreViewTracker } from '@/components/analytics/StoreViewTracker';
@@ -9,7 +9,7 @@ import { getStoreProducts } from '@/lib/services/products';
 import { getStoreById } from '@/lib/services/stores';
 import { type Product } from '@/types/product';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
-import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,18 +32,22 @@ export async function generateMetadata({
   if (RESERVED_SEGMENTS.includes(id)) {
     return { title: 'Not Found' };
   }
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
   const siteName = dict.title;
   const defaultLogoUrl = getSeoLogoUrl();
 
   const store = await getStoreById(id);
-  const title = store ? store.name : 'Tienda';
+  const storeLabel = locale === 'es' ? 'Tienda' : 'Store';
+  const title = store ? store.name : storeLabel;
   const description = store?.description?.trim()
     ? store.description.trim()
     : (store
-        ? `Descubre los productos exclusivos de ${store.name}. ${dict.description}`
-        : `Explora nuestra tienda. ${dict.description}`);
+        ? (locale === 'es'
+          ? `Descubre los productos exclusivos de ${store.name}. ${dict.description}`
+          : `Discover exclusive products from ${store.name}. ${dict.description}`)
+        : (locale === 'es' ? `Explora nuestra tienda. ${dict.description}` : `Explore our store. ${dict.description}`));
 
   const seoImageUrls: string[] = [];
   if (store?.logo) {
@@ -58,7 +62,7 @@ export async function generateMetadata({
     url,
     width: 1200,
     height: 630,
-    alt: store ? store.name : 'Tienda',
+    alt: store ? store.name : storeLabel,
     secureUrl: url,
   }));
 
@@ -67,22 +71,25 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description,
-    keywords: store ? `${store.name}, productos, ${dict.title}` : 'tienda, productos',
+    keywords: store ? `${store.name}, ${getSeoKeywords(dict)}` : getSeoKeywords(dict),
     authors: [{ name: siteName }],
     metadataBase: new URL(baseUrl),
-    alternates: { canonical: `/${storeUrlSlug}` },
+    alternates: {
+      canonical: `/${storeUrlSlug}`,
+      languages: { es: `/${storeUrlSlug}`, en: `/${storeUrlSlug}`, 'x-default': `/${storeUrlSlug}` },
+    },
     openGraph: {
       type: 'website',
-      locale: 'es_ES',
+      locale: getOgLocale(locale),
       url: `${baseUrl}/${storeUrlSlug}`,
       siteName,
-      title: store ? store.name : 'Tienda',
+      title: store ? store.name : storeLabel,
       description,
       images: ogImages,
     },
     twitter: {
       card: 'summary_large_image',
-      title: store ? store.name : 'Tienda',
+      title: store ? store.name : storeLabel,
       description,
       images: seoImageUrls,
       creator: '@atelierpoz',
@@ -104,7 +111,7 @@ export default async function StorePage({
   if (RESERVED_SEGMENTS.includes(id)) {
     notFound();
   }
-  const dict = getDictionary(defaultLocale);
+  const dict = getDictionary(await getLocaleFromRequest());
   const store = await getStoreById(id);
 
   if (!store) {

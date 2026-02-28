@@ -10,9 +10,14 @@ import { PageTransition } from '@/components/ui/PageTransition';
 import { InitialLoader } from '@/components/ui/InitialLoader';
 import { CartRestoreDialogWrapper } from '@/components/ui/CartRestoreDialogWrapper';
 import { FirstVisitDialogWrapper } from '@/components/ui/FirstVisitDialogWrapper';
-import { defaultLocale } from '@/constants/locales';
+import { type Locale } from '@/constants/locales';
 
-export function PublicLayoutWrapper({ children }: { children: React.ReactNode }) {
+interface PublicLayoutWrapperProps {
+  children: React.ReactNode;
+  locale: Locale;
+}
+
+export function PublicLayoutWrapper({ children, locale }: PublicLayoutWrapperProps) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 
@@ -22,17 +27,17 @@ export function PublicLayoutWrapper({ children }: { children: React.ReactNode })
   ) : (
     <CartProvider>
       <InitialLoader />
-      <CartRestoreDialogWrapper locale={defaultLocale} />
-      <FirstVisitDialogWrapper locale={defaultLocale} />
+      <CartRestoreDialogWrapper locale={locale} />
+      <FirstVisitDialogWrapper locale={locale} />
       <div className="flex min-h-screen flex-col">
-        <Header locale={defaultLocale} />
+        <Header locale={locale} />
         <main className="flex-1">
           <PageTransition>
             {children}
           </PageTransition>
         </main>
-        <Footer locale={defaultLocale} />
-        <WhatsAppFloatingButtonWrapper locale={defaultLocale} />
+        <Footer locale={locale} />
+        <WhatsAppFloatingButtonWrapper locale={locale} />
       </div>
     </CartProvider>
   );

@@ -6,13 +6,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/store/cart-store';
+import { type Dictionary } from '@/lib/i18n/dictionary';
 
 interface AddToCartDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  dict: Dictionary;
 }
 
-export function AddToCartDialog({ isOpen, onClose }: AddToCartDialogProps) {
+export function AddToCartDialog({ isOpen, onClose, dict }: AddToCartDialogProps) {
   const router = useRouter();
   const { getItemCount } = useCart();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
@@ -71,7 +73,7 @@ export function AddToCartDialog({ isOpen, onClose }: AddToCartDialogProps) {
                   type="button"
                   onClick={onClose}
                   className="absolute top-4 right-4 p-2 rounded-lg text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 transition-colors"
-                  aria-label="Cerrar"
+                  aria-label={dict.common.close}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -81,10 +83,10 @@ export function AddToCartDialog({ isOpen, onClose }: AddToCartDialogProps) {
                     <Check className="h-7 w-7" strokeWidth={2.5} />
                   </div>
                   <h2 className="text-lg font-semibold text-neutral-100 mb-1.5">
-                    Añadido al carrito
+                    {dict.cart.addedToCartTitle}
                   </h2>
                   <p className="text-sm text-neutral-400 mb-6 max-w-[260px]">
-                    El producto se ha añadido correctamente. Puedes seguir comprando o ir al carrito para finalizar.
+                    {dict.cart.addedToCartDescription}
                   </p>
                   <div className="flex w-full flex-col gap-3">
                     <button
@@ -92,7 +94,7 @@ export function AddToCartDialog({ isOpen, onClose }: AddToCartDialogProps) {
                       onClick={handleGoToCart}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-sm font-medium text-white hover:bg-primary-500 active:bg-primary-700 transition-colors"
                     >
-                      Ver carrito
+                      {dict.cart.viewCart}
                       <ArrowRight className="h-4 w-4" />
                     </button>
                     <button
@@ -100,7 +102,7 @@ export function AddToCartDialog({ isOpen, onClose }: AddToCartDialogProps) {
                       onClick={onClose}
                       className="w-full rounded-xl border border-neutral-600 bg-transparent px-4 py-3 text-sm font-medium text-neutral-300 hover:bg-neutral-800/80 hover:text-neutral-100 transition-colors"
                     >
-                      Seguir comprando
+                      {dict.cart.continueShopping}
                     </button>
                   </div>
                 </div>

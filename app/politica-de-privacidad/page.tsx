@@ -1,23 +1,33 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad',
   description: 'Política de privacidad de Atelier Poz. Información sobre recopilación, uso y protección de datos personales.',
-  alternates: { canonical: `${baseUrl}/politica-de-privacidad` },
+  keywords: 'política de privacidad, protección de datos, datos personales, Atelier Poz, RGPD',
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: '/politica-de-privacidad',
+    languages: {
+      es: '/politica-de-privacidad',
+      en: '/privacy-policy',
+      'x-default': '/politica-de-privacidad',
+    },
+  },
   openGraph: {
     title: 'Política de Privacidad | Atelier Poz',
     url: `${baseUrl}/politica-de-privacidad`,
     locale: 'es_ES',
+    type: 'website',
   },
 };
 
-export default function PoliticaDePrivacidadPage() {
-  const dict = getDictionary(defaultLocale);
+export default async function PoliticaDePrivacidadPage() {
+  const dict = getDictionary(await getLocaleFromRequest());
 
   return (
     <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">

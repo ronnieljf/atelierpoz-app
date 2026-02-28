@@ -131,7 +131,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
     if (currentCombination != null && (currentCombination.priceModifier ?? 0) !== 0) {
       const p = typeof currentCombination.priceModifier === 'number' ? currentCombination.priceModifier : parseFloat(String(currentCombination.priceModifier ?? 0));
       if (!Number.isNaN(p) && p !== 0) {
-        return [{ name: 'Combinación', price: p }];
+        return [{ name: dict.product.combination, price: p }];
       }
     }
     const items: { name: string; price: number }[] = [];
@@ -149,7 +149,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
       }
     });
     return items;
-  }, [product, selectedVariants, currentCombination]);
+  }, [product, selectedVariants, currentCombination, dict]);
 
   // Calcular precio total con variantes
   const totalPrice = useMemo(() => {
@@ -262,10 +262,10 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
             <AlertCircle className="h-7 w-7 text-amber-400" aria-hidden />
           </div>
           <h2 className="text-lg font-medium text-neutral-100">
-            Producto no disponible
+            {dict.product.notAvailable}
           </h2>
           <p className="mt-2 text-sm font-light text-neutral-400">
-            Este producto ya no está visible en la tienda.
+            {dict.product.notAvailableDescription}
           </p>
         </div>
       </div>
@@ -351,7 +351,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
               {product.hidePrice === true ? (
                 <span className="text-base sm:text-lg font-medium text-neutral-400 italic">
-                  Precio a convenir
+                  {dict.cart.priceOnRequest}
                 </span>
               ) : (
                 <span className="text-3xl font-semibold tracking-tight text-primary-200 sm:text-4xl">
@@ -376,7 +376,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
               (basePriceNumber > 0 || variantPriceBreakdown.length > 0) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-400">
                 {basePriceNumber > 0 && (
-                  <span>Precio base: {product.currency === 'USD' ? '$' : ''}{basePriceNumber.toFixed(2)}</span>
+                  <span>{dict.product.basePrice}: {product.currency === 'USD' ? '$' : ''}{basePriceNumber.toFixed(2)}</span>
                 )}
                 {variantPriceBreakdown.map(({ name, price }) => (
                   <span key={name}>
@@ -417,7 +417,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
                 className="px-4 py-3 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label={dict.cart.decreaseQuantity || "Disminuir"}
+                aria-label={dict.cart.decreaseQuantity}
               >
                 <Minus className="h-5 w-5" />
               </button>
@@ -428,7 +428,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
                 onClick={() => setQuantity((q) => Math.min(availableStock, q + 1))}
                 disabled={quantity >= availableStock}
                 className="px-4 py-3 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label={dict.cart.increaseQuantity || "Aumentar"}
+                aria-label={dict.cart.increaseQuantity}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -498,7 +498,8 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
       {/* Diálogo para ir al carrito */}
       <AddToCartDialog 
         isOpen={showCartDialog} 
-        onClose={() => setShowCartDialog(false)} 
+        onClose={() => setShowCartDialog(false)}
+        dict={dict}
       />
 
       {/* Galería de imágenes en modal: responsiva, safe-area, táctil en móvil */}
@@ -540,7 +541,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
                     type="button"
                     onClick={() => setShowImageGallery(false)}
                     className="flex min-h-[44px] min-w-[44px] sm:min-h-12 sm:min-w-12 items-center justify-center rounded-xl bg-neutral-800/80 border border-neutral-700/50 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/80 transition-colors touch-manipulation"
-                    aria-label="Cerrar galería"
+                    aria-label={dict.product.closeGallery}
                   >
                     <X className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
@@ -552,7 +553,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((i) => (i === 0 ? displayImages.length - 1 : i - 1)); }}
                       className="hidden sm:flex flex-shrink-0 min-h-12 min-w-12 items-center justify-center rounded-xl bg-neutral-800/80 border border-neutral-700/50 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/80 transition-colors duration-200 touch-manipulation"
-                      aria-label="Imagen anterior"
+                      aria-label={dict.product.previousImage}
                     >
                       <ChevronLeft className="h-6 w-6" />
                     </button>
@@ -588,7 +589,7 @@ export function ProductDetail({ product, dict }: ProductDetailProps) {
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((i) => (i === displayImages.length - 1 ? 0 : i + 1)); }}
                       className="hidden sm:flex flex-shrink-0 min-h-12 min-w-12 items-center justify-center rounded-xl bg-neutral-800/80 border border-neutral-700/50 text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/80 transition-colors duration-200 touch-manipulation"
-                      aria-label="Siguiente imagen"
+                      aria-label={dict.product.nextImage}
                     >
                       <ChevronRight className="h-6 w-6" />
                     </button>

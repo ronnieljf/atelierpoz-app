@@ -1,12 +1,12 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 import { ProductDetail } from '@/components/products/ProductDetail';
 import { ProductViewTracker } from '@/components/analytics/ProductViewTracker';
 import { getProductByIdPublic } from '@/lib/services/products';
 import Link from 'next/link';
-import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 
 export async function generateMetadata({
   params,
@@ -14,7 +14,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
   const product = await getProductByIdPublic(id);
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
   const siteName = dict.title;
@@ -39,18 +40,24 @@ export async function generateMetadata({
   }
   
   const price = `$${product.basePrice.toFixed(2)}`;
-  const categoryMap: Record<string, string> = {
-    rings: 'Anillos',
-    necklaces: 'Collares',
-    bracelets: 'Pulseras',
-    earrings: 'Aretes',
-    watches: 'Relojes',
+  const categoryMap: Record<string, Record<string, string>> = {
+    rings: { es: 'Anillos', en: 'Rings' },
+    necklaces: { es: 'Collares', en: 'Necklaces' },
+    bracelets: { es: 'Pulseras', en: 'Bracelets' },
+    earrings: { es: 'Aretes', en: 'Earrings' },
+    watches: { es: 'Relojes', en: 'Watches' },
   };
-  const category = categoryMap[product.category] || product.category;
+  const category = categoryMap[product.category]?.[locale] || product.category;
 
   const title = `${product.name} | ${siteName}`;
-  const description = product.description || 
-    `${product.name} - ${category} de alta calidad. ${price}. Envío disponible. Compra ahora en ${siteName}.`;
+  const descSuffix = locale === 'es'
+    ? `de alta calidad. ${price}. Envío disponible. Compra ahora en ${siteName}.`
+    : `high quality. ${price}. Shipping available. Buy now at ${siteName}.`;
+  const description = product.description || `${product.name} - ${category} ${descSuffix}`;
+
+  const keywordParts = locale === 'es'
+    ? ['productos', 'comprar online']
+    : ['products', 'buy online'];
 
   return {
     title,
@@ -58,20 +65,21 @@ export async function generateMetadata({
     keywords: [
       product.name,
       category,
-      'productos',
+      ...keywordParts,
       product.sku,
       siteName,
-      'comprar online',
+      getSeoKeywords(dict),
       ...(product.tags || []),
     ].join(', '),
     authors: [{ name: siteName }],
     metadataBase: new URL(baseUrl),
     alternates: {
       canonical: `/products/${id}`,
+      languages: { es: `/products/${id}`, en: `/products/${id}`, 'x-default': `/products/${id}` },
     },
     openGraph: {
-      type: 'website', // 'website' funciona mejor con WhatsApp que 'product'
-      locale: 'es_ES',
+      type: 'website',
+      locale: getOgLocale(locale),
       url: `${baseUrl}/products/${id}`,
       siteName,
       title: product.name,
@@ -123,8 +131,9 @@ export default async function ProductPage({
 }) {
   const { id } = await params;
   const { return: returnUrl } = await searchParams;
-  const dict = getDictionary(defaultLocale);
-  
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
+
   // Obtener producto del backend
   const product = await getProductByIdPublic(id);
 
@@ -148,20 +157,21 @@ export default async function ProductPage({
     }
   }
 
-  const categoryMap: Record<string, string> = {
-    rings: 'Anillos',
-    necklaces: 'Collares',
-    bracelets: 'Pulseras',
-    earrings: 'Aretes',
-    watches: 'Relojes',
+  const categoryMap: Record<string, Record<string, string>> = {
+    rings: { es: 'Anillos', en: 'Rings' },
+    necklaces: { es: 'Collares', en: 'Necklaces' },
+    bracelets: { es: 'Pulseras', en: 'Bracelets' },
+    earrings: { es: 'Aretes', en: 'Earrings' },
+    watches: { es: 'Relojes', en: 'Watches' },
   };
-  const category = categoryMap[product.category] || product.category;
-
+  const category = categoryMap[product.category]?.[locale] || product.category;
+  const descSuffix = locale === 'es' ? 'de alta calidad' : 'high quality';
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.description || `${product.name} - ${category} de alta calidad`,
+    description: product.description || `${product.name} - ${category} ${descSuffix}`,
+    inLanguage: locale,
     image: product.images?.map(img => {
       if (!img) return logoUrl;
       if (img.startsWith('data:')) return logoUrl;

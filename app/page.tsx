@@ -1,20 +1,21 @@
 import type { Metadata } from 'next';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 // import { ProductSearch } from '@/components/products/ProductSearch';
 // import { getRecentProducts } from '@/lib/services/products';
 import { getAllStores } from '@/lib/services/stores';
 // import { type Product } from '@/types/product';
 import { type Store } from '@/lib/services/stores';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
-import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 import { HomeStoresSection } from '@/components/home/HomeStoresSection';
 import { HomeViewTracker } from '@/components/analytics/HomeViewTracker';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
   const logoUrlFinal = getSeoLogoUrl();
   const siteName = dict.title;
@@ -26,15 +27,16 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${siteName}`,
     },
     description,
-    keywords: 'plataforma multitienda, marketplace, tiendas independientes, varias tiendas, productos, comprar online',
+    keywords: getSeoKeywords(dict),
     authors: [{ name: siteName }],
     metadataBase: new URL(baseUrl),
     alternates: {
       canonical: '/',
+      languages: { es: '/', en: '/', 'x-default': '/' },
     },
     openGraph: {
       type: 'website',
-      locale: 'es_ES',
+      locale: getOgLocale(locale),
       url: `${baseUrl}/`,
       siteName,
       title: siteName,
@@ -44,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: logoUrlFinal,
           width: 1200,
           height: 630,
-          alt: `${siteName} - Plataforma multitienda`,
+          alt: dict.seo.ogImageAlt,
           secureUrl: logoUrlFinal,
         },
       ],
@@ -71,7 +73,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
 
   let stores: Store[] = [];
   try {
@@ -98,6 +101,7 @@ export default async function HomePage() {
     name: siteName,
     description,
     url: baseUrl,
+    inLanguage: [locale === 'es' ? 'es' : 'en', locale === 'es' ? 'en' : 'es'],
     potentialAction: {
       '@type': 'SearchAction',
       target: { '@type': 'EntryPoint', urlTemplate: `${baseUrl}/?q={search_term_string}` },
@@ -106,7 +110,8 @@ export default async function HomePage() {
     publisher: {
       '@type': 'Organization',
       name: siteName,
-      description: 'Plataforma multitienda: varias tiendas independientes y sus productos en un solo lugar.',
+      url: baseUrl,
+      logo: { '@type': 'ImageObject', url: `${baseUrl}/logo-atelier.png` },
     },
   };
 
@@ -136,8 +141,10 @@ export default async function HomePage() {
         {/* Lista de tiendas: contenido principal */}
         <HomeStoresSection
           stores={stores}
-          heading="Nuestras tiendas"
-          subheading="Elige una tienda y descubre sus productos."
+          heading={dict.homeStores.heading}
+          subheading={dict.homeStores.subheading}
+          emptyHeading={dict.homeStores.emptyHeading}
+          emptyDescription={dict.homeStores.emptyDescription}
         />
 
         {/* Búsqueda de productos en el home (comentado: el home solo muestra tiendas) */}

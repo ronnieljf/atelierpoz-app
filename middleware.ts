@@ -1,36 +1,46 @@
 /**
- * Middleware de Next.js para proteger rutas del admin
- * 
- * Nota: Este middleware solo verifica la presencia del token.
- * La validación real del token se hace en el cliente usando el endpoint /api/auth/me
+ * Middleware de Next.js:
+ * - Admin: proteger rutas (validación en cliente)
+ * - Público: detectar idioma del navegador y guardar en cookie para i18n
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {
+  detectLocaleFromAcceptLanguage,
+  type Locale,
+} from '@/constants/locales';
+
+const LOCALE_COOKIE = 'NEXT_LOCALE';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Solo aplicar middleware a rutas del admin (excepto login)
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    // Verificar si hay token en las cookies
-    // Nota: El token también puede estar en localStorage, pero eso solo es accesible en el cliente
-    // Por eso el middleware solo verifica cookies, y el cliente valida con /api/auth/me
-    // El token se verifica pero no se usa aquí, el cliente valida con /api/auth/me
-
-    // Si no hay token en cookies, permitir el acceso pero el cliente validará
-    // El layout del admin se encargará de redirigir si no está autenticado
-    // Esto permite que el cliente valide el token desde localStorage
+  // Admin: no aplicar i18n
+  if (pathname.startsWith('/admin')) {
     return NextResponse.next();
   }
 
-  // Para otras rutas, continuar normalmente (sin redirección a /es)
+  // Rutas públicas: establecer cookie de locale si no existe
+  const stored = request.cookies.get(LOCALE_COOKIE)?.value;
+  if (stored !== 'en' && stored !== 'es') {
+    const acceptLanguage = request.headers.get('accept-language');
+    const locale: Locale = detectLocaleFromAcceptLanguage(acceptLanguage);
+    const response = NextResponse.next();
+    response.cookies.set(LOCALE_COOKIE, locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365, // 1 año
+      sameSite: 'lax',
+    });
+    return response;
+  }
+
   return NextResponse.next();
 }
 
-// Configurar qué rutas deben ejecutar el middleware
 export const config = {
   matcher: [
-    '/admin/:path*',
+    '/',
+    '/((?!_next/static|_next/image|favicon.ico|logo-atelier.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

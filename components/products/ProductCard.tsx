@@ -357,7 +357,8 @@ export function ProductCard({ product, dict, priority = false }: ProductCardProp
       {/* Diálogo para ir al carrito - Fuera del contenedor del producto */}
       <AddToCartDialog 
         isOpen={showCartDialog} 
-        onClose={() => setShowCartDialog(false)} 
+        onClose={() => setShowCartDialog(false)}
+        dict={dict}
       />
     </div>
   );

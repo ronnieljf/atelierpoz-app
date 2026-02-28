@@ -1,23 +1,33 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'Terms and conditions of use of the Atelier Poz platform.',
-  alternates: { canonical: `${baseUrl}/terms-of-service` },
+  keywords: 'terms of service, terms and conditions, Atelier Poz, legal, platform rules',
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: '/terms-of-service',
+    languages: {
+      en: '/terms-of-service',
+      es: '/terminos-y-condiciones',
+      'x-default': '/terms-of-service',
+    },
+  },
   openGraph: {
     title: 'Terms of Service | Atelier Poz',
     url: `${baseUrl}/terms-of-service`,
     locale: 'en_US',
+    type: 'website',
   },
 };
 
-export default function TermsOfServicePage() {
-  const dict = getDictionary(defaultLocale);
+export default async function TermsOfServicePage() {
+  const dict = getDictionary(await getLocaleFromRequest());
 
   return (
     <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">

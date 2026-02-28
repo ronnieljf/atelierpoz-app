@@ -1,23 +1,33 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones',
   description: 'Términos y condiciones de uso de la plataforma Atelier Poz.',
-  alternates: { canonical: `${baseUrl}/terminos-y-condiciones` },
+  keywords: 'términos de servicio, términos y condiciones, Atelier Poz, legal, reglas de la plataforma',
+  metadataBase: new URL(baseUrl),
+  alternates: {
+    canonical: '/terminos-y-condiciones',
+    languages: {
+      es: '/terminos-y-condiciones',
+      en: '/terms-of-service',
+      'x-default': '/terminos-y-condiciones',
+    },
+  },
   openGraph: {
     title: 'Términos y Condiciones | Atelier Poz',
     url: `${baseUrl}/terminos-y-condiciones`,
     locale: 'es_ES',
+    type: 'website',
   },
 };
 
-export default function TerminosYCondicionesPage() {
-  const dict = getDictionary(defaultLocale);
+export default async function TerminosYCondicionesPage() {
+  const dict = getDictionary(await getLocaleFromRequest());
 
   return (
     <div className="container mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">

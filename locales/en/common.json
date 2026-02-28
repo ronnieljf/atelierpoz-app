@@ -9,6 +9,19 @@
     "contact": "Contact",
     "cart": "Cart"
   },
+  "footer": {
+    "forBusiness": "For your business",
+    "privacyPolicy": "Privacy policy",
+    "termsAndConditions": "Terms and conditions",
+    "allRightsReserved": "Multi-store platform - All rights reserved",
+    "followUs": "Follow us on Instagram"
+  },
+  "homeStores": {
+    "heading": "Our stores",
+    "subheading": "Pick a store and discover its products.",
+    "emptyHeading": "No stores available",
+    "emptyDescription": "Soon you'll be able to explore our stores and their products."
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
@@ -33,8 +46,15 @@
     "selectVariant": "Select",
     "quantity": "Quantity",
     "price": "Price",
+    "basePrice": "Base price",
     "total": "Total",
     "description": "Description",
+    "notAvailable": "Product not available",
+    "notAvailableDescription": "This product is no longer visible in the store.",
+    "combination": "Combination",
+    "closeGallery": "Close gallery",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
     "specifications": "Specifications",
     "reviews": "Reviews",
     "relatedProducts": "Related Products",
@@ -68,7 +88,28 @@
     "customMessageTitle": "Want to add a note?",
     "customMessageDescription": "If it's urgent, a gift, or you have something you'd like them to know — write it here. They'll see it first, before your order.",
     "customMessagePlaceholder": "e.g. It's a gift, I need it by Friday…",
-    "customMessageSubmit": "Send to WhatsApp"
+    "customMessageSubmit": "Send to WhatsApp",
+    "priceOnRequest": "Price on request",
+    "perUnit": "ea",
+    "addedToCartTitle": "Added to cart",
+    "addedToCartDescription": "The product has been added successfully. You can continue shopping or go to cart to checkout.",
+    "viewCart": "View cart",
+    "productCount": "{{count}} product",
+    "productCountPlural": "{{count}} products",
+    "sendOrderTo": "Send order to",
+    "creator": "Creator",
+    "noContactConfigured": "No contact configured. Store contact will be used.",
+    "totalInBs": "Total in Bs. (BCV USD rate)",
+    "rateLabel": "Rate: Bs. {{rate}} / USD",
+    "rateUsd": "(USD rate)"
+  },
+  "store": {
+    "defaultName": "Store"
+  },
+  "seo": {
+    "keywords": "multi-store platform, marketplace, independent shops, multiple stores, products, buy online, online store, independent brands, ecommerce, WhatsApp sales",
+    "keywordsEn": "plataforma multitienda, marketplace, tiendas independientes, varias tiendas, productos, comprar online, tienda online, marcas independientes, ecommerce, venta por WhatsApp",
+    "ogImageAlt": "Atelier Poz - Multi-store platform"
   },
   "theme": {
     "light": "Light",
@@ -80,16 +121,26 @@
     "noResults": "No products found",
     "noResultsDescription": "Try adjusting your search terms",
     "results": "results found",
-    "result": "result found"
+    "result": "result found",
+    "loadError": "Error loading products",
+    "noMoreProducts": "No more products",
+    "searchCategory": "Search category..."
   },
   "filters": {
     "title": "Filters",
     "clear": "Clear filters",
     "category": "Category",
     "all": "All",
+    "allCategories": "All categories",
+    "chooseCategory": "Choose category",
     "priceRange": "Price Range",
     "minPrice": "Min Price",
-    "maxPrice": "Max Price"
+    "maxPrice": "Max Price",
+    "noCategoriesAvailable": "No categories available.",
+    "noCategoryMatch": "No category matches \"{{query}}\".",
+    "priceErrorInvalid": "Enter valid numeric values",
+    "priceErrorMinZero": "Prices must be greater than or equal to 0",
+    "priceErrorMinLessMax": "Minimum price must be less than maximum"
   },
   "view": {
     "oneColumn": "One column",

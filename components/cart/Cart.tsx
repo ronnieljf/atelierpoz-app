@@ -252,7 +252,7 @@ export function Cart({ dict, locale }: CartProps) {
     
     cart.items.forEach((item) => {
       const storeId = item.storeId || 'unknown';
-      const storeName = item.storeName || 'Tienda';
+      const storeName = item.storeName || dict.store.defaultName;
       const storeLogo = item.storeLogo;
       const storeInstagram = item.storeInstagram;
       const storeTiktok = item.storeTiktok;
@@ -299,7 +299,7 @@ export function Cart({ dict, locale }: CartProps) {
     });
     
     return Array.from(groups.values());
-  }, [cart.items]);
+  }, [cart.items, dict.store.defaultName]);
   
   if (cart.items.length === 0) {
     return (
@@ -356,7 +356,9 @@ export function Cart({ dict, locale }: CartProps) {
                       {storeGroup.storeName}
                     </h2>
                     <p className="text-sm text-neutral-500">
-                      {storeGroup.items.length} {storeGroup.items.length === 1 ? 'producto' : 'productos'}
+                      {storeGroup.items.length === 1
+                        ? dict.cart.productCount.replace('{{count}}', String(storeGroup.items.length))
+                        : dict.cart.productCountPlural.replace('{{count}}', String(storeGroup.items.length))}
                     </p>
                     {(instagram || tiktok) && (
                       <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -462,12 +464,12 @@ export function Cart({ dict, locale }: CartProps) {
                         <p className="text-sm font-medium text-white tabular-nums">
                           ${item.totalPrice.toFixed(2)}
                           {item.quantity > 1 && (
-                            <span className="ml-1 text-neutral-500">· ${(item.totalPrice / item.quantity).toFixed(2)} c/u</span>
+                            <span className="ml-1 text-neutral-500">· ${(item.totalPrice / item.quantity).toFixed(2)} {dict.cart.perUnit}</span>
                           )}
                         </p>
                       )}
                       {item.hidePrice === true && (
-                        <p className="text-sm italic text-neutral-500">Precio a convenir</p>
+                        <p className="text-sm italic text-neutral-500">{dict.cart.priceOnRequest}</p>
                       )}
                     </div>
                   </div>
@@ -487,7 +489,7 @@ export function Cart({ dict, locale }: CartProps) {
                   </p>
                   {bcvRates.dolar > 0 && (
                     <p className="mt-1 text-sm tabular-nums text-neutral-500">
-                      Bs. {(storeGroup.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} (tasa USD)
+                      Bs. {(storeGroup.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} {dict.cart.rateUsd}
                     </p>
                   )}
                 </div>
@@ -508,7 +510,7 @@ export function Cart({ dict, locale }: CartProps) {
                   return (
                     <div className="mb-4">
                       <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-neutral-500">
-                        Enviar pedido a
+                        {dict.cart.sendOrderTo}
                       </label>
                       <select
                         value={selectedPhone}
@@ -523,7 +525,7 @@ export function Cart({ dict, locale }: CartProps) {
                         {availableUsers.map((user) => (
                           <option key={user.id} value={user.phoneNumber}>
                             {user.userName || storeGroup.storeName}
-                            {user.isCreator ? ' (Creador)' : ''}
+                            {user.isCreator ? ` (${dict.cart.creator})` : ''}
                           </option>
                         ))}
                         {!storeGroup.storePhoneNumber && (
@@ -540,7 +542,7 @@ export function Cart({ dict, locale }: CartProps) {
                   return (
                     <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2">
                       <p className="text-xs text-amber-200/90">
-                        Sin contacto configurado. Se usará el de la tienda.
+                        {dict.cart.noContactConfigured}
                       </p>
                     </div>
                   );
@@ -575,13 +577,13 @@ export function Cart({ dict, locale }: CartProps) {
         {bcvRates.dolar > 0 && (
           <div className="mt-3 border-t border-neutral-800 pt-3">
             <div className="flex justify-between items-baseline gap-4">
-              <span className="text-sm text-neutral-500">Total en Bs. (tasa BCV USD)</span>
+              <span className="text-sm text-neutral-500">{dict.cart.totalInBs}</span>
               <span className="text-lg font-medium tabular-nums text-neutral-300">
                 Bs. {(cart.total * bcvRates.dolar).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               </span>
             </div>
             <p className="mt-1 text-right text-xs text-neutral-500">
-              Tasa: Bs. {bcvRates.dolar.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} / USD
+              {dict.cart.rateLabel.replace('{{rate}}', bcvRates.dolar.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','))}
             </p>
           </div>
         )}

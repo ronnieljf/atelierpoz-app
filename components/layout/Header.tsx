@@ -7,6 +7,7 @@ import { Home, Store, LogIn, LayoutDashboard } from 'lucide-react';
 import { type Locale } from '@/constants/locales';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { CartIcon } from '@/components/cart/CartIcon';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { getAllStores, getStoreById } from '@/lib/services/stores';
 import { useAuth } from '@/lib/store/auth-store';
 import { cn } from '@/lib/utils/cn';
@@ -76,6 +77,7 @@ export function Header({ locale }: HeaderProps) {
           <span className="truncate text-lg font-light tracking-tight sm:text-xl">{headerTitle}</span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
+          <LanguageSwitcher currentLocale={locale} />
           {showStoresButton && (
             <Link
               href="/"

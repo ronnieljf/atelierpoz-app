@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { getDictionary } from '@/lib/i18n/dictionary';
-import { defaultLocale } from '@/constants/locales';
+import { getLocaleFromRequest } from '@/lib/i18n/server';
 import { ThemeProvider } from '@/lib/store/theme-store';
 import { PublicLayoutWrapper } from '@/components/layout/PublicLayoutWrapper';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { PageViewTracker } from '@/components/analytics/PageViewTracker';
-import { getSeoLogoUrl } from '@/lib/utils/seo';
+import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 import './globals.css';
 
 const geistSans = Geist({
@@ -20,7 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const dict = getDictionary(defaultLocale);
+  const locale = await getLocaleFromRequest();
+  const dict = getDictionary(locale);
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://atelierpoz.com';
   const logoUrl = getSeoLogoUrl();
   const siteName = dict.title;
@@ -32,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${siteName}`,
     },
     description,
-    keywords: 'plataforma multitienda, marketplace, tiendas independientes, varias tiendas, productos, comprar online, tienda online',
+    keywords: getSeoKeywords(dict),
     authors: [{ name: siteName }],
     creator: siteName,
     publisher: siteName,
@@ -44,10 +45,11 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(baseUrl),
     alternates: {
       canonical: '/',
+      languages: { es: '/', en: '/', 'x-default': '/' },
     },
     openGraph: {
       type: 'website',
-      locale: 'es_ES',
+      locale: getOgLocale(locale),
       url: `${baseUrl}/`,
       siteName,
       title: siteName,
@@ -57,7 +59,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: logoUrl,
           width: 1200,
           height: 630,
-          alt: `${siteName} - Plataforma multitienda`,
+          alt: dict.seo.ogImageAlt,
           secureUrl: logoUrl,
         },
       ],
@@ -88,13 +90,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocaleFromRequest();
+
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950`}
       >
@@ -120,7 +124,7 @@ export default function RootLayout({
         <GoogleAnalytics />
         <PageViewTracker />
         <ThemeProvider>
-          <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
+          <PublicLayoutWrapper locale={locale}>{children}</PublicLayoutWrapper>
         </ThemeProvider>
       </body>
     </html>
