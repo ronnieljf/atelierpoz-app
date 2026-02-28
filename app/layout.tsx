@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/lib/store/theme-store';
 import { LocaleProvider } from '@/lib/context/LocaleContext';
 import { PublicLayoutWrapper } from '@/components/layout/PublicLayoutWrapper';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
+import { MicrosoftClarity } from '@/components/analytics/MicrosoftClarity';
 import { PageViewTracker } from '@/components/analytics/PageViewTracker';
 import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
 import './globals.css';
@@ -123,6 +124,7 @@ export default async function RootLayout({
           <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-700/5 rounded-full blur-[150px]" />
         </div>
         <GoogleAnalytics />
+        <MicrosoftClarity />
         <PageViewTracker />
         <LocaleProvider locale={locale}>
           <ThemeProvider>

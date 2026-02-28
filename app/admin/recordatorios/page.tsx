@@ -13,10 +13,13 @@ import {
 } from '@/lib/services/reminders';
 import { cn } from '@/lib/utils/cn';
 
+/** Clase para inputs numéricos sin flechas de subir/bajar */
+const inputNumberClass = 'w-full rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2.5 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 input-number-no-spinner';
+
 function reminderTypeLabel(type: string): string {
-  if (type === 'after_creation') return 'Recordatorio por creación';
-  if (type === 'after_last_payment') return 'Recordatorio por último abono';
-  if (type === 'repeat') return 'Recordatorio periódico';
+  if (type === 'after_creation') return 'Primer aviso: nueva cuenta';
+  if (type === 'after_last_payment') return 'Seguimiento: después de un abono';
+  if (type === 'repeat') return 'Recordatorio repetido';
   return type;
 }
 
@@ -106,10 +109,10 @@ export default function RecordatoriosPage() {
     <div className="max-w-3xl mx-auto">
       <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl sm:font-light sm:text-3xl mb-2 flex items-center gap-2">
         <Bell className="h-7 w-7 text-primary-400" />
-        Recordatorios
+        Recordatorios de cobro
       </h1>
       <p className="text-sm text-neutral-400 mb-6">
-        Avisos de cuentas por cobrar: por días desde la creación o desde el último abono.
+        Te avisamos cuando una cuenta por cobrar necesita seguimiento. Así no tienes que recordar tú cuándo cobrar.
       </p>
 
       {message && (
@@ -127,87 +130,100 @@ export default function RecordatoriosPage() {
 
       {/* Configuración */}
       <section className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6 mb-6 backdrop-blur-sm">
-        <h2 className="flex items-center gap-2 text-base font-medium text-neutral-200 mb-4">
+        <h2 className="flex items-center gap-2 text-base font-medium text-neutral-200 mb-2">
           <Settings className="h-4 w-4 text-neutral-400" />
-          Configuración
+          ¿Cuándo quieres que te avisemos?
         </h2>
+        <p className="text-sm text-neutral-500 mb-5">
+          Configura los plazos. Te aparecerán avisos aquí cuando una cuenta necesite que la revises.
+        </p>
         {loadingSettings ? (
           <div className="flex items-center gap-2 text-neutral-400 py-4">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando…
           </div>
         ) : (
-          <form onSubmit={handleSaveSettings} className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
+          <form onSubmit={handleSaveSettings} className="space-y-5">
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/50">
               <input
                 type="checkbox"
                 checked={form.reminders_enabled}
                 onChange={(e) => setForm((f) => ({ ...f, reminders_enabled: e.target.checked }))}
                 className="rounded border-neutral-600 bg-neutral-800 text-primary-500 focus:ring-primary-500"
               />
-              <span className="text-sm text-neutral-300">Activar recordatorios de cuentas por cobrar</span>
+              <span className="text-sm font-medium text-neutral-200">Activar recordatorios</span>
             </label>
-            <p className="text-xs text-neutral-500">
-              Si está activo, recibirás avisos en esta página según los plazos que configures.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">
-                  Días después de crear la cuenta
+
+            <div className="space-y-4 pt-1">
+              <div className="p-4 rounded-xl border border-neutral-700/60 bg-neutral-800/30">
+                <label className="block text-sm font-medium text-neutral-200 mb-1">
+                  Avisarme X días después de crear una cuenta
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   max={365}
                   value={form.reminder_days_after_creation}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, reminder_days_after_creation: Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 30)) }))
                   }
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2.5 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className={inputNumberClass}
                 />
-                <p className="text-xs text-neutral-500 mt-1">Recordarme X días después de haber creado la cuenta por cobrar.</p>
+                <p className="text-xs text-neutral-500 mt-2">
+                  Ejemplo: si pones <strong>7</strong>, te avisamos 7 días después de registrar que te deben.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">
-                  Días después del último abono
+
+              <div className="p-4 rounded-xl border border-neutral-700/60 bg-neutral-800/30">
+                <label className="block text-sm font-medium text-neutral-200 mb-1">
+                  Avisarme X días después del último abono
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   max={365}
                   value={form.reminder_days_after_last_payment}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, reminder_days_after_last_payment: Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 15)) }))
                   }
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2.5 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className={inputNumberClass}
                 />
-                <p className="text-xs text-neutral-500 mt-1">Si no ha pagado en X días, o si abonó y ya pasaron X días.</p>
+                <p className="text-xs text-neutral-500 mt-2">
+                  Ejemplo: si pones <strong>3</strong>, te avisamos 3 días después de que tu cliente haga un abono (para hacer seguimiento del resto).
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1">
-                  Repetir recordatorio cada
+
+              <div className="p-4 rounded-xl border border-neutral-700/60 bg-neutral-800/30">
+                <label className="block text-sm font-medium text-neutral-200 mb-1">
+                  Si sigue pendiente, repetir el aviso cada X días
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   max={365}
                   value={form.reminder_interval_days}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, reminder_interval_days: Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 7)) }))
                   }
-                  className="w-full rounded-xl border border-neutral-700 bg-neutral-800/80 px-4 py-2.5 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className={inputNumberClass}
                 />
-                <p className="text-xs text-neutral-500 mt-1">Cada cuántos días volver a recordarte sobre la misma cuenta si sigue pendiente.</p>
+                <p className="text-xs text-neutral-500 mt-2">
+                  Ejemplo: si pones <strong>7</strong>, te volveremos a avisar cada 7 días hasta que cobres o descartes.
+                </p>
               </div>
             </div>
-            <div className="pt-2">
+
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Guardar configuración
+                Guardar
               </button>
             </div>
           </form>
@@ -216,13 +232,16 @@ export default function RecordatoriosPage() {
 
       {/* Notificaciones */}
       <section className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-6 backdrop-blur-sm">
-        <h2 className="flex items-center gap-2 text-base font-medium text-neutral-200 mb-4">
+        <h2 className="flex items-center gap-2 text-base font-medium text-neutral-200 mb-2">
           <Receipt className="h-4 w-4 text-neutral-400" />
-          Avisos pendientes
+          Tus avisos
         </h2>
+        <p className="text-sm text-neutral-500 mb-4">
+          Cuentas por cobrar que necesitan tu atención.
+        </p>
         {!remindersOn && (
-          <p className="text-sm text-neutral-500 py-4">
-            Activa los recordatorios arriba para recibir avisos de cuentas por cobrar.
+          <p className="text-sm text-neutral-500 py-4 rounded-xl bg-neutral-800/40 p-4 border border-neutral-700/50">
+            Activa los recordatorios arriba para que aparezcan aquí las cuentas que debes revisar.
           </p>
         )}
         {remindersOn && loadingNotifications && (
@@ -232,7 +251,9 @@ export default function RecordatoriosPage() {
           </div>
         )}
         {remindersOn && !loadingNotifications && notifications.length === 0 && (
-          <p className="text-sm text-neutral-500 py-4">No tienes avisos pendientes.</p>
+          <p className="text-sm text-neutral-500 py-6 rounded-xl bg-neutral-800/30 border border-dashed border-neutral-700/50 text-center">
+            Todo al día. No hay cuentas que requieran seguimiento por ahora.
+          </p>
         )}
         {remindersOn && !loadingNotifications && notifications.length > 0 && (
           <ul className="space-y-3">

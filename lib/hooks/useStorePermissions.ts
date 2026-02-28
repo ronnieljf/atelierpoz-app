@@ -36,7 +36,10 @@ export type PermissionCode =
   | 'requests.edit'
   | 'reports.view'
   | 'stores.view'
-  | 'stores.manage_users';
+  | 'stores.manage_users'
+  | 'posts.view'
+  | 'posts.create'
+  | 'posts.edit';
 
 const ALL_PERMISSION_CODES: PermissionCode[] = [
   'products.view', 'products.create', 'products.edit',
@@ -51,6 +54,7 @@ const ALL_PERMISSION_CODES: PermissionCode[] = [
   'requests.view', 'requests.edit',
   'reports.view',
   'stores.view', 'stores.manage_users',
+  'posts.view', 'posts.create', 'posts.edit',
 ];
 
 export interface UseStorePermissionsResult {

@@ -162,40 +162,27 @@ export default function SalesPage() {
       .finally(() => setLoadingRecentClients(false));
   }, [storeId, view]);
 
-  // Búsqueda: primero filtrar localmente en topProducts, si no hay resultados buscar en backend
+  // Búsqueda: siempre buscar en backend (ILIKE/LIKE en todo el catálogo)
+  // Así "pulsera" devuelve todas las pulseras, no solo las del top vendidos
   useEffect(() => {
     if (!storeId) {
       setProductResults([]);
       return;
     }
-    const q = productSearch.trim().toLowerCase();
+    const q = productSearch.trim();
     if (!q) {
       setProductResults([]);
       return;
     }
     const t = setTimeout(() => {
       setSearching(true);
-      // Primero buscar en los 1000 cargados localmente
-      const localMatches = topProducts.filter(
-        (p) =>
-          (p.productName?.toLowerCase().includes(q) ||
-            p.displayName?.toLowerCase().includes(q) ||
-            p.sku?.toLowerCase().includes(q) ||
-            p.sku === productSearch.trim())
-      );
-      if (localMatches.length > 0) {
-        setProductResults(localMatches.slice(0, 20));
-        setSearching(false);
-        return;
-      }
-      // Si no hay resultados locales, buscar en backend
-      searchProductsForPOS(storeId, productSearch.trim(), 20)
+      searchProductsForPOS(storeId, q, 30)
         .then(setProductResults)
         .catch(() => setProductResults([]))
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(t);
-  }, [storeId, productSearch, topProducts]);
+  }, [storeId, productSearch]);
 
   // Búsqueda de cliente: primero filtrar localmente en recentClients, si no hay resultados buscar en backend
   useEffect(() => {

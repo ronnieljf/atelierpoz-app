@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Store } from '@/lib/services/stores';
 import { Store as StoreIcon, MapPin, Instagram } from 'lucide-react';
-import Link from 'next/link';
 import { resolveImageUrl } from '@/lib/utils/image-url';
 
 interface StoreCardProps {
@@ -11,6 +11,7 @@ interface StoreCardProps {
 }
 
 export function StoreCard({ store }: StoreCardProps) {
+  const router = useRouter();
   const [logoError, setLogoError] = useState(false);
   const logoUrl = resolveImageUrl(store.logo ?? null) ?? store.logo ?? null;
   const showLogo = !!logoUrl && !logoError;
@@ -20,9 +21,17 @@ export function StoreCard({ store }: StoreCardProps) {
   const tiktok = store.tiktok?.trim() || null;
 
   return (
-    <Link
-      href={`/${storeIdentifier}`}
-      className="group relative flex aspect-square w-full overflow-hidden rounded-xl border border-neutral-700/40 bg-neutral-800/80 shadow-md transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-900/15"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/${storeIdentifier}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          router.push(`/${storeIdentifier}`);
+        }
+      }}
+      className="group relative flex aspect-square w-full cursor-pointer overflow-hidden rounded-xl border border-neutral-700/40 bg-neutral-800/80 shadow-md transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-900/15"
     >
       {/* Solo logo: ocupa toda la card */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
@@ -57,7 +66,7 @@ export function StoreCard({ store }: StoreCardProps) {
             </p>
           )}
           {(instagram || tiktok) && (
-            <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-2 flex items-center gap-2">
               {instagram && (
                 <a
                   href={`https://instagram.com/${instagram.replace(/^@/, '')}`}
@@ -88,6 +97,6 @@ export function StoreCard({ store }: StoreCardProps) {
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

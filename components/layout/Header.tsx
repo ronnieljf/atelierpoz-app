@@ -62,59 +62,56 @@ export function Header({ locale }: HeaderProps) {
     return () => { cancelled = true; };
   }, [storeIdentifier]);
 
-  const headerTitle = storeName ?? dict.title;
+  const getStoreInitials = (name: string): string => {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    if (words.length === 1) return (words[0][0] ?? '').toUpperCase();
+    return words
+      .slice(0, 4)
+      .map((w) => w[0] ?? '')
+      .join('')
+      .toUpperCase();
+  };
+
+  const headerTitle = storeName ? getStoreInitials(storeName) : dict.title;
+
+  const navButtonClass = cn(
+    'flex items-center justify-center rounded-lg p-2 text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white sm:gap-1.5 sm:px-2.5 sm:py-2',
+    'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
+  );
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-800/60 bg-neutral-950/90 backdrop-blur-xl">
-      <div className="container mx-auto flex h-14 sm:h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <div className="flex h-12 sm:h-14 min-w-0 items-center justify-between gap-2 px-3 sm:container sm:mx-auto sm:max-w-5xl sm:gap-4 sm:px-6">
         <Link
           href="/"
           prefetch={true}
-          className="flex items-center gap-2.5 text-white transition-opacity hover:opacity-90"
-          aria-label={dict.navigation.home}
+          className="flex min-w-0 shrink items-center gap-1.5 text-white transition-opacity hover:opacity-90 sm:gap-2"
+          aria-label={storeName ?? dict.navigation.home}
+          title={storeName ?? dict.navigation.home}
         >
-          <Home className="h-5 w-5 sm:h-5 sm:w-5 text-neutral-300 shrink-0" />
-          <span className="truncate text-lg font-light tracking-tight sm:text-xl">{headerTitle}</span>
+          <Home className="h-4 w-4 shrink-0 text-neutral-300 sm:h-5 sm:w-5" />
+          <span className="truncate text-sm font-light tracking-tight sm:text-base md:text-lg">
+            {headerTitle}
+          </span>
         </Link>
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <LanguageSwitcher currentLocale={locale} />
           {showStoresButton && (
-            <Link
-              href="/"
-              prefetch={true}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-light text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white sm:gap-2',
-                'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
-              )}
-              title={dict.navigation.home}
-            >
+            <Link href="/" prefetch={true} className={navButtonClass} title={dict.navigation.home}>
               <Store className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">{dict.navigation.home}</span>
+              <span className="hidden md:inline">{dict.navigation.home}</span>
             </Link>
           )}
           {isLoggedIn ? (
-            <Link
-              href="/admin"
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-light text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white',
-                'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
-              )}
-              title="Ir al panel de administración"
-            >
+            <Link href="/admin" className={navButtonClass} title="Ir al panel de administración">
               <LayoutDashboard className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Admin</span>
+              <span className="hidden md:inline">Admin</span>
             </Link>
           ) : (
-            <Link
-              href="/admin/login"
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-light text-neutral-300 transition-colors hover:bg-neutral-800/80 hover:text-white',
-                'focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950'
-              )}
-              title={dict.auth.signIn}
-            >
+            <Link href="/admin/login" className={navButtonClass} title={dict.auth.signIn}>
               <LogIn className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">{dict.auth.signIn}</span>
+              <span className="hidden md:inline">{dict.auth.signIn}</span>
             </Link>
           )}
           <CartIcon locale={locale} dict={dict} />

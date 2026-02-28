@@ -6,6 +6,7 @@ import { createStore, updateStore, addUserToStore, updateUserPhoneNumber, getSto
 import { trackStoreCreated } from '@/lib/analytics/gtag';
 import { getAllPermissions, setUserPermissions, type PermissionItem } from '@/lib/services/permissions';
 import { useAuth } from '@/lib/store/auth-store';
+import { useStorePermissions } from '@/lib/hooks/useStorePermissions';
 import { Button } from '@/components/ui/Button';
 import {
   Plus, Store as StoreIcon, CheckCircle, XCircle, Edit, X, Users, UserPlus,
@@ -29,6 +30,7 @@ const MODULE_LABELS_ES: Record<string, string> = {
   requests: 'Pedidos',
   reports: 'Reportes',
   stores: 'Tiendas',
+  posts: 'Publicaciones (Instagram)',
 };
 
 const EMPTY_FORM = {
@@ -77,6 +79,7 @@ export default function StoresPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+  const { hasPermission } = useStorePermissions(expandedStoreId || '');
   const [showLimitReachedAlert, setShowLimitReachedAlert] = useState(false);
   const [removingUserKey, setRemovingUserKey] = useState<string | null>(null);
 
@@ -623,7 +626,7 @@ export default function StoresPage() {
                             <Edit className="h-3.5 w-3.5" />
                             Información
                           </button>
-                          {store.is_creator && (
+                          {(store.is_creator || hasPermission('stores.manage_users')) && (
                             <button
                               type="button"
                               onClick={() => switchTab(store.id, 'users')}
@@ -767,7 +770,7 @@ export default function StoresPage() {
                         )}
 
                         {/* Users Tab */}
-                        {currentTab === 'users' && store.is_creator && (
+                        {currentTab === 'users' && (store.is_creator || hasPermission('stores.manage_users')) && (
                           <div className="space-y-3">
                             {/* Add User Button / Form */}
                             {addingUserToStore !== store.id ? (

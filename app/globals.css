@@ -479,6 +479,18 @@ html {
   -moz-appearance: textfield;
 }
 
+/* Ocultar flechas de subir/bajar en inputs numéricos (recordatorios, etc.) */
+input.input-number-no-spinner::-webkit-outer-spin-button,
+input.input-number-no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+input.input-number-no-spinner {
+  -moz-appearance: textfield;
+}
+
 /* Admin: loading bar entre navegaciones */
 @keyframes admin-loading-shimmer {
   0% {

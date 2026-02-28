@@ -18,10 +18,10 @@ export function CartIcon({ dict }: CartIconProps) {
   return (
     <Link
       href="/cart"
-      className="relative flex items-center justify-center p-2 rounded-xl text-white transition-all duration-300 hover:scale-110 hover:bg-white/15 hover:backdrop-blur-xl hover:shadow-lg active:scale-95 group"
+      className="relative flex items-center justify-center p-2 rounded-lg text-white transition-colors hover:bg-neutral-800/80 hover:text-white active:scale-95 group sm:p-2"
       title={dict.navigation.cart}
     >
-      <ShoppingCart className="h-5 w-5 group-hover:drop-shadow-lg transition-all duration-300" />
+      <ShoppingCart className="h-4 w-4 group-hover:drop-shadow-sm transition-all sm:h-5 sm:w-5" />
       {itemCount > 0 && (
         <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-white to-neutral-100 text-[10px] font-bold text-primary-800 shadow-lg shadow-white/20 animate-pulse-glow border border-primary-200/50">
           {itemCount > 99 ? '99+' : itemCount}
