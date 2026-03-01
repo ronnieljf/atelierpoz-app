@@ -12,6 +12,8 @@ export interface Store {
   tiktok?: string | null;
   description?: string | null;
   location?: string | null;
+  /** Teléfono de WhatsApp para contacto (de store_users). */
+  phone_number?: string | null;
   /** IVA en porcentaje (ej. 19, 13). Configurable por tienda. */
   iva?: number;
   created_at: string;
@@ -47,6 +49,37 @@ export async function getStoreById(id: string): Promise<Store | null> {
   } catch (error) {
     console.error('Error obteniendo tienda:', error);
     return null;
+  }
+}
+
+export interface StoreContactUser {
+  name: string;
+  phoneNumber: string;
+}
+
+/**
+ * Obtener usuarios de contacto de una tienda (público).
+ * Solo usuarios con teléfono configurado.
+ */
+export async function getStoreContactUsers(storeId: string): Promise<StoreContactUser[]> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+    const response = await fetch(`${backendUrl}/api/stores/public/${storeId}/contact-users`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    if (data.success && Array.isArray(data.contacts)) {
+      return data.contacts as StoreContactUser[];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error obteniendo usuarios de contacto:', error);
+    return [];
   }
 }
 

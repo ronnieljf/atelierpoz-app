@@ -6,7 +6,7 @@ import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
 import { StoreViewTracker } from '@/components/analytics/StoreViewTracker';
 import { getStoreProducts } from '@/lib/services/products';
-import { getStoreById } from '@/lib/services/stores';
+import { getStoreById, getStoreContactUsers } from '@/lib/services/stores';
 import { type Product } from '@/types/product';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { getSeoLogoUrl, getOgLocale, getSeoKeywords } from '@/lib/utils/seo';
@@ -127,6 +127,16 @@ export default async function StorePage({
   }
 
   const storeSlug = store.store_id ?? id;
+  const locale = await getLocaleFromRequest();
+  let contactUsers = await getStoreContactUsers(store.id);
+  // Fallback: usar teléfono de productos si no hay contactos en store_users
+  if (contactUsers.length === 0) {
+    const productPhone = initialProducts[0]?.storePhoneNumber?.trim()
+      || (initialProducts[0] as { store_phone_number?: string })?.store_phone_number?.trim();
+    if (productPhone) {
+      contactUsers = [{ name: store.name, phoneNumber: productPhone }];
+    }
+  }
 
   return (
     <div className="overflow-x-hidden">
@@ -144,6 +154,8 @@ export default async function StorePage({
           location={store.location ?? undefined}
           instagram={store.instagram}
           tiktok={store.tiktok}
+          contactUsers={contactUsers}
+          locale={locale}
         />
         <ProductSearch storeId={store.id} storeName={store.name} dict={dict} initialProducts={initialProducts} />
         <ScrollToTop />

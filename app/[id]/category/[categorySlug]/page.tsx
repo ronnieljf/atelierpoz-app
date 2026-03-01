@@ -6,7 +6,7 @@ import { ProductSearch } from '@/components/products/ProductSearch';
 import { StorePageHeader } from '@/components/stores/StorePageHeader';
 import { CategoryViewTracker } from '@/components/analytics/CategoryViewTracker';
 import { getStoreProducts } from '@/lib/services/products';
-import { getStoreById } from '@/lib/services/stores';
+import { getStoreById, getStoreContactUsers } from '@/lib/services/stores';
 import { getCategoriesByStore } from '@/lib/services/categories';
 import { type Product } from '@/types/product';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
@@ -125,6 +125,17 @@ export default async function StoreCategoryPage({
     console.error('Error obteniendo productos por categoría:', error);
   }
 
+  const locale = await getLocaleFromRequest();
+  let contactUsers = await getStoreContactUsers(store.id);
+  // Fallback: usar teléfono de productos si no hay contactos en store_users
+  if (contactUsers.length === 0) {
+    const productPhone = initialProducts[0]?.storePhoneNumber?.trim()
+      || (initialProducts[0] as { store_phone_number?: string })?.store_phone_number?.trim();
+    if (productPhone) {
+      contactUsers = [{ name: store.name, phoneNumber: productPhone }];
+    }
+  }
+
   return (
     <div className="overflow-x-hidden">
       <CategoryViewTracker
@@ -142,6 +153,8 @@ export default async function StoreCategoryPage({
           location={store.location ?? undefined}
           instagram={store.instagram}
           tiktok={store.tiktok}
+          contactUsers={contactUsers}
+          locale={locale}
         />
         <ProductSearch
           storeId={store.id}
