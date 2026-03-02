@@ -86,6 +86,23 @@ export async function getClientById(clientId: string, storeId: string): Promise<
 }
 
 /**
+ * Obtener varios clientes por IDs (misma tienda)
+ */
+export async function getClientsByIds(storeId: string, ids: string[]): Promise<Client[]> {
+  if (!ids.length) return [];
+  const sp = new URLSearchParams();
+  sp.set('storeId', storeId);
+  sp.set('ids', ids.join(','));
+  const response = await httpClient.get<{ success: boolean; clients: ApiClient[] }>(
+    `/api/clients/by-ids?${sp.toString()}`
+  );
+  if (response.success && response.data?.clients) {
+    return response.data.clients.map(formatClient);
+  }
+  return [];
+}
+
+/**
  * Crear cliente
  */
 export async function createClient(data: CreateClientData): Promise<Client> {

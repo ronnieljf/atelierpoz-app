@@ -286,6 +286,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}><UserCircle className="h-4 w-4" /></span>
               <span className="truncate">Clientes</span>
             </Link>
+            <Link href="/admin/recurring-reminders" className={navLinkClass(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/'))}>
+              {(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+              <span className={navIconClass(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/'))}><Bell className="h-4 w-4" /></span>
+              <span className="truncate">Recordatorios recurrentes</span>
+            </Link>
             <Link href="/admin/vendors" className={navLinkClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))}>
               {(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
               <span className={navIconClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))}><Truck className="h-4 w-4" /></span>
@@ -481,6 +486,11 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   {(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
                   <span className={navIconClass(pathname === '/admin/clients' || pathname.startsWith('/admin/clients/'))}><UserCircle className="h-4 w-4" /></span>
                   <span className="truncate">Clientes</span>
+                </Link>
+                <Link href="/admin/recurring-reminders" className={navLinkClass(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/'))} onClick={() => setMobileSidebarOpen(false)}>
+                  {(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
+                  <span className={navIconClass(pathname === '/admin/recurring-reminders' || pathname.startsWith('/admin/recurring-reminders/'))}><Bell className="h-4 w-4" /></span>
+                  <span className="truncate">Recordatorios recurrentes</span>
                 </Link>
                 <Link href="/admin/vendors" className={navLinkClass(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/'))} onClick={() => setMobileSidebarOpen(false)}>
                   {(pathname === '/admin/vendors' || pathname.startsWith('/admin/vendors/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}

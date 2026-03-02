@@ -226,16 +226,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const urlToken = urlParams.get('token');
         
         if (urlToken) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), AUTH_ME_TIMEOUT_MS);
           try {
             const { httpClient } = await import('@/lib/http/client');
             // Guardar el token temporalmente para validarlo
             httpClient.setToken(urlToken);
             
-            // Validar el token con el backend
-        const response = await httpClient.get<{
-          success: boolean;
-          user: { id: string; email: string; name: string | null; role: string; number_stores?: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number };
-        }>('/api/auth/me');
+            // Validar el token con el backend (con timeout para evitar cuelgues)
+            const response = await httpClient.get<{
+              success: boolean;
+              user: { id: string; email: string; name: string | null; role: string; number_stores?: number; reminders_enabled?: boolean; reminder_days_after_creation?: number; reminder_days_after_last_payment?: number };
+            }>('/api/auth/me', { signal: controller.signal });
+            clearTimeout(timeoutId);
 
             if (response.success && response.data?.user) {
               const u = response.data.user;
@@ -270,6 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               window.history.replaceState({}, '', newUrl);
             }
           } catch (error) {
+            clearTimeout(timeoutId);
             console.error('Error validando token de URL:', error);
             // Limpiar token de URL y continuar con flujo normal
             const urlParams = new URLSearchParams(window.location.search);

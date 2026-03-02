@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { type Product, type ProductAttribute, type ProductVariant, type ProductCombination } from '@/types/product';
 import { getDictionary } from '@/lib/i18n/dictionary';
 import { getProductById, createProduct, updateProduct, isValidImageFile } from '@/lib/services/products';
@@ -10,7 +11,7 @@ import { getCategoriesForAdmin, type Category } from '@/lib/services/categories'
 import { uploadFiles, base64ToFile } from '@/lib/services/upload';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Plus, Trash2, X, Upload, Image as ImageIcon, ImagePlus, Expand, Save, Zap, Copy, Loader2, Eye, HelpCircle, ChevronDown, Search, Check } from 'lucide-react';
+import { Plus, Trash2, X, Upload, Image as ImageIcon, ImagePlus, Expand, Save, Zap, Copy, Loader2, Eye, HelpCircle, ChevronDown, Search, Check, ArrowLeft, Package, DollarSign, ToggleLeft, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
@@ -802,8 +803,22 @@ export function ProductForm({ productId }: ProductFormProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-400">{dict.common.loading}</div>
+      <div className="min-h-screen bg-neutral-950 py-4 sm:py-6 lg:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-10 w-64 rounded-lg bg-neutral-800" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="h-48 rounded-2xl bg-neutral-800/80" />
+                <div className="h-64 rounded-2xl bg-neutral-800/80" />
+              </div>
+              <div className="h-80 rounded-2xl bg-neutral-800/80" />
+            </div>
+          </div>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -829,7 +844,7 @@ export function ProductForm({ productId }: ProductFormProps) {
               className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl relative z-[10000]"
             >
               <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-                <h3 className="text-lg font-medium text-neutral-100">Elegir categoría</h3>
+                <h3 className="text-lg font-semibold text-neutral-100">Elegir categoría</h3>
                 <button
                   type="button"
                   onClick={() => setShowCategoryDialog(false)}
@@ -903,51 +918,70 @@ export function ProductForm({ productId }: ProductFormProps) {
     <div className="min-h-screen bg-neutral-950 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
       {categoryDialogPortal}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
-          {/* Formulario Principal - 2 columnas; en móvil va primero */}
-          <div className="lg:col-span-2 space-y-5 sm:space-y-6 order-1">
-            {/* Header */}
-            <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-xl">
-              <div className="flex flex-col gap-2">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-light text-neutral-100">
-                  {isEditing ? dict.admin.product.create.editTitle : dict.admin.product.create.title}
-                </h1>
-                <p className="text-sm text-neutral-500">
-                  {isEditing ? 'Edita los datos del producto' : 'Nombre, categoría, precio y stock. El resto es opcional.'}
-                </p>
-                <div className="hidden sm:flex items-center gap-2 mt-2 text-xs text-neutral-500 bg-neutral-800/50 px-3 py-1.5 rounded-lg w-fit">
-                  <Zap className="h-3.5 w-3.5" />
-                  <span>Ctrl+S para guardar</span>
-                </div>
-              </div>
+        {/* Breadcrumb y título */}
+        <div className="mb-6 sm:mb-8">
+          <Link
+            href="/admin/products"
+            className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a productos
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-neutral-100 tracking-tight">
+              {isEditing ? 'Editar producto' : 'Nuevo producto'}
+            </h1>
+            <p className="text-sm text-neutral-500">
+              {isEditing ? 'Modifica los datos y guarda los cambios.' : 'Completa la información básica. Puedes añadir variantes y más opciones después.'}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-800/80 text-xs text-neutral-400 border border-neutral-700/50">
+                <Zap className="h-3.5 w-3.5" />
+                Ctrl+S para guardar
+              </span>
             </div>
+          </div>
+        </div>
 
-            {/* Mensaje de estado */}
-            <AnimatePresence>
-              {submitMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className={cn(
-                    'p-4 rounded-xl border text-sm sm:text-base font-medium',
-                    submitMessage.type === 'success'
-                      ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                      : 'bg-red-500/10 border-red-500/30 text-red-400'
-                  )}
-                >
-                  {submitMessage.text}
-                </motion.div>
+        {/* Mensaje de estado */}
+        <AnimatePresence>
+          {submitMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className={cn(
+                'mb-6 p-4 rounded-xl border text-sm font-medium flex items-center gap-3',
+                submitMessage.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
               )}
-            </AnimatePresence>
+            >
+              {submitMessage.type === 'success' ? (
+                <Check className="h-5 w-5 flex-shrink-0" />
+              ) : (
+                <span className="w-5 h-5 rounded-full bg-red-500/30 flex items-center justify-center flex-shrink-0 text-red-400 text-xs">!</span>
+              )}
+              {submitMessage.text}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Formulario: una sola vista, secciones opcionales colapsables */}
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
-                <h2 className="text-base font-medium text-neutral-200">Datos del producto</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+          {/* Formulario Principal */}
+          <div className="lg:col-span-2 space-y-6 order-1">
+            <form onSubmit={handleSubmit} className="space-y-6" id="product-form">
+              {/* Información básica */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 rounded-xl bg-primary-500/10">
+                    <Package className="h-5 w-5 text-primary-400" />
+                  </div>
+                  <h2 className="text-base font-medium text-neutral-200">Información básica</h2>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">{dict.admin.product.create.name} <span className="text-red-400">*</span></label>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">{dict.admin.product.create.name} <span className="text-red-400">*</span></label>
                     <input
                       ref={nameInputRef}
                       type="text"
@@ -955,12 +989,12 @@ export function ProductForm({ productId }: ProductFormProps) {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder={dict.admin.product.create.namePlaceholder}
                       required
-                      className="w-full h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm"
+                      className="w-full h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 text-base transition-shadow"
                     />
                   </div>
                   {authState.stores.length !== 1 && (
                     <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-neutral-300 mb-1">Tienda</label>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1.5">Tienda</label>
                       <select
                         value={formData.storeId || authState.stores[0]?.id || ''}
                         onChange={(e) => {
@@ -972,7 +1006,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                             categoryId: '',
                           });
                         }}
-                        className="w-full min-h-[48px] px-4 py-3.5 bg-neutral-800/50 border border-neutral-700 rounded-xl text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:text-sm sm:min-h-0"
+                        className="w-full min-h-[48px] px-4 py-3 bg-neutral-800/50 border border-neutral-700 rounded-xl text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                       >
                         {authState.stores.map((store) => (
                           <option key={store.id} value={store.id}>{store.name}</option>
@@ -981,25 +1015,37 @@ export function ProductForm({ productId }: ProductFormProps) {
                     </div>
                   )}
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">{dict.admin.product.create.category} <span className="text-red-400">*</span></label>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">{dict.admin.product.create.category} <span className="text-red-400">*</span></label>
                     <input type="hidden" name="categoryId" value={formData.categoryId} required readOnly />
                     <button
                       type="button"
                       onClick={() => formData.storeId && setShowCategoryDialog(true)}
                       disabled={!formData.storeId || loadingCategories}
-                      className="w-full h-11 px-3 rounded-lg text-left flex items-center justify-between bg-neutral-800/50 border border-neutral-700 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm"
+                      className="w-full h-12 px-4 rounded-xl text-left flex items-center justify-between bg-neutral-800/50 border border-neutral-700 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 hover:border-neutral-600 transition-colors"
                     >
                       <span className="truncate">
-                        {!formData.storeId ? 'Elige tienda' : formData.categoryId ? (categories.find((c) => c.id === formData.categoryId)?.name ?? formData.category) : loadingCategories ? '…' : 'Elige categoría'}
+                        {!formData.storeId ? 'Elige tienda primero' : formData.categoryId ? (categories.find((c) => c.id === formData.categoryId)?.name ?? formData.category) : loadingCategories ? 'Cargando…' : 'Elige categoría'}
                       </span>
                       <ChevronDown className="h-4 w-4 text-neutral-400 shrink-0" />
                     </button>
                     {formData.storeId && categories.length === 0 && !loadingCategories && (
-                      <p className="text-xs text-neutral-500 mt-1">Admin → Categorías.</p>
+                      <p className="text-xs text-neutral-500 mt-1.5">Crea categorías en Admin → Categorías.</p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Precio y stock */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 rounded-xl bg-primary-500/10">
+                    <DollarSign className="h-5 w-5 text-primary-400" />
+                  </div>
+                  <h2 className="text-base font-medium text-neutral-200">Precio y stock</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">Precio</label>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">Precio</label>
                     <div className="flex gap-2 min-w-0">
                       <input
                         type="number"
@@ -1009,10 +1055,10 @@ export function ProductForm({ productId }: ProductFormProps) {
                         value={formData.basePrice}
                         onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
                         onWheel={(e) => e.currentTarget.blur()}
-                        placeholder="0"
-                        className="flex-1 min-w-0 h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm"
+                        placeholder="0.00"
+                        className="flex-1 min-w-0 h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-base"
                       />
-                      <select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-20 h-11 px-2 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                      <select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-24 h-12 px-3 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50">
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="VES">VES</option>
@@ -1020,51 +1066,84 @@ export function ProductForm({ productId }: ProductFormProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">Stock</label>
-                    <input type="number" inputMode="numeric" min={0} value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="0" className="w-full h-11 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm" />
+                    <label className="block text-sm font-medium text-neutral-300 mb-1.5">Stock</label>
+                    <input type="number" inputMode="numeric" min={0} value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="0" className="w-full h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Descripción</label>
-                  <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={dict.admin.product.create.descriptionPlaceholder} rows={2} className="w-full px-3 py-2.5 rounded-lg border border-neutral-700 bg-neutral-800/50 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Fotos</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input type="file" id="image-upload" accept="image/*" multiple onChange={handleImageUpload} disabled={uploadingImages} className="hidden" />
-                    <label htmlFor="image-upload" className={cn('inline-flex h-10 items-center gap-2 px-3 rounded-lg border border-neutral-700 bg-neutral-800/50 text-sm text-neutral-300 cursor-pointer hover:border-neutral-600', uploadingImages && 'opacity-50')}>
-                      {uploadingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {uploadingImages ? 'Subiendo…' : 'Subir fotos'}
-                    </label>
-                    {formData.images.length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {formData.images.slice(0, 6).map((img, i) => (
-                          <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden border border-neutral-700 group">
-                            <Image src={img} alt="" width={48} height={48} className="w-full h-full object-cover" unoptimized={img.startsWith('data:')} />
-                            <button type="button" onClick={() => removeImage(i)} className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-4 w-4 text-white" /></button>
-                          </div>
-                        ))}
-                        {formData.images.length > 6 && <span className="text-xs text-neutral-500">+{formData.images.length - 6}</span>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-6 pt-1">
-                    <label className="flex items-center gap-3 cursor-pointer text-sm text-neutral-300">
-                      <input type="checkbox" checked={formData.visibleInStore} onChange={(e) => setFormData({ ...formData, visibleInStore: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-primary-500 focus:ring-primary-500" />
-                      Visible en tienda
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer text-sm text-neutral-300">
-                      <input type="checkbox" checked={formData.hidePrice} onChange={(e) => setFormData({ ...formData, hidePrice: e.target.checked })} className="rounded border-neutral-700 bg-neutral-800 text-primary-500 focus:ring-primary-500" />
-                      Ocultar precio
-                    </label>
-                  </div>
               </div>
 
-              {/* Más opciones: SKU, IVA, orden, variantes */}
-              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl overflow-hidden shadow-xl">
-                <button type="button" onClick={() => setOpenVariantes(!openVariantes)} className="w-full flex items-center justify-between gap-3 p-4 min-h-[48px] text-left hover:bg-neutral-800/30 active:bg-neutral-800/50 transition-colors touch-manipulation">
-                  <span className="text-sm font-medium text-neutral-200">Más opciones</span>
+              {/* Descripción */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <label className="block text-sm font-medium text-neutral-300 mb-1.5">Descripción <span className="text-neutral-500 font-normal">(opcional)</span></label>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={dict.admin.product.create.descriptionPlaceholder} rows={3} className="w-full px-4 py-3 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-none text-sm" />
+              </div>
+
+              {/* Fotos */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 rounded-xl bg-amber-500/10">
+                    <ImageIcon className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <h2 className="text-base font-medium text-neutral-200">Fotos del producto</h2>
+                </div>
+                <div className="space-y-4">
+                  <input type="file" id="image-upload" accept="image/*" multiple onChange={handleImageUpload} disabled={uploadingImages} className="hidden" />
+                  <label
+                    htmlFor="image-upload"
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-3 min-h-[140px] rounded-xl border-2 border-dashed border-neutral-700 bg-neutral-800/30 text-center cursor-pointer transition-colors hover:border-neutral-600 hover:bg-neutral-800/50',
+                      uploadingImages && 'opacity-60 pointer-events-none'
+                    )}
+                  >
+                    {uploadingImages ? <Loader2 className="h-8 w-8 animate-spin text-primary-400" /> : <Upload className="h-8 w-8 text-neutral-500" />}
+                    <span className="text-sm font-medium text-neutral-400">{uploadingImages ? 'Subiendo…' : 'Arrastra fotos o haz clic para subir'}</span>
+                  </label>
+                  {formData.images.length > 0 && (
+                    <div className="flex gap-3 flex-wrap">
+                      {formData.images.slice(0, 8).map((img, i) => (
+                        <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-neutral-700 group flex-shrink-0">
+                          <Image src={img} alt="" width={64} height={64} className="w-full h-full object-cover" unoptimized={img.startsWith('data:')} />
+                          <button type="button" onClick={() => removeImage(i)} className="absolute inset-0 flex items-center justify-center bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-5 w-5 text-white" /></button>
+                        </div>
+                      ))}
+                      {formData.images.length > 8 && <span className="text-sm text-neutral-500 self-center">+{formData.images.length - 8} más</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Visibilidad */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 rounded-xl bg-neutral-700/50">
+                    <ToggleLeft className="h-5 w-5 text-neutral-400" />
+                  </div>
+                  <h2 className="text-base font-medium text-neutral-200">Visibilidad</h2>
+                </div>
+                <div className="flex flex-wrap gap-6">
+                  <label className="flex items-center gap-3 cursor-pointer text-sm text-neutral-300">
+                    <input type="checkbox" checked={formData.visibleInStore} onChange={(e) => setFormData({ ...formData, visibleInStore: e.target.checked })} className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-primary-500 focus:ring-primary-500" />
+                    Visible en tienda
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer text-sm text-neutral-300">
+                    <input type="checkbox" checked={formData.hidePrice} onChange={(e) => setFormData({ ...formData, hidePrice: e.target.checked })} className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-primary-500 focus:ring-primary-500" />
+                    Ocultar precio
+                  </label>
+                </div>
+              </div>
+
+              {/* Más opciones: variantes, SKU, IVA, orden */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl overflow-hidden shadow-xl">
+                <button type="button" onClick={() => setOpenVariantes(!openVariantes)} className="w-full flex items-center justify-between gap-3 p-5 min-h-[56px] text-left hover:bg-neutral-800/40 active:bg-neutral-800/60 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-neutral-700/50">
+                      <Layers className="h-5 w-5 text-neutral-400" />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-base font-medium text-neutral-200 block">Variantes y opciones avanzadas</span>
+                      <span className="text-sm text-neutral-500">SKU, IVA, orden, tallas y colores</span>
+                    </div>
+                  </div>
                   <motion.div animate={{ rotate: openVariantes ? 180 : 0 }} transition={{ duration: 0.2 }}>
                     <ChevronDown className="h-5 w-5 text-neutral-400" />
                   </motion.div>
@@ -1072,7 +1151,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                 <AnimatePresence>
                   {openVariantes && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="border-t border-neutral-800">
-                      <div className="p-4 sm:p-5 space-y-4">
+                      <div className="p-5 sm:p-6 space-y-5">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div>
                             <label className="block text-xs font-medium text-neutral-400 mb-1">Código (SKU)</label>
@@ -1548,21 +1627,22 @@ export function ProductForm({ productId }: ProductFormProps) {
                 </AnimatePresence>
               </div>
 
-              {/* Botones de acción */}
-              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-xl">
+              {/* Barra de acciones: sticky en scroll */}
+              <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl lg:sticky lg:bottom-6">
                 <div className="flex flex-col-reverse sm:flex-row gap-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => router.push('/admin/products')}
-                    className="w-full sm:flex-1 min-h-[48px] sm:min-h-0 text-base sm:text-sm order-2 sm:order-1"
+                    className="w-full sm:flex-1 min-h-[48px] order-2 sm:order-1"
                   >
                     Cancelar
                   </Button>
                   <Button
                     type="submit"
                     variant="primary"
-                    className="w-full sm:flex-1 min-h-[52px] sm:min-h-0 text-base sm:text-sm order-1 sm:order-2 font-medium"
+                    form="product-form"
+                    className="w-full sm:flex-1 min-h-[52px] order-1 sm:order-2 font-medium shadow-lg shadow-primary-500/20"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
@@ -1573,7 +1653,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                     ) : (
                       <>
                         <Save className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
-                        {isEditing ? 'Actualizar producto' : 'Crear producto'}
+                        {isEditing ? 'Guardar cambios' : 'Crear producto'}
                       </>
                     )}
                   </Button>
@@ -1582,19 +1662,19 @@ export function ProductForm({ productId }: ProductFormProps) {
             </form>
           </div>
 
-        {/* Preview Lateral: en móvil debajo del formulario */}
+        {/* Vista previa lateral */}
         <div className="lg:col-span-1 order-2 lg:order-last">
-          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-xl sm:rounded-2xl p-5 sm:p-6 shadow-xl lg:sticky lg:top-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-green-500/20 rounded-xl">
-                <Eye className="h-5 w-5 text-green-400" />
+          <div className="bg-neutral-900/80 backdrop-blur-sm border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-xl lg:sticky lg:top-8 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                <Eye className="h-5 w-5 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-medium text-neutral-200">Vista previa</h3>
-                <p className="text-xs sm:text-sm text-neutral-500">Así se verá en la tienda</p>
+                <h3 className="text-base font-semibold text-neutral-200">Vista previa</h3>
+                <p className="text-xs text-neutral-500">Así se verá en la tienda</p>
               </div>
             </div>
-            <div className="space-y-4 overflow-hidden">
+            <div className="space-y-5 overflow-hidden">
               {/* Imagen principal (de producto o variante/combinación) */}
               {previewDisplayImages.length > 0 ? (
                 <div className="aspect-square max-h-[280px] sm:max-h-none rounded-xl overflow-hidden bg-neutral-800 border border-neutral-700 flex items-center justify-center">
