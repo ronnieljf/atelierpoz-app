@@ -9,8 +9,8 @@ const BACKEND_BASE =
     : '';
 
 export function resolveImageUrl(url: string | undefined | null): string | null {
-  if (!url || typeof url !== 'string' || url.startsWith('data:')) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) return url;
   if (!BACKEND_BASE) return url; // sin backend configurado, devolver tal cual (puede fallar)
   const path = url.startsWith('/') ? url : `/${url}`;
   return `${BACKEND_BASE}${path}`;

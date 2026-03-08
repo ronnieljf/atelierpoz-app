@@ -19,7 +19,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Tag,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
@@ -54,13 +53,15 @@ export default function PurchasesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState<Purchase | null>(null);
 
-  // Create form
-  const [createVendorId, setCreateVendorId] = useState('');
-  const [createCategoryId, setCreateCategoryId] = useState('');
+  // Create form - simple by default
   const [createDescription, setCreateDescription] = useState('');
+  const [createCategoryId, setCreateCategoryId] = useState('');
+  const [createAmount, setCreateAmount] = useState('');
+  const [createVendorId, setCreateVendorId] = useState('');
   const [createCurrency, setCreateCurrency] = useState('USD');
   const [createPaymentMethod, setCreatePaymentMethod] = useState('');
   const [createNotes, setCreateNotes] = useState('');
+  const [showItemsSection, setShowItemsSection] = useState(false);
   const [createItems, setCreateItems] = useState<PurchaseItem[]>([{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
   const [creating, setCreating] = useState(false);
 
@@ -116,8 +117,8 @@ export default function PurchasesPage() {
       const next = [...prev];
       const item = { ...next[index] };
       if (field === 'description') item.description = value as string;
-      else if (field === 'quantity') item.quantity = Math.max(1, Number(value) || 1);
-      else if (field === 'unitPrice') item.unitPrice = Math.max(0, Number(value) || 0);
+      else if (field === 'quantity') item.quantity = Math.max(0, parseInt(String(value).replace(/\D/g, '') || '0', 10));
+      else if (field === 'unitPrice') item.unitPrice = Math.max(0, Number(String(value).replace(',', '.')) || 0);
       item.total = item.quantity * item.unitPrice;
       next[index] = item;
       return next;
@@ -127,21 +128,31 @@ export default function PurchasesPage() {
   const addItem = () => setCreateItems((p) => [...p, { description: '', quantity: 1, unitPrice: 0, total: 0 }]);
   const removeItem = (i: number) => setCreateItems((p) => p.length > 1 ? p.filter((_, idx) => idx !== i) : p);
 
-  const grandTotal = createItems.reduce((sum, it) => sum + it.total, 0);
+  const itemsTotal = createItems.reduce((sum, it) => sum + it.total, 0);
+  const validItems = createItems.filter((it) => it.description.trim() && it.total > 0);
+  const useItems = showItemsSection && validItems.length > 0;
+  const totalToUse = useItems ? itemsTotal : parseFloat(String(createAmount).replace(',', '.')) || 0;
 
   const handleCreate = async () => {
     if (!storeId) return;
-    const validItems = createItems.filter((it) => it.description.trim() && it.total > 0);
-    if (validItems.length === 0) { alert('Agrega al menos un ítem con descripción y monto'); return; }
+    const amt = totalToUse;
+    if (amt <= 0) {
+      alert(useItems ? 'Agrega al menos un ítem con descripción y monto' : 'Indica el monto de la compra');
+      return;
+    }
+    if (!createDescription.trim()) {
+      alert('Indica una descripción de la compra');
+      return;
+    }
     setCreating(true);
     try {
       await createPurchase({
         storeId,
         vendorId: createVendorId || undefined,
         categoryId: createCategoryId || undefined,
-        description: createDescription.trim() || undefined,
-        items: validItems,
-        total: grandTotal,
+        description: createDescription.trim(),
+        items: useItems ? validItems : [],
+        total: amt,
         currency: createCurrency || 'USD',
         paymentMethod: createPaymentMethod.trim() || undefined,
         notes: createNotes.trim() || undefined,
@@ -157,12 +168,14 @@ export default function PurchasesPage() {
   };
 
   const resetCreateForm = () => {
-    setCreateVendorId('');
-    setCreateCategoryId('');
     setCreateDescription('');
+    setCreateCategoryId('');
+    setCreateAmount('');
+    setCreateVendorId('');
     setCreateCurrency('USD');
     setCreatePaymentMethod('');
     setCreateNotes('');
+    setShowItemsSection(false);
     setCreateItems([{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
   };
 
@@ -350,105 +363,179 @@ export default function PurchasesPage() {
         </>
       )}
 
-      {/* Create modal */}
+      {/* Create modal - simple and clean */}
       {showCreateModal && typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 pt-12"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
               initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="w-full max-w-2xl rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl"
+              className={cn(
+                'w-full rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl',
+                showItemsSection ? 'max-w-xl' : 'max-w-md'
+              )}
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="mb-4 text-lg font-medium text-neutral-100">Nueva compra</h2>
+              <h2 className="mb-1 text-xl font-semibold text-neutral-100">Nueva compra</h2>
+              <p className="mb-5 text-sm text-neutral-500">Descripción, categoría y monto. El resto es opcional.</p>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Proveedor</label>
-                    <select value={createVendorId} onChange={(e) => setCreateVendorId(e.target.value)} className={inputClass}>
-                      <option value="">Sin proveedor</option>
-                      {vendors.map((v) => <option key={v.id} value={v.id}>{v.name || v.phone}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Categoría</label>
-                    <select value={createCategoryId} onChange={(e) => setCreateCategoryId(e.target.value)} className={inputClass}>
-                      <option value="">Sin categoría</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-300">Descripción *</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Insumos de limpieza, material de oficina..."
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    className={inputClass}
+                    autoFocus
+                  />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs text-neutral-500">Descripción general</label>
-                  <input type="text" placeholder="Ej: Compra de insumos" value={createDescription} onChange={(e) => setCreateDescription(e.target.value)} className={inputClass} />
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-300">Categoría</label>
+                  <select value={createCategoryId} onChange={(e) => setCreateCategoryId(e.target.value)} className={inputClass}>
+                    <option value="">Sin categoría</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Moneda</label>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="mb-1.5 block text-sm font-medium text-neutral-300">Monto *</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={createAmount}
+                      onChange={(e) => setCreateAmount(e.target.value.replace(/[^0-9,.]/g, ''))}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="w-24">
+                    <label className="mb-1.5 block text-sm font-medium text-neutral-300">Moneda</label>
                     <select value={createCurrency} onChange={(e) => setCreateCurrency(e.target.value)} className={inputClass}>
-                      <option value="USD">USD</option><option value="VES">VES</option><option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                      <option value="VES">VES</option>
+                      <option value="EUR">EUR</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Método de pago</label>
-                    <input type="text" placeholder="Efectivo, transferencia..." value={createPaymentMethod} onChange={(e) => setCreatePaymentMethod(e.target.value)} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-neutral-500">Notas</label>
-                    <input type="text" placeholder="Opcional" value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} className={inputClass} />
                   </div>
                 </div>
 
-                {/* Items */}
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-medium text-neutral-400">Ítems de la compra</label>
-                    <button type="button" onClick={addItem} className="flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300">
-                      <Plus className="h-3.5 w-3.5" /> Agregar ítem
-                    </button>
-                  </div>
-                  <div className="space-y-2 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-3">
-                    {createItems.map((item, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          type="text" placeholder="Descripción" value={item.description}
-                          onChange={(e) => updateItem(i, 'description', e.target.value)}
-                          className={cn(inputClass, 'flex-1')}
-                        />
-                        <input
-                          type="number" placeholder="Cant" min={1} value={item.quantity}
-                          onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                          className={cn(inputClass, 'w-20 text-center')}
-                        />
-                        <input
-                          type="number" placeholder="P.U." min={0} step="0.01" value={item.unitPrice || ''}
-                          onChange={(e) => updateItem(i, 'unitPrice', e.target.value)}
-                          className={cn(inputClass, 'w-28 text-right')}
-                        />
-                        <span className="w-24 text-right text-sm font-medium text-neutral-200">{item.total.toFixed(2)}</span>
-                        {createItems.length > 1 && (
-                          <button type="button" onClick={() => removeItem(i)} className="shrink-0 rounded-lg p-1 text-neutral-500 hover:text-red-400">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 text-right text-sm font-semibold text-neutral-100">
-                    Total: <span className="text-red-400">{grandTotal.toFixed(2)} {createCurrency}</span>
-                  </div>
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-300">Proveedor <span className="text-neutral-500 font-normal">(opcional)</span></label>
+                  <select value={createVendorId} onChange={(e) => setCreateVendorId(e.target.value)} className={inputClass}>
+                    <option value="">Sin proveedor</option>
+                    {vendors.map((v) => <option key={v.id} value={v.id}>{v.name || v.phone || v.id.slice(0, 8)}</option>)}
+                  </select>
                 </div>
+
+                {/* Optional: desglose por ítems */}
+                <div className="border-t border-neutral-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowItemsSection(!showItemsSection)}
+                    className="flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200"
+                  >
+                    <ChevronRight className={cn('h-4 w-4 transition-transform', showItemsSection && 'rotate-90')} />
+                    Desglosar en ítems (opcional)
+                  </button>
+                  <AnimatePresence>
+                    {showItemsSection && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 space-y-4 rounded-xl border border-neutral-700/50 bg-neutral-800/30 p-4">
+                          {createItems.map((item, i) => (
+                            <div key={i} className="space-y-2 rounded-lg bg-neutral-900/50 p-3">
+                              <input
+                                type="text"
+                                placeholder="Descripción del ítem"
+                                value={item.description}
+                                onChange={(e) => updateItem(i, 'description', e.target.value)}
+                                className={cn(inputClass, 'w-full')}
+                              />
+                              <div className="flex items-center gap-3">
+                                <div className="w-20">
+                                  <label className="mb-0.5 block text-xs text-neutral-500">Cantidad</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={item.quantity || ''}
+                                    onChange={(e) => updateItem(i, 'quantity', e.target.value.replace(/\D/g, ''))}
+                                    placeholder="0"
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <label className="mb-0.5 block text-xs text-neutral-500">Precio unitario</label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0.00"
+                                    value={item.unitPrice || ''}
+                                    onChange={(e) => updateItem(i, 'unitPrice', e.target.value.replace(/[^0-9,.]/g, ''))}
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div className="flex items-end shrink-0">
+                                  <span className="rounded-lg bg-neutral-800 px-3 py-2.5 text-sm font-medium text-neutral-200">
+                                    = {item.total.toFixed(2)}
+                                  </span>
+                                </div>
+                                {createItems.length > 1 && (
+                                  <button type="button" onClick={() => removeItem(i)} className="shrink-0 self-end rounded-lg p-2 text-neutral-500 hover:bg-red-500/10 hover:text-red-400">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          <button type="button" onClick={addItem} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-600 py-2.5 text-sm text-primary-400 hover:border-primary-500/50 hover:bg-primary-500/5 hover:text-primary-300">
+                            <Plus className="h-4 w-4" /> Agregar ítem
+                          </button>
+                          {validItems.length > 0 && (
+                            <p className="mt-2 text-right text-sm text-neutral-400">
+                              Total ítems: <span className="font-medium text-neutral-200">{itemsTotal.toFixed(2)} {createCurrency}</span>
+                            </p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Opcionales: método de pago, notas */}
+                <details className="group">
+                  <summary className="cursor-pointer text-sm text-neutral-500 hover:text-neutral-300">Más opciones</summary>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-500">Método de pago</label>
+                      <input
+                        type="text"
+                        placeholder="Efectivo, transferencia..."
+                        value={createPaymentMethod}
+                        onChange={(e) => setCreatePaymentMethod(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-500">Notas</label>
+                      <input type="text" placeholder="Opcional" value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                </details>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="outline" size="sm" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
-                <Button variant="primary" size="sm" onClick={handleCreate} disabled={creating || grandTotal <= 0}>
+                <Button variant="primary" size="sm" onClick={handleCreate} disabled={creating || totalToUse <= 0}>
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
                   <span className="ml-1.5">Registrar compra</span>
                 </Button>

@@ -35,6 +35,8 @@ export interface Receivable {
 export interface InitialPaymentData {
   amount: number;
   notes?: string;
+  /** Comprobante opcional del abono inicial (imagen o PDF) */
+  file?: File | null;
 }
 
 export interface CreateReceivableData {
@@ -86,4 +88,18 @@ export interface CreateReceivablePaymentData {
   amount: number;
   currency?: string;
   notes?: string;
+  /** Archivo opcional (comprobante de pago). Si se envía, se usa FormData. */
+  file?: File | null;
+}
+
+/** Adjunto (comprobante) de una cuenta por cobrar */
+export interface ReceivableAttachment {
+  id: string;
+  receivableId: string;
+  paymentId: string | null;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  createdAt: string;
+  createdBy?: string | null;
 }

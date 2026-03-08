@@ -443,6 +443,15 @@ html {
   }
 }
 
+/* Ocultar scrollbar horizontal (miniaturas de producto) */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollbar elegante para diálogo de categorías */
 .category-dialog-scroll {
   scrollbar-width: thin;

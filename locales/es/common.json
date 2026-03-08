@@ -106,7 +106,13 @@
     "reviews": "Reseñas",
     "relatedProducts": "Productos Relacionados",
     "selectOption": "Por favor selecciona todas las opciones requeridas",
-    "required": "Requerido"
+    "required": "Requerido",
+    "viewAllVariants": "Ver todas las variantes",
+    "variantsCount": "opciones",
+    "priceVariesByOption": "El precio varía según la opción que elijas",
+    "priceFromTo": "desde ${{min}} hasta ${{max}}",
+    "openVariantsToAddToCart": "Abre las variantes de arriba, elige tu opción y agrega al carrito",
+    "viewImage": "Ver imagen"
   },
   "cart": {
     "title": "Carrito de Compras",

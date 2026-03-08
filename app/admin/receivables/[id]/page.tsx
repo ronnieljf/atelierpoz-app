@@ -2,9 +2,9 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getReceivableById, updateReceivable, reopenReceivable, getReceivablePayments, createReceivablePayment, deleteReceivablePayment } from '@/lib/services/receivables';
+import { getReceivableById, updateReceivable, reopenReceivable, getReceivablePayments, createReceivablePayment, deleteReceivablePayment, getReceivableLogs, getReceivableAttachments, createReceivableAttachment, getReceivableAttachmentDownloadUrl, type ReceivableLogEntry } from '@/lib/services/receivables';
 import { getRequestById, type Request } from '@/lib/services/requests';
-import type { Receivable, ReceivableStatus, ReceivablePayment } from '@/types/receivable';
+import type { Receivable, ReceivableStatus, ReceivablePayment, ReceivableAttachment } from '@/types/receivable';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
 import {
@@ -22,6 +22,10 @@ import {
   MessageCircle,
   RotateCcw,
   Trash2,
+  Clock,
+  Paperclip,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { openWhatsAppForReceivable } from '@/lib/utils/whatsapp';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -78,6 +82,52 @@ export default function ReceivableDetailPage({
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   const [requestDetails, setRequestDetails] = useState<Request | null>(null);
+  const [activityLogs, setActivityLogs] = useState<ReceivableLogEntry[]>([]);
+  const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
+  const [showActivityLogModal, setShowActivityLogModal] = useState(false);
+
+  const ACTION_LABELS: Record<string, string> = {
+    created: 'Cuenta creada',
+    paid_initial: 'Abono inicial registrado',
+    items_updated: 'Productos actualizados',
+    reopened: 'Cuenta reabierta',
+    status_paid: 'Marcada como cobrada',
+    status_cancelled: 'Marcada como cancelada',
+    updated: 'Información actualizada',
+    payment_added: 'Abono registrado',
+    payment_deleted: 'Abono eliminado',
+    reopened_after_payment_deleted: 'Reabierta tras eliminar abono',
+    reminder_sent: 'Recordatorio enviado por WhatsApp',
+  };
+
+  function formatLogAction(log: ReceivableLogEntry): string {
+    const label = ACTION_LABELS[log.action] ?? log.action;
+    const d = log.details as Record<string, unknown> | null | undefined;
+    if (!d || typeof d !== 'object') return label;
+    if (log.action === 'payment_added' && typeof d.amount === 'number') {
+      const curr = (d.currency as string) ?? 'USD';
+      return `${label}: ${curr} ${d.amount.toFixed(2)}`;
+    }
+    if (log.action === 'reminder_sent' && d.phone) {
+      return `${label} a ${String(d.phone)}`;
+    }
+    if (log.action === 'items_updated' && typeof d.newTotal === 'number') {
+      return `${label} (total: ${d.newTotal.toFixed(2)})`;
+    }
+    if (log.action === 'created' && typeof d.amount === 'number') {
+      const curr = (d.currency as string) ?? 'USD';
+      const fromReq = d.fromRequest ? ' desde pedido' : '';
+      return `${label}${fromReq}: ${curr} ${d.amount.toFixed(2)}`;
+    }
+    if (log.action === 'paid_initial' && typeof d.amount === 'number') {
+      const curr = (d.currency as string) ?? 'USD';
+      return `${label}: ${curr} ${d.amount.toFixed(2)}`;
+    }
+    if ((log.action === 'status_paid' || log.action === 'status_cancelled') && d.previousStatus && d.newStatus) {
+      return `${label} (${String(d.previousStatus)} → ${String(d.newStatus)})`;
+    }
+    return label;
+  }
   const [loadingRequest, setLoadingRequest] = useState(false);
 
   const [payments, setPayments] = useState<ReceivablePayment[]>([]);
@@ -85,7 +135,14 @@ export default function ReceivableDetailPage({
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [addingPayment, setAddingPayment] = useState(false);
+
+  const [attachments, setAttachments] = useState<ReceivableAttachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [showUploadAfterPaidModal, setShowUploadAfterPaidModal] = useState(false);
+  const [uploadAfterPaidFile, setUploadAfterPaidFile] = useState<File | null>(null);
 
   const storeId = storeIdFromQuery || (authState.stores.length === 1 ? authState.stores[0].id : '');
 
@@ -171,6 +228,42 @@ export default function ReceivableDetailPage({
     }
   }, [id, storeId, loadPayments]);
 
+  const loadAttachments = useCallback(async () => {
+    if (!id || !storeId) return;
+    setLoadingAttachments(true);
+    try {
+      const list = await getReceivableAttachments(id, storeId);
+      setAttachments(list);
+    } catch {
+      setAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  }, [id, storeId]);
+
+  useEffect(() => {
+    if (id && storeId) loadAttachments();
+    else setAttachments([]);
+  }, [id, storeId, loadAttachments]);
+
+  const loadActivityLogs = useCallback(async () => {
+    if (!id || !storeId) return;
+    setLoadingActivityLogs(true);
+    try {
+      const logs = await getReceivableLogs(id, storeId);
+      setActivityLogs(logs ?? []);
+    } catch {
+      setActivityLogs([]);
+    } finally {
+      setLoadingActivityLogs(false);
+    }
+  }, [id, storeId]);
+
+  useEffect(() => {
+    if (id && storeId) loadActivityLogs();
+    else setActivityLogs([]);
+  }, [id, storeId, loadActivityLogs]);
+
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receivable || !storeId) return;
@@ -187,6 +280,7 @@ export default function ReceivableDetailPage({
         amount: amountNum,
         currency: receivable.currency,
         notes: paymentNotes.trim() || undefined,
+        file: paymentFile ?? undefined,
       });
       if (result) {
         setPayments(result.payments);
@@ -194,6 +288,8 @@ export default function ReceivableDetailPage({
         setReceivable(result.receivable);
         setPaymentAmount('');
         setPaymentNotes('');
+        setPaymentFile(null);
+        loadAttachments();
         setMessage({
           type: 'success',
           text: result.receivable.status === 'paid'
@@ -261,6 +357,7 @@ export default function ReceivableDetailPage({
           type: 'success',
           text: newStatus === 'paid' ? 'Marcada como cobrada' : newStatus === 'cancelled' ? 'Cuenta cancelada' : 'Estado actualizado',
         });
+        if (newStatus === 'paid') setShowUploadAfterPaidModal(true);
       } else {
         setMessage({ type: 'error', text: 'No se pudo actualizar el estado' });
       }
@@ -271,6 +368,39 @@ export default function ReceivableDetailPage({
       });
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleUploadAttachment = async (file: File, paymentId?: string | null) => {
+    if (!receivable || !storeId) return;
+    setUploadingAttachment(true);
+    setMessage(null);
+    try {
+      const att = await createReceivableAttachment(receivable.id, storeId, file, paymentId);
+      if (att) {
+        setAttachments((prev) => [att, ...prev]);
+        setMessage({ type: 'success', text: 'Comprobante subido correctamente' });
+        setUploadAfterPaidFile(null);
+        setShowUploadAfterPaidModal(false);
+      } else {
+        setMessage({ type: 'error', text: 'No se pudo subir el archivo' });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Error al subir el comprobante',
+      });
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (att: ReceivableAttachment) => {
+    try {
+      const url = await getReceivableAttachmentDownloadUrl(receivable!.id, att.id, storeId);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setMessage({ type: 'error', text: 'No se pudo obtener el enlace de descarga' });
     }
   };
 
@@ -448,6 +578,18 @@ export default function ReceivableDetailPage({
             Desde pedido
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            loadActivityLogs();
+            setShowActivityLogModal(true);
+          }}
+          title="Ver historial de actividades"
+          aria-label="Ver historial de actividades"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-600/60 bg-neutral-800/50 text-neutral-400 transition-colors hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400"
+        >
+          <Clock className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="space-y-6">
@@ -778,11 +920,14 @@ export default function ReceivableDetailPage({
                         <th className="pb-2 pl-3 pr-2 pt-3">Fecha</th>
                         <th className="pb-2 px-2 pt-3 text-right">Monto</th>
                         <th className="pb-2 pr-3 pl-2 pt-3">Notas</th>
+                        <th className="pb-2 pr-3 pl-2 pt-3 w-20">Comprobante</th>
                         <th className="pb-2 pr-3 pl-2 pt-3 w-12 text-right">Eliminar</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800">
-                      {payments.map((p) => (
+                      {payments.map((p) => {
+                        const paymentAttachments = attachments.filter((a) => a.paymentId === p.id);
+                        return (
                         <tr key={p.id} className="text-neutral-300">
                           <td className="py-2 pl-3 pr-2">
                             {new Date(p.createdAt).toLocaleString('es-ES', {
@@ -797,6 +942,26 @@ export default function ReceivableDetailPage({
                             {p.currency} {Number(p.amount).toFixed(2)}
                           </td>
                           <td className="pr-3 pl-2 py-2 text-neutral-400">{p.notes || '—'}</td>
+                          <td className="pr-3 pl-2 py-2">
+                            {paymentAttachments.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {paymentAttachments.map((att) => (
+                                  <button
+                                    key={att.id}
+                                    type="button"
+                                    onClick={() => handleDownloadAttachment(att)}
+                                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-primary-400 hover:bg-primary-500/10"
+                                    title={`Descargar ${att.fileName}`}
+                                  >
+                                    <Paperclip className="h-3.5 w-3.5" />
+                                    <span className="truncate max-w-[80px]">{att.fileName}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-neutral-600">—</span>
+                            )}
+                          </td>
                           <td className="pr-3 pl-2 py-2 text-right">
                             <button
                               type="button"
@@ -814,13 +979,67 @@ export default function ReceivableDetailPage({
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
+              {/* Comprobantes / archivos adjuntos */}
+              <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-800/30 p-3 sm:p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Comprobantes
+                  </h4>
+                  <label className="cursor-pointer">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-600 bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700">
+                      <Upload className="h-3.5 w-3.5" />
+                      Añadir archivo
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (f && receivable) {
+                          await handleUploadAttachment(f);
+                          e.target.value = '';
+                        }
+                      }}
+                      disabled={uploadingAttachment}
+                    />
+                  </label>
+                </div>
+                {loadingAttachments ? (
+                  <p className="text-xs text-neutral-500">Cargando...</p>
+                ) : attachments.length === 0 ? (
+                  <p className="text-xs text-neutral-500">Sin comprobantes. Puedes subir imágenes o PDF al registrar abonos o al marcar como cobrada.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {attachments.map((att) => (
+                      <li
+                        key={att.id}
+                        className="flex items-center justify-between rounded-lg border border-neutral-700/50 bg-neutral-800/50 px-2.5 py-2 text-sm"
+                      >
+                        <span className="truncate text-neutral-300">{att.fileName}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadAttachment(att)}
+                          className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-primary-400"
+                          title="Descargar"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               {receivable.status === 'pending' && (
-                <form onSubmit={handleAddPayment} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <form onSubmit={handleAddPayment} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                   <div className="flex-1">
                     <label className="mb-1 block text-xs font-medium text-neutral-400">Monto del abono</label>
                     <input
@@ -843,6 +1062,19 @@ export default function ReceivableDetailPage({
                       maxLength={500}
                       className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     />
+                  </div>
+                  <div className="w-full sm:w-auto">
+                    <label className="mb-1 block text-xs font-medium text-neutral-400">Comprobante (opcional)</label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600">
+                      <Paperclip className="h-4 w-4" />
+                      <span>{paymentFile ? paymentFile.name : 'Subir imagen o PDF'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => setPaymentFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
                   </div>
                   <Button
                     type="submit"
@@ -902,6 +1134,167 @@ export default function ReceivableDetailPage({
             </div>
           </div>
         )}
+
+        {/* Modal historial de actividades */}
+        <AnimatePresence>
+          {showActivityLogModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4"
+              onClick={() => setShowActivityLogModal(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="my-auto w-full max-w-lg shrink-0 max-h-[90dvh] overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl flex flex-col"
+              >
+                <div className="flex items-center justify-between border-b border-neutral-700/60 p-4">
+                  <h3 className="text-lg font-medium text-neutral-100 flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary-400" />
+                    Historial de actividades
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowActivityLogModal(false)}
+                    className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                    aria-label="Cerrar"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="px-4 py-2 text-sm text-neutral-400 border-b border-neutral-700/60">
+                  {receivable.customerName || 'Sin nombre'}
+                  {receivable.receivableNumber != null && (
+                    <span className="ml-2 text-neutral-500">· Cuenta #{receivable.receivableNumber}</span>
+                  )}
+                </p>
+                <div className="flex-1 overflow-y-auto p-4">
+                  {loadingActivityLogs ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+                    </div>
+                  ) : activityLogs.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-neutral-500">No hay actividades registradas</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {activityLogs.map((log, idx) => (
+                        <div
+                          key={log.id}
+                          className={cn(
+                            'rounded-xl border p-3',
+                            idx === 0 ? 'border-primary-500/30 bg-primary-500/5' : 'border-neutral-700/60 bg-neutral-800/30'
+                          )}
+                        >
+                          <p className="text-sm font-medium text-neutral-100">{formatLogAction(log)}</p>
+                          <p className="mt-1 text-xs text-neutral-500">
+                            {(log.userName || log.userEmail) && (
+                              <span className="text-neutral-400">{log.userName || log.userEmail}</span>
+                            )}
+                            <span className="ml-1">
+                              {new Date(log.createdAt).toLocaleString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                              })}
+                            </span>
+                          </p>
+                          {log.action === 'payment_added' && (log.details as Record<string, unknown>)?.notes != null && (
+                            <p className="mt-1 text-xs text-neutral-400">Nota: {String((log.details as Record<string, unknown>).notes)}</p>
+                          )}
+                          {log.action === 'updated' && (log.details as Record<string, unknown>) && Object.keys(log.details as object).length > 0 && (
+                            <div className="mt-1.5 space-y-0.5 text-xs text-neutral-400">
+                              {Object.entries(log.details as Record<string, unknown>)
+                                .filter(([k]) => !['storeId'].includes(k))
+                                .map(([k, v]) => (
+                                  <p key={k}>
+                                    <span className="text-neutral-500">{k}:</span> {String(v ?? '—')}
+                                  </p>
+                                ))}
+                            </div>
+                          )}
+                          {log.action === 'reminder_sent' && (log.details as Record<string, unknown>)?.template != null && (
+                            <p className="mt-1 text-xs text-neutral-400">Plantilla: {String((log.details as Record<string, unknown>).template)}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal: ¿Subir comprobante? (después de marcar como cobrada) */}
+        <AnimatePresence>
+          {showUploadAfterPaidModal && receivable && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4"
+              onClick={() => !uploadingAttachment && (setShowUploadAfterPaidModal(false), setUploadAfterPaidFile(null))}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="my-auto w-full max-w-md shrink-0 rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+              >
+                <h3 className="mb-2 text-lg font-medium text-neutral-100 flex items-center gap-2">
+                  <Paperclip className="h-5 w-5 text-primary-400" />
+                  ¿Subir comprobante?
+                </h3>
+                <p className="mb-4 text-sm text-neutral-400">
+                  Puedes adjuntar una imagen o PDF como respaldo del pago.
+                </p>
+                <div className="space-y-3">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600">
+                    <Upload className="h-4 w-4" />
+                    <span>{uploadAfterPaidFile ? uploadAfterPaidFile.name : 'Seleccionar archivo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => setUploadAfterPaidFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={!uploadAfterPaidFile || uploadingAttachment}
+                      onClick={() => uploadAfterPaidFile && handleUploadAttachment(uploadAfterPaidFile)}
+                      className="inline-flex items-center gap-2"
+                    >
+                      {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      Subir
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowUploadAfterPaidModal(false);
+                        setUploadAfterPaidFile(null);
+                      }}
+                      disabled={uploadingAttachment}
+                    >
+                      Omitir
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Reabrir cuenta (cualquier cuenta cobrada) */}
         {receivable.status === 'paid' && (

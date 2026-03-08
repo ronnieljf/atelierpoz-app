@@ -169,33 +169,81 @@ export async function getReceivableById(receivableId: string, storeId: string): 
 }
 
 /**
- * Crear cuenta por cobrar manual
+ * Crear cuenta por cobrar manual.
+ * Si initialPayment.file está presente, envía multipart/form-data con el comprobante.
  */
 export async function createReceivable(data: CreateReceivableData): Promise<Receivable | null> {
-  const response = await httpClient.post<{ success: boolean; receivable: Receivable }>('/api/receivables', {
-    storeId: data.storeId,
-    customerName: data.customerName ?? undefined,
-    customerPhone: data.customerPhone ?? undefined,
-    description: data.description ?? undefined,
-    amount: data.amount,
-    currency: data.currency ?? 'USD',
-  });
+  const hasFile = data.initialPayment?.file && data.initialPayment.file instanceof File;
+
+  let body: Record<string, unknown> | FormData;
+  if (hasFile && data.initialPayment?.file) {
+    const form = new FormData();
+    form.append('storeId', data.storeId);
+    form.append('amount', String(data.amount));
+    if (data.customerName) form.append('customerName', data.customerName);
+    if (data.customerPhone) form.append('customerPhone', data.customerPhone);
+    if (data.description) form.append('description', data.description);
+    if (data.currency) form.append('currency', data.currency);
+    if (data.initialPayment && data.initialPayment.amount > 0) {
+      form.append(
+        'initialPayment',
+        JSON.stringify({ amount: data.initialPayment.amount, notes: data.initialPayment.notes })
+      );
+      form.append('file', data.initialPayment.file);
+    }
+    body = form;
+  } else {
+    body = {
+      storeId: data.storeId,
+      customerName: data.customerName ?? undefined,
+      customerPhone: data.customerPhone ?? undefined,
+      description: data.description ?? undefined,
+      amount: data.amount,
+      currency: data.currency ?? 'USD',
+      initialPayment:
+        data.initialPayment != null && data.initialPayment.amount > 0
+          ? { amount: data.initialPayment.amount, notes: data.initialPayment.notes }
+          : undefined,
+    };
+  }
+
+  const response = await httpClient.post<{ success: boolean; receivable: Receivable }>('/api/receivables', body);
 
   if (response.success && response.data?.receivable) {
     return formatReceivable(response.data.receivable as ApiReceivable);
   }
-  return null;
+  const errMsg = (response as { error?: string }).error ?? 'No se pudo crear la cuenta por cobrar';
+  throw new Error(errMsg);
 }
 
 /**
- * Crear cuenta por cobrar a partir de un pedido
+ * Crear cuenta por cobrar a partir de un pedido.
+ * Si initialPayment.file está presente, envía multipart/form-data con el comprobante.
  */
 export async function createReceivableFromRequest(
   data: CreateReceivableFromRequestData
 ): Promise<Receivable | null> {
-  const response = await httpClient.post<{ success: boolean; receivable: Receivable }>(
-    '/api/receivables/from-request',
-    {
+  const hasFile = data.initialPayment?.file && data.initialPayment.file instanceof File;
+
+  let body: Record<string, unknown> | FormData;
+  if (hasFile && data.initialPayment?.file) {
+    const form = new FormData();
+    form.append('storeId', data.storeId);
+    form.append('requestId', data.requestId);
+    if (data.description) form.append('description', data.description);
+    if (data.customerName) form.append('customerName', data.customerName);
+    if (data.customerPhone) form.append('customerPhone', data.customerPhone);
+    if (data.amount != null && !Number.isNaN(data.amount)) form.append('amount', String(data.amount));
+    if (data.initialPayment && data.initialPayment.amount > 0) {
+      form.append(
+        'initialPayment',
+        JSON.stringify({ amount: data.initialPayment.amount, notes: data.initialPayment.notes })
+      );
+      form.append('file', data.initialPayment.file);
+    }
+    body = form;
+  } else {
+    body = {
       storeId: data.storeId,
       requestId: data.requestId,
       description: data.description ?? undefined,
@@ -206,13 +254,19 @@ export async function createReceivableFromRequest(
         data.initialPayment != null && data.initialPayment.amount > 0
           ? { amount: data.initialPayment.amount, notes: data.initialPayment.notes }
           : undefined,
-    }
+    };
+  }
+
+  const response = await httpClient.post<{ success: boolean; receivable: Receivable }>(
+    '/api/receivables/from-request',
+    body
   );
 
   if (response.success && response.data?.receivable) {
     return formatReceivable(response.data.receivable as ApiReceivable);
   }
-  return null;
+  const errMsg = (response as { error?: string }).error ?? 'No se pudo crear la cuenta por cobrar';
+  throw new Error(errMsg);
 }
 
 /**
@@ -351,23 +405,39 @@ export async function getReceivablePayments(
 }
 
 /**
- * Registrar un abono en una cuenta por cobrar
+ * Registrar un abono en una cuenta por cobrar.
+ * Si data.file está presente, envía multipart/form-data con el comprobante.
  */
 export async function createReceivablePayment(
   receivableId: string,
   data: CreateReceivablePaymentData
 ): Promise<{ receivable: Receivable; payments: ReceivablePayment[]; totalPaid: number } | null> {
+  const hasFile = data.file && data.file instanceof File;
+
+  let body: Record<string, unknown> | FormData;
+  if (hasFile && data.file) {
+    const form = new FormData();
+    form.append('storeId', data.storeId);
+    form.append('amount', String(data.amount));
+    if (data.currency) form.append('currency', data.currency);
+    if (data.notes) form.append('notes', data.notes);
+    form.append('file', data.file);
+    body = form;
+  } else {
+    body = {
+      storeId: data.storeId,
+      amount: data.amount,
+      currency: data.currency ?? undefined,
+      notes: data.notes ?? undefined,
+    };
+  }
+
   const response = await httpClient.post<{
-      success: boolean;
-      receivable: ApiReceivable;
-      payments: ApiPayment[];
-      totalPaid: number;
-    }>(`/api/receivables/${receivableId}/payments`, {
-    storeId: data.storeId,
-    amount: data.amount,
-    currency: data.currency ?? undefined,
-    notes: data.notes ?? undefined,
-  });
+    success: boolean;
+    receivable: ApiReceivable;
+    payments: ApiPayment[];
+    totalPaid: number;
+  }>(`/api/receivables/${receivableId}/payments`, body);
 
   if (response.success && response.data) {
     return {
@@ -375,6 +445,102 @@ export async function createReceivablePayment(
       payments: (response.data.payments || []).map(formatPayment),
       totalPaid: typeof response.data.totalPaid === 'number' ? response.data.totalPaid : parseFloat(String(response.data.totalPaid ?? 0)),
     };
+  }
+  return null;
+}
+
+/** Tipo de adjunto de la API */
+type ApiAttachment = Record<string, unknown> & {
+  id?: string;
+  receivable_id?: string;
+  receivableId?: string;
+  payment_id?: string | null;
+  paymentId?: string | null;
+  file_name?: string;
+  fileName?: string;
+  file_url?: string;
+  fileUrl?: string;
+  mime_type?: string;
+  mimeType?: string;
+  created_at?: string;
+  createdAt?: string;
+  created_by?: string | null;
+  createdBy?: string | null;
+};
+
+function formatAttachment(a: ApiAttachment): import('@/types/receivable').ReceivableAttachment {
+  return {
+    id: String(a.id ?? ''),
+    receivableId: String(a.receivableId ?? a.receivable_id ?? ''),
+    paymentId: (a.paymentId ?? a.payment_id) ?? null,
+    fileName: String(a.fileName ?? a.file_name ?? ''),
+    fileUrl: String(a.fileUrl ?? a.file_url ?? ''),
+    mimeType: String(a.mimeType ?? a.mime_type ?? ''),
+    createdAt: String(a.createdAt ?? a.created_at ?? ''),
+    createdBy: (a.createdBy ?? a.created_by) ?? null,
+  };
+}
+
+/**
+ * Obtener adjuntos (comprobantes) de una cuenta por cobrar
+ */
+export async function getReceivableAttachments(
+  receivableId: string,
+  storeId: string
+): Promise<import('@/types/receivable').ReceivableAttachment[]> {
+  const response = await httpClient.get<{
+    success: boolean;
+    attachments: ApiAttachment[];
+  }>(`/api/receivables/${receivableId}/attachments?storeId=${encodeURIComponent(storeId)}`);
+
+  if (response.success && response.data?.attachments) {
+    return response.data.attachments.map(formatAttachment);
+  }
+  return [];
+}
+
+/**
+ * Subir un comprobante a una cuenta por cobrar
+ * @param paymentId - Opcional, para vincular el archivo a un abono específico
+ */
+export async function createReceivableAttachment(
+  receivableId: string,
+  storeId: string,
+  file: File,
+  paymentId?: string | null
+): Promise<import('@/types/receivable').ReceivableAttachment | null> {
+  const form = new FormData();
+  form.append('storeId', storeId);
+  form.append('file', file);
+  if (paymentId) form.append('paymentId', paymentId);
+
+  const response = await httpClient.post<{
+    success: boolean;
+    attachment: ApiAttachment;
+  }>(`/api/receivables/${receivableId}/attachments`, form);
+
+  if (response.success && response.data?.attachment) {
+    return formatAttachment(response.data.attachment);
+  }
+  return null;
+}
+
+/**
+ * Obtener URL firmada para descargar un adjunto.
+ * El frontend debe usar fetch con auth para llamar esto y luego abrir downloadUrl en nueva pestaña.
+ */
+export async function getReceivableAttachmentDownloadUrl(
+  receivableId: string,
+  attachmentId: string,
+  storeId: string
+): Promise<string | null> {
+  const response = await httpClient.get<{
+    success: boolean;
+    downloadUrl: string;
+  }>(`/api/receivables/${receivableId}/attachments/${attachmentId}/download?storeId=${encodeURIComponent(storeId)}`);
+
+  if (response.success && response.data?.downloadUrl) {
+    return response.data.downloadUrl;
   }
   return null;
 }
@@ -400,6 +566,53 @@ export async function deleteReceivablePayment(
       payments: (response.data.payments || []).map(formatPayment),
       totalPaid: typeof response.data.totalPaid === 'number' ? response.data.totalPaid : parseFloat(String(response.data.totalPaid ?? 0)),
     };
+  }
+  return null;
+}
+
+/**
+ * Obtener el historial de actividades (log) de una cuenta por cobrar.
+ */
+export interface ReceivableLogEntry {
+  id: string;
+  receivableId: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  action: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getReceivableLogs(
+  receivableId: string,
+  storeId: string
+): Promise<ReceivableLogEntry[] | null> {
+  const response = await httpClient.get<{
+    success: boolean;
+    logs: Array<{
+      id: string;
+      receivableId: string;
+      userId: string;
+      userName?: string | null;
+      userEmail?: string | null;
+      action: string;
+      details?: Record<string, unknown>;
+      createdAt: string;
+    }>;
+  }>(`/api/receivables/${receivableId}/logs?storeId=${encodeURIComponent(storeId)}`);
+
+  if (response.success && response.data?.logs) {
+    return response.data.logs.map((l) => ({
+      id: l.id,
+      receivableId: l.receivableId,
+      userId: l.userId,
+      userName: l.userName ?? null,
+      userEmail: l.userEmail ?? null,
+      action: l.action,
+      details: l.details ?? {},
+      createdAt: l.createdAt,
+    }));
   }
   return null;
 }

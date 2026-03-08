@@ -8,6 +8,7 @@ import { ShoppingBag, Check, ImageOff } from 'lucide-react';
 import { type CartItem, type Product } from '@/types/product';
 import { type Dictionary } from '@/lib/i18n/dictionary';
 import { cn } from '@/lib/utils/cn';
+import { getProductPriceRange } from '@/lib/utils/productPriceRange';
 import { useCart } from '@/lib/store/cart-store';
 import { AddToCartDialog } from './AddToCartDialog';
 
@@ -279,20 +280,35 @@ export function ProductCard({ product, dict, priority = false }: ProductCardProp
         </Link>
         
         {/* Precio (o consultar) y stock */}
-        <div className="flex items-center justify-between gap-2">
-          {product.hidePrice === true ? (
-            <span className="text-sm sm:text-base font-medium text-neutral-400 italic">
-              Precio a convenir
-            </span>
-          ) : (
-            <span className="text-sm sm:text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 via-primary-300 to-neutral-100 drop-shadow-lg animate-gradient">
-              ${product.basePrice.toFixed(2)}
-            </span>
-          )}
-          {!isInStock && (
-            <span className="text-[10px] sm:text-xs font-medium text-amber-400 shrink-0 px-2 py-1 bg-amber-900/20 rounded-full border border-amber-700/30">
-              {dict.product.outOfStock}
-            </span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
+            {product.hidePrice === true ? (
+              <span className="text-sm sm:text-base font-medium text-neutral-400 italic">
+                Precio a convenir
+              </span>
+            ) : (
+              <span className="text-sm sm:text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 via-primary-300 to-neutral-100 drop-shadow-lg animate-gradient">
+                {(() => {
+                  const range = getProductPriceRange(product);
+                  const base = typeof product.basePrice === 'number' ? product.basePrice : parseFloat(String(product.basePrice ?? 0)) || 0;
+                  if (range) {
+                    const fmt = (n: number) => n % 1 === 0 ? n.toString() : n.toFixed(2);
+                    return `$${fmt(range.min)} - $${fmt(range.max)}`;
+                  }
+                  return `$${base.toFixed(2)}`;
+                })()}
+              </span>
+            )}
+            {!isInStock && (
+              <span className="text-[10px] sm:text-xs font-medium text-amber-400 shrink-0 px-2 py-1 bg-amber-900/20 rounded-full border border-amber-700/30">
+                {dict.product.outOfStock}
+              </span>
+            )}
+          </div>
+          {!product.hidePrice && getProductPriceRange(product) && (
+            <p className="text-[10px] sm:text-xs text-neutral-400 italic">
+              {dict.product.priceVariesByOption}
+            </p>
           )}
         </div>
         

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { type Product, type ProductAttribute, type ProductVariant, type ProductCombination } from '@/types/product';
 import { getDictionary } from '@/lib/i18n/dictionary';
@@ -57,6 +57,19 @@ const ATTRIBUTE_TEMPLATES: Record<string, Partial<ProductAttribute>[]> = {
   ],
 };
 
+/** Filtra input para permitir solo dígitos (stock, enteros) */
+function filterIntegerInput(value: string): string {
+  return value.replace(/[^0-9]/g, '');
+}
+
+/** Filtra input para permitir solo números con hasta 2 decimales (precio) */
+function filterDecimalInput(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const parts = cleaned.split('.');
+  if (parts.length <= 1) return parts[0] ?? '';
+  return parts[0] + '.' + (parts[1] ?? '').slice(0, 2);
+}
+
 /** Normaliza un valor a hex #RRGGBB. Para variantes de tipo color. */
 function normalizeHexColor(input: string | undefined): string {
   if (input == null || typeof input !== 'string') return '';
@@ -91,7 +104,25 @@ interface ProductFormProps {
 
 export function ProductForm({ productId }: ProductFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { state: authState } = useAuth();
+
+  /** URL para volver a la lista con tienda y filtros preservados */
+  const productsListUrl = (() => {
+    const storeId = searchParams.get('storeId');
+    const search = searchParams.get('search');
+    const categoryId = searchParams.get('categoryId');
+    const priceMin = searchParams.get('priceMin');
+    const priceMax = searchParams.get('priceMax');
+    if (!storeId && !search && !categoryId && !priceMin && !priceMax) return '/admin/products';
+    const sp = new URLSearchParams();
+    if (storeId) sp.set('storeId', storeId);
+    if (search) sp.set('search', search);
+    if (categoryId) sp.set('categoryId', categoryId);
+    if (priceMin) sp.set('priceMin', priceMin);
+    if (priceMax) sp.set('priceMax', priceMax);
+    return `/admin/products?${sp.toString()}`;
+  })();
   const isEditing = !!productId;
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ProductFormData>({
@@ -779,7 +810,7 @@ export function ProductForm({ productId }: ProductFormProps) {
         if (updated) {
           setSubmitMessage({ type: 'success', text: 'Producto actualizado exitosamente' });
           setTimeout(() => {
-            router.push('/admin/products');
+            router.push(productsListUrl);
           }, 1500);
         } else {
           throw new Error('Error al actualizar el producto');
@@ -788,7 +819,7 @@ export function ProductForm({ productId }: ProductFormProps) {
         await createProduct(productData as Product & { storeId: string; categoryId: string });
         setSubmitMessage({ type: 'success', text: dict.admin.product.create.success });
         setTimeout(() => {
-          router.push('/admin/products');
+          router.push(productsListUrl);
         }, 1500);
       }
     } catch (error) {
@@ -921,7 +952,7 @@ export function ProductForm({ productId }: ProductFormProps) {
         {/* Breadcrumb y título */}
         <div className="mb-6 sm:mb-8">
           <Link
-            href="/admin/products"
+            href={productsListUrl}
             className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-200 transition-colors mb-4"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -1048,13 +1079,10 @@ export function ProductForm({ productId }: ProductFormProps) {
                     <label className="block text-sm font-medium text-neutral-300 mb-1.5">Precio</label>
                     <div className="flex gap-2 min-w-0">
                       <input
-                        type="number"
-                        step="0.01"
-                        min={0}
+                        type="text"
                         inputMode="decimal"
                         value={formData.basePrice}
-                        onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
+                        onChange={(e) => setFormData({ ...formData, basePrice: filterDecimalInput(e.target.value) })}
                         placeholder="0.00"
                         className="flex-1 min-w-0 h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-base"
                       />
@@ -1067,7 +1095,14 @@ export function ProductForm({ productId }: ProductFormProps) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-1.5">Stock</label>
-                    <input type="number" inputMode="numeric" min={0} value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} onWheel={(e) => e.currentTarget.blur()} placeholder="0" className="w-full h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.stock}
+                      onChange={(e) => setFormData({ ...formData, stock: filterIntegerInput(e.target.value) })}
+                      placeholder="0"
+                      className="w-full h-12 px-4 rounded-xl border border-neutral-700 bg-neutral-800/50 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
                   </div>
                 </div>
               </div>
@@ -1556,13 +1591,11 @@ export function ProductForm({ productId }: ProductFormProps) {
                                 {label}
                               </span>
                               <input
-                                type="number"
+                                type="text"
                                 inputMode="numeric"
-                                min={0}
-                                step={1}
                                 value={combo.stock === undefined || combo.stock === null ? '' : safeStock}
                                 onChange={(e) => {
-                                  const raw = e.target.value;
+                                  const raw = filterIntegerInput(e.target.value);
                                   if (raw === '') {
                                     updateCombination(comboIndex, { stock: 0 });
                                     return;
@@ -1571,19 +1604,16 @@ export function ProductForm({ productId }: ProductFormProps) {
                                   if (Number.isNaN(n)) return;
                                   updateCombination(comboIndex, { stock: Math.max(0, Math.floor(n)) });
                                 }}
-                                onWheel={(e) => e.currentTarget.blur()}
                                 placeholder="0"
-                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                                 aria-label="Stock (entero, sin decimales)"
                               />
                               <input
-                                type="number"
+                                type="text"
                                 inputMode="decimal"
-                                min={0}
-                                step={0.01}
                                 value={combo.priceModifier === undefined || combo.priceModifier === null ? '' : safePrice}
                                 onChange={(e) => {
-                                  const raw = e.target.value;
+                                  const raw = filterDecimalInput(e.target.value);
                                   if (raw === '') {
                                     updateCombination(comboIndex, { priceModifier: 0 });
                                     return;
@@ -1593,9 +1623,8 @@ export function ProductForm({ productId }: ProductFormProps) {
                                   const rounded = Math.max(0, Math.round(n * 100) / 100);
                                   updateCombination(comboIndex, { priceModifier: rounded });
                                 }}
-                                onWheel={(e) => e.currentTarget.blur()}
                                 placeholder="0.00"
-                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-16 sm:w-20 min-h-[44px] sm:min-h-[36px] px-2 py-1.5 bg-neutral-800/50 border border-neutral-700 rounded-lg text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                                 aria-label="Precio adicional (máx. 2 decimales)"
                               />
                               <input
@@ -1633,7 +1662,7 @@ export function ProductForm({ productId }: ProductFormProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => router.push('/admin/products')}
+                    onClick={() => router.push(productsListUrl)}
                     className="w-full sm:flex-1 min-h-[48px] order-2 sm:order-1"
                   >
                     Cancelar

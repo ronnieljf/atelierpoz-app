@@ -608,6 +608,6 @@ export function fileToBase64(file: File): Promise<string> {
  * Valida que un archivo sea una imagen
  */
 export function isValidImageFile(file: File): boolean {
-  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif'];
   return validTypes.includes(file.type);
 }

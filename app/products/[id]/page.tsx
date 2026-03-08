@@ -214,17 +214,15 @@ export default async function ProductPage({
         }}
       />
       
-      <div className="container mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10 md:py-14">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-10">
         <ProductViewTracker product={product} />
-        <nav className="mb-4 sm:mb-6 text-xs sm:text-sm">
+        <nav className="mb-6 sm:mb-8 text-sm">
           <Link
             href={backUrl}
-            className="text-neutral-400 hover:text-primary-400"
+            className="text-neutral-500 hover:text-primary-400 transition-colors"
           >
-            {dict.navigation.home}
+            ← {dict.navigation.home}
           </Link>
-          <span className="mx-2 text-neutral-500">/</span>
-          <span className="text-neutral-100">{product.name}</span>
         </nav>
 
         <ProductDetail product={product} dict={dict} />

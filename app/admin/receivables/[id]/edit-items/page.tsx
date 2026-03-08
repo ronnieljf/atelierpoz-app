@@ -119,26 +119,63 @@ export default function EditReceivableItemsPage({
   const buildNewItem = (): CartItem | null => {
     if (!selectedProduct || !storeId) return null;
     const qty = Math.max(1, addQuantity);
-    let unitPrice = selectedProduct.basePrice ?? 0;
+    const base = selectedProduct.basePrice ?? 0;
     const selectedVariantsArray: CartItem['selectedVariants'] = [];
     productAttributes.forEach((attr) => {
       const variantId = addSelectedVariants[attr.id];
       if (variantId) {
         const variant = attr.variants?.find((v) => v.id === variantId);
         if (variant) {
-          const priceMod = typeof variant.price === 'number' ? variant.price : 0;
-          unitPrice += priceMod;
           selectedVariantsArray.push({
             attributeId: attr.id,
             attributeName: attr.name,
             variantId: variant.id,
             variantName: variant.name ?? '',
             variantValue: variant.value ?? '',
-            priceModifier: priceMod,
+            priceModifier: 0,
           });
         }
       }
     });
+    // Precio: si hay combinaciones, usar priceModifier de la combinación; si no, suma de variant.price
+    let unitPrice = base;
+    const combinations = selectedProduct.combinations ?? [];
+    if (combinations.length > 0 && selectedVariantsArray.length > 0) {
+      const selections: Record<string, string> = {};
+      selectedVariantsArray.forEach((sv) => { selections[sv.attributeId] = sv.variantId; });
+      const matchingCombo = combinations.find((c) => {
+        const cSel = c.selections ?? {};
+        const keys = Object.keys(selections).sort();
+        const cKeys = Object.keys(cSel).sort();
+        if (keys.length !== cKeys.length) return false;
+        return keys.every((k) => cSel[k] === selections[k]);
+      });
+      if (matchingCombo) {
+        const mod = typeof matchingCombo.priceModifier === 'number' ? matchingCombo.priceModifier : 0;
+        unitPrice = base + mod;
+        if (selectedVariantsArray.length > 0) {
+          selectedVariantsArray[0]!.priceModifier = mod;
+        }
+      } else {
+        productAttributes.forEach((attr) => {
+          const sv = selectedVariantsArray.find((s) => s.attributeId === attr.id);
+          if (sv) {
+            const variant = attr.variants?.find((v) => v.id === sv.variantId);
+            const priceMod = typeof variant?.price === 'number' ? variant.price : 0;
+            unitPrice += priceMod;
+            sv.priceModifier = priceMod;
+          }
+        });
+      }
+    } else {
+      selectedVariantsArray.forEach((sv, idx) => {
+        const attr = productAttributes.find((a) => a.id === sv.attributeId);
+        const variant = attr?.variants?.find((v) => v.id === sv.variantId);
+        const priceMod = typeof variant?.price === 'number' ? variant.price : 0;
+        unitPrice += priceMod;
+        selectedVariantsArray[idx] = { ...sv, priceModifier: priceMod };
+      });
+    }
     const totalPrice = unitPrice * qty;
     return {
       id: `${selectedProduct.id}_${selectedVariantsArray.map((v) => `${v.attributeId}:${v.variantId}`).join('|')}`,
@@ -156,9 +193,67 @@ export default function EditReceivableItemsPage({
     };
   };
 
+  const getAvailableStock = (prod: Product, selections: Record<string, string>): number => {
+    const combinations = prod.combinations ?? [];
+    if (combinations.length > 0 && Object.keys(selections).length > 0) {
+      const matchingCombo = combinations.find((c) => {
+        const cSel = c.selections ?? {};
+        const keys = Object.keys(selections).sort();
+        const cKeys = Object.keys(cSel).sort();
+        if (keys.length !== cKeys.length) return false;
+        return keys.every((k) => cSel[k] === selections[k]);
+      });
+      if (matchingCombo) return typeof matchingCombo.stock === 'number' ? matchingCombo.stock : 0;
+    }
+    const attrs = prod.attributes ?? [];
+    if (attrs.length > 0 && Object.keys(selections).length > 0) {
+      const stocks: number[] = [];
+      attrs.forEach((attr) => {
+        const vId = selections[attr.id];
+        if (vId) {
+          const v = attr.variants?.find((x) => x.id === vId);
+          if (v) stocks.push(typeof v.stock === 'number' ? v.stock : 0);
+        }
+      });
+      if (stocks.length > 0) return Math.min(...stocks);
+    }
+    return typeof prod.stock === 'number' ? prod.stock : 0;
+  };
+
+  const validateStock = (): string | null => {
+    const byKey = new Map<string, number>();
+    for (const item of items) {
+      const sel: Record<string, string> = {};
+      (item.selectedVariants ?? []).forEach((sv) => { sel[sv.attributeId] = sv.variantId; });
+      const key = `${item.productId}|${Object.keys(sel).sort().map((k) => `${k}:${sel[k]}`).join(',')}`;
+      byKey.set(key, (byKey.get(key) ?? 0) + (typeof item.quantity === 'number' ? item.quantity : 1));
+    }
+    for (const [key, totalQty] of byKey) {
+      const [productId, selStr] = key.split('|');
+      const prod = products.find((p) => p.id === productId);
+      if (!prod) continue;
+      const selections: Record<string, string> = {};
+      if (selStr) selStr.split(',').forEach((s) => { const [k, v] = s.split(':'); if (k && v) selections[k] = v; });
+      const available = getAvailableStock(prod, selections);
+      if (totalQty > available) {
+        return `No hay stock suficiente para "${prod.name}". Disponible: ${available}, solicitado: ${totalQty}`;
+      }
+    }
+    return null;
+  };
+
   const handleAddItem = () => {
     const newItem = buildNewItem();
     if (!newItem) return;
+    const sel: Record<string, string> = {};
+    (newItem.selectedVariants ?? []).forEach((sv) => { sel[sv.attributeId] = sv.variantId; });
+    const available = selectedProduct ? getAvailableStock(selectedProduct, sel) : 0;
+    const qty = typeof newItem.quantity === 'number' ? newItem.quantity : 1;
+    if (qty > available) {
+      setMessage({ type: 'error', text: `No hay stock suficiente. Disponible: ${available}` });
+      return;
+    }
+    setMessage(null);
     setItems((prev) => [...prev, newItem]);
     setAddProductId('');
     setAddQuantity(1);
@@ -170,6 +265,11 @@ export default function EditReceivableItemsPage({
     e.preventDefault();
     if (!receivable || !storeId || items.length === 0) {
       setMessage({ type: 'error', text: 'Debe haber al menos un producto' });
+      return;
+    }
+    const stockError = validateStock();
+    if (stockError) {
+      setMessage({ type: 'error', text: stockError });
       return;
     }
     setSaving(true);

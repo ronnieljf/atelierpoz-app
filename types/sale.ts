@@ -48,6 +48,8 @@ export interface POSProduct {
   productName: string;
   sku: string | null;
   unitPrice: number;
+  /** URL de la imagen del producto (producto base o variante) */
+  imageUrl?: string | null;
   /** Precio unitario con IVA incluido (unitPrice * (1 + iva/100)). Usar para totales en ventas. */
   unitPriceWithIva?: number;
   /** IVA en porcentaje (ej. 19, 13). */

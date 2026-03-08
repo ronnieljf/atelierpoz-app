@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/store/auth-store';
@@ -38,8 +39,10 @@ import {
   History,
   FileDown,
   ShoppingBag,
+  Paperclip,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 
 type PaymentType = 'contado' | 'cuenta';
 
@@ -48,6 +51,8 @@ interface CartLine extends SaleItem {
   selectedVariants?: POSProduct['selectedVariants'];
   /** IVA efectivo en % (producto si > 0, si no el de la tienda). Para calcular total = subtotal + IVA. */
   iva?: number;
+  /** Imagen del producto o variante */
+  imageUrl?: string | null;
 }
 
 function isHexColor(value: string | undefined): boolean {
@@ -100,11 +105,15 @@ export default function SalesPage() {
   const [saleNote, setSaleNote] = useState('');
   const [initialPaymentAmount, setInitialPaymentAmount] = useState('');
   const [initialPaymentNote, setInitialPaymentNote] = useState('');
+  const [initialPaymentFile, setInitialPaymentFile] = useState<File | null>(null);
   const [receivableNote, setReceivableNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [showTicketPreview, setShowTicketPreview] = useState(false);
+
+  // Image enlarge modal (thumbnail click)
+  const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
 
   // Variant/combination choice modal (when product has multiple variants)
   const [variantChoiceModal, setVariantChoiceModal] = useState<{
@@ -161,6 +170,18 @@ export default function SalesPage() {
       .catch(() => setRecentClients([]))
       .finally(() => setLoadingRecentClients(false));
   }, [storeId, view]);
+
+  // Bloquear scroll del body cuando el modal de imagen ampliada está abierto
+  useEffect(() => {
+    if (!enlargedImageUrl) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = prev;
+      document.body.style.touchAction = '';
+    };
+  }, [enlargedImageUrl]);
 
   // Búsqueda: siempre buscar en backend (ILIKE/LIKE en todo el catálogo)
   // Así "pulsera" devuelve todas las pulseras, no solo las del top vendidos
@@ -254,6 +275,7 @@ export default function SalesPage() {
           displayName: p.displayName,
           selectedVariants: p.selectedVariants,
           iva: effectiveIva,
+          imageUrl: p.imageUrl ?? undefined,
         };
         return [...prev, line];
       });
@@ -463,7 +485,11 @@ export default function SalesPage() {
           description: receivableNote.trim() || undefined,
           initialPayment:
             hasValidAbono
-              ? { amount: abonoNum, notes: initialPaymentNote.trim() || undefined }
+              ? {
+                  amount: abonoNum,
+                  notes: initialPaymentNote.trim() || undefined,
+                  file: initialPaymentFile || undefined,
+                }
               : undefined,
         });
         if (!rec) throw new Error('No se pudo crear la cuenta por cobrar');
@@ -474,6 +500,7 @@ export default function SalesPage() {
         setCart([]);
         setInitialPaymentAmount('');
         setInitialPaymentNote('');
+        setInitialPaymentFile(null);
         setReceivableNote('');
         setTimeout(() => {
           router.push(`/admin/receivables/${rec.id}?storeId=${storeId}`);
@@ -906,38 +933,56 @@ export default function SalesPage() {
                           : productHasVariants; /* con una sola fila, si tiene variantes pedir todas las opciones */
 
                       return (
-                        <button
+                        <div
                           key={productId}
-                          type="button"
-                          onClick={async () => {
-                            if (showVariantModal) {
-                              if (!single) {
-                                setVariantChoiceModal({ productName: p.productName, options });
-                              } else if (storeId) {
-                                setLoadingVariantOptionsForProductId(productId);
-                                try {
-                                  const allOptions = await getProductPOSOptions(storeId, productId);
-                                  if (allOptions.length > 0) {
-                                    setVariantChoiceModal({
-                                      productName: p.productName,
-                                      options: allOptions,
-                                    });
-                                  } else {
-                                    addToCart(p);
-                                  }
-                                } catch {
-                                  addToCart(p);
-                                } finally {
-                                  setLoadingVariantOptionsForProductId(null);
-                                }
-                              }
-                            } else {
-                              addToCart(p);
-                            }
-                          }}
-                          disabled={loadingVariantOptionsForProductId != null || (!showVariantModal && !hasStock)}
-                          className="flex min-h-[52px] w-full touch-manipulation items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors active:bg-neutral-800/70 hover:bg-neutral-800/50 disabled:opacity-50 disabled:hover:bg-transparent sm:min-h-0 sm:py-3"
+                          className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3.5 sm:min-h-0 sm:py-3"
                         >
+                          <button
+                            type="button"
+                            onClick={() => p.imageUrl && setEnlargedImageUrl(resolveImageUrl(p.imageUrl) ?? p.imageUrl)}
+                            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-800 hover:ring-2 hover:ring-primary-500/50"
+                          >
+                            {(resolveImageUrl(p.imageUrl) ?? p.imageUrl) ? (
+                              <img
+                                src={resolveImageUrl(p.imageUrl) ?? p.imageUrl ?? ''}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ShoppingBag className="h-5 w-5 text-neutral-600" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (showVariantModal) {
+                                if (!single) {
+                                  setVariantChoiceModal({ productName: p.productName, options });
+                                } else if (storeId) {
+                                  setLoadingVariantOptionsForProductId(productId);
+                                  try {
+                                    const allOptions = await getProductPOSOptions(storeId, productId);
+                                    if (allOptions.length > 0) {
+                                      setVariantChoiceModal({
+                                        productName: p.productName,
+                                        options: allOptions,
+                                      });
+                                    } else {
+                                      addToCart(p);
+                                    }
+                                  } catch {
+                                    addToCart(p);
+                                  } finally {
+                                    setLoadingVariantOptionsForProductId(null);
+                                  }
+                                }
+                              } else {
+                                addToCart(p);
+                              }
+                            }}
+                            disabled={loadingVariantOptionsForProductId != null || (!showVariantModal && !hasStock)}
+                            className="flex min-w-0 flex-1 touch-manipulation items-center justify-between gap-3 py-0 text-left transition-colors active:bg-neutral-800/70 hover:bg-neutral-800/50 disabled:opacity-50 disabled:hover:bg-transparent"
+                          >
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-neutral-100">
                               {single && !productHasVariants ? p.displayName : p.productName}
@@ -989,6 +1034,7 @@ export default function SalesPage() {
                             </>
                           )}
                         </button>
+                        </div>
                       );
                     });
                   })()}
@@ -1010,8 +1056,23 @@ export default function SalesPage() {
                   cart.map((line, i) => (
                     <div
                       key={`${line.productId}-${line.combinationId ?? 'base'}-${i}`}
-                      className="flex items-start gap-2 rounded-xl bg-neutral-800/40 px-3 py-2.5"
+                      className="flex items-start gap-3 rounded-xl bg-neutral-800/40 px-3 py-2.5"
                     >
+                      <button
+                        type="button"
+                        onClick={() => { if (line.imageUrl) setEnlargedImageUrl(resolveImageUrl(line.imageUrl) ?? line.imageUrl); }}
+                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-700 hover:ring-2 hover:ring-primary-500/50"
+                      >
+                        {(resolveImageUrl(line.imageUrl) ?? line.imageUrl) ? (
+                          <img
+                            src={resolveImageUrl(line.imageUrl) ?? line.imageUrl ?? ''}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <ShoppingBag className="h-6 w-6 text-neutral-500" />
+                        )}
+                      </button>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-neutral-100 break-words line-clamp-3">
                           {line.displayName}
@@ -1239,6 +1300,25 @@ export default function SalesPage() {
                     className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 touch-manipulation"
                   />
                 </div>
+                {parseFloat(initialPaymentAmount.replace(',', '.')) > 0 && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-500">
+                      Comprobante del abono (opcional)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setInitialPaymentFile(e.target.files?.[0] ?? null)}
+                      className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
+                    />
+                    {initialPaymentFile && (
+                      <p className="mt-1 text-xs text-neutral-500">
+                        <Paperclip className="mr-1 inline h-3 w-3" />
+                        {initialPaymentFile.name}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-500">
                     Nota de la cuenta por cobrar (opcional)
@@ -1437,10 +1517,51 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* Variant/combination choice modal */}
-      {variantChoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl max-h-[85vh] flex flex-col">
+      {/* Enlarged image modal — portal a document.body para centrarse en toda la pantalla */}
+      {enlargedImageUrl && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4 overscroll-contain"
+          style={{
+            paddingTop: 'max(1rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          }}
+          onClick={() => setEnlargedImageUrl(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Imagen ampliada"
+          tabIndex={-1}
+          ref={(el) => el?.focus()}
+          onKeyDown={(e) => e.key === 'Escape' && setEnlargedImageUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setEnlargedImageUrl(null); }}
+            className="absolute right-0 top-0 z-10 flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-white hover:bg-neutral-700 active:bg-neutral-600 touch-manipulation"
+            style={{ top: 'max(1rem, env(safe-area-inset-top))', right: 'max(1rem, env(safe-area-inset-right))' }}
+            aria-label="Cerrar"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-auto">
+            <img
+              src={enlargedImageUrl}
+              alt=""
+              className="max-w-full max-h-[calc(100dvh-4rem)] object-contain select-none"
+              style={{ maxHeight: 'calc(100dvh - 4rem)' }}
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Variant/combination choice modal — portal a document.body para centrarse en toda la pantalla */}
+      {variantChoiceModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-black/60 p-4 py-8">
+          <div className="my-auto w-full max-w-md shrink-0 rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl max-h-[85vh] flex flex-col">
             <div className="mb-4 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-medium text-neutral-100">
                 Elegir variante · {variantChoiceModal.productName}
@@ -1475,16 +1596,35 @@ export default function SalesPage() {
                   return title;
                 })();
                 return (
-                  <button
+                  <div
                     key={`${opt.productId}-${opt.combinationId ?? 'base'}`}
-                    type="button"
-                    onClick={() => {
-                      addToCart(opt);
-                      setVariantChoiceModal(null);
-                    }}
-                    disabled={opt.stock <= 0}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 text-left transition-colors hover:bg-neutral-700/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 transition-colors hover:bg-neutral-700/50"
                   >
+                    <button
+                      type="button"
+                      onClick={() => opt.imageUrl && setEnlargedImageUrl(resolveImageUrl(opt.imageUrl) ?? opt.imageUrl)}
+                      className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-700 hover:ring-2 hover:ring-primary-500/50"
+                    >
+                      {(resolveImageUrl(opt.imageUrl) ?? opt.imageUrl) ? (
+                        <img
+                          src={resolveImageUrl(opt.imageUrl) ?? opt.imageUrl ?? ''}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingBag className="h-6 w-6 text-neutral-500" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (opt.stock <= 0) return;
+                        addToCart(opt);
+                        setVariantChoiceModal(null);
+                      }}
+                      disabled={opt.stock <= 0}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-neutral-100">
                         {displayTitle}
@@ -1524,11 +1664,13 @@ export default function SalesPage() {
                     </span>
                     <Plus className="h-4 w-4 shrink-0 text-neutral-400" />
                   </button>
+                  </div>
                 );
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Ticket preview */}

@@ -297,7 +297,8 @@ export interface ReceivableForWhatsApp {
 
 /**
  * Genera un mensaje con el detalle de la cuenta por cobrar para enviar por WhatsApp.
- * Incluye abonos y lo que falta por cobrar cuando se pasan payments o totalPaid.
+ * - Si está pendiente: mensaje amable con lo que debe, abonos realizados y el resto por pagar (corto).
+ * - Si está cobrada: mensaje amable indicando que su cuenta ya está saldada, que ya no debe.
  * Si forManualContact es true (clic manual en lista/detalle): mensaje amable, sin indicar "no responder".
  * Si forManualContact es false/undefined (recordatorio masivo): se añade intro/cierre indicando que responda a la tienda.
  */
@@ -310,6 +311,7 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
       ? receivable.payments.reduce((sum, p) => sum + Number(p.amount), 0)
       : 0);
   const pending = Math.max(0, total - totalPaid);
+  const isPaid = receivable.status === 'paid';
 
   const isManualContact = receivable.forManualContact === true;
   const storePhone = receivable.storeReplyPhoneNumber?.trim();
@@ -324,94 +326,90 @@ export function generateWhatsAppMessageForReceivable(receivable: ReceivableForWh
     lines.push(introOutro);
     lines.push('');
   }
-  const greeting = isManualContact
-    ? `Hola ${name}, te escribo con gusto respecto a tu cuenta por cobrar:`
-    : `Hola ${name}, te escribo respecto a la cuenta por cobrar:`;
-  lines.push(greeting, '');
 
   const orderNum = receivable.orderNumber != null && Number(receivable.orderNumber) > 0 ? Number(receivable.orderNumber) : null;
   const recNum = receivable.receivableNumber != null && Number(receivable.receivableNumber) > 0 ? Number(receivable.receivableNumber) : null;
-  if (orderNum != null) {
-    lines.push(`Pedido #${orderNum}`);
-  } else if (recNum != null) {
-    lines.push(`Cuenta #${recNum}`);
-  }
+  const refLabel = orderNum != null ? `Pedido #${orderNum}` : recNum != null ? `Cuenta #${recNum}` : null;
 
-  const hasSummary = receivable.summaryCount != null && receivable.summaryCount > 0 && receivable.summaryByCurrency && Object.keys(receivable.summaryByCurrency).length > 0;
-  if (hasSummary) {
-    const summaryByCurrency = receivable.summaryByCurrency ?? {};
-    const parts = Object.entries(summaryByCurrency)
-      .map(([curr, amt]) => `${curr} ${Number(amt).toFixed(2)}`)
-      .join(', ');
-    lines.push(`*Sumatoria (${receivable.summaryCount} ${receivable.summaryCount === 1 ? 'cuenta' : 'cuentas'}):* ${parts}`);
-  } else {
-    lines.push(`*Monto total:* ${receivable.currency} ${total.toFixed(2)}`);
-  }
-
-  if (!hasSummary && receivable.createdAt) {
-    const date = new Date(receivable.createdAt).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-    lines.push(`*Fecha:* ${date}`);
-  }
-
-  if (!hasSummary && Array.isArray(receivable.orderItems) && receivable.orderItems.length > 0) {
+  if (isPaid) {
+    // Cuenta cobrada: mensaje amable indicando que ya está saldada
+    lines.push(`Hola ${name}, ¡buenas noticias! 🙂`, '');
+    lines.push('Te escribo para confirmarte que *tu cuenta ya está saldada*.');
+    if (refLabel) lines.push(refLabel);
     lines.push('');
-    lines.push('*Productos:*');
-    receivable.orderItems.forEach((item, i) => {
-      const name = item.productName?.trim() || 'Producto';
-      const total = Number(item.totalPrice);
-      const variant = item.variantLabel?.trim();
-      const qty = typeof item.quantity === 'number' && item.quantity > 1 ? ` x${item.quantity}` : '';
-      const line = variant
-        ? `${i + 1}. ${name} (${variant})${qty}: ${receivable.currency} ${total.toFixed(2)}`
-        : `${i + 1}. ${name}${qty}: ${receivable.currency} ${total.toFixed(2)}`;
-      lines.push(line);
-    });
-  }
-
-  if (!hasSummary && (totalPaid > 0 || (Array.isArray(receivable.payments) && receivable.payments.length > 0))) {
-    lines.push('');
-    lines.push('*Abonos:*');
-    if (Array.isArray(receivable.payments) && receivable.payments.length > 0) {
+    lines.push(`El total de ${receivable.currency} ${total.toFixed(2)} ya fue cubierto en su totalidad.`);
+    if (totalPaid > 0 && Array.isArray(receivable.payments) && receivable.payments.length > 0) {
+      lines.push('');
+      lines.push('Resumen de tus abonos:');
       receivable.payments.forEach((p, i) => {
         const pDate = p.createdAt
-          ? new Date(p.createdAt).toLocaleDateString('es-ES', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })
+          ? new Date(p.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
           : '';
-        const note = p.notes?.trim() ? ` — ${p.notes.trim()}` : '';
-        lines.push(`${i + 1}. ${p.currency} ${Number(p.amount).toFixed(2)}${pDate ? ` (${pDate})` : ''}${note}`);
+        lines.push(`${i + 1}. ${p.currency} ${Number(p.amount).toFixed(2)}${pDate ? ` (${pDate})` : ''}`);
       });
+      lines.push(`Total pagado: ${receivable.currency} ${totalPaid.toFixed(2)}`);
     }
-    lines.push(`*Total abonado:* ${receivable.currency} ${totalPaid.toFixed(2)}`);
-  }
-
-  if (!hasSummary && pending > 0) {
-    lines.push(`*Total a pagar:* ${receivable.currency} ${pending.toFixed(2)}`);
-  }
-
-  if (isManualContact) {
-    lines.push(
-      '',
-      'Cuando puedas, te agradezco que confirmes o me cuentes si tienes alguna duda. Puedes responder a este chat con toda confianza.',
-      '',
-      '¡Gracias!'
-    );
-  } else {
-    lines.push('', 'Cuando puedas, te agradezco que confirmes.');
-    const supportWaUrl = 'https://wa.me/584120893949';
     lines.push('');
-    lines.push(`📱 Para contacto o soporte, escríbenos aquí: ${supportWaUrl}`);
-    if (introOutro) {
+    lines.push('*Esta cuenta ya quedó saldada.* Si tienes alguna duda, puedes responder a este chat con toda confianza.');
+    lines.push('');
+    lines.push('¡Gracias por tu confianza!');
+  } else {
+    // Cuenta pendiente: mensaje amable con lo que debe, abonos y resto
+    const greeting = isManualContact
+      ? `Hola ${name}, te escribo con gusto respecto a tu cuenta:`
+      : `Hola ${name}, te escribo respecto a tu cuenta por cobrar:`;
+    lines.push(greeting, '');
+
+    const hasSummary = receivable.summaryCount != null && receivable.summaryCount > 0 && receivable.summaryByCurrency && Object.keys(receivable.summaryByCurrency).length > 0;
+    if (hasSummary) {
+      const summaryByCurrency = receivable.summaryByCurrency ?? {};
+      const parts = Object.entries(summaryByCurrency)
+        .map(([curr, amt]) => `${curr} ${Number(amt).toFixed(2)}`)
+        .join(', ');
+      lines.push(`*Sumatoria (${receivable.summaryCount} ${receivable.summaryCount === 1 ? 'cuenta' : 'cuentas'}):* ${parts}`);
+    } else {
+      if (refLabel) lines.push(refLabel);
+      lines.push(`*Total a cobrar:* ${receivable.currency} ${total.toFixed(2)}`);
+
+      if (totalPaid > 0 || (Array.isArray(receivable.payments) && receivable.payments.length > 0)) {
+        lines.push('');
+        lines.push('*Abonos realizados:*');
+        if (Array.isArray(receivable.payments) && receivable.payments.length > 0) {
+          receivable.payments.forEach((p, i) => {
+            const pDate = p.createdAt
+              ? new Date(p.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              : '';
+            const note = p.notes?.trim() ? ` — ${p.notes.trim()}` : '';
+            lines.push(`${i + 1}. ${p.currency} ${Number(p.amount).toFixed(2)}${pDate ? ` (${pDate})` : ''}${note}`);
+          });
+        }
+        lines.push(`Total abonado: ${receivable.currency} ${totalPaid.toFixed(2)}`);
+        lines.push('');
+        lines.push(`*Restante por pagar:* ${receivable.currency} ${pending.toFixed(2)}`);
+      } else {
+        lines.push(`*Por pagar:* ${receivable.currency} ${pending.toFixed(2)}`);
+      }
+    }
+
+    if (isManualContact) {
+      lines.push(
+        '',
+        'Cuando puedas, te agradezco que confirmes o me cuentes si tienes alguna duda. Puedes responder a este chat con toda confianza.',
+        '',
+        '¡Gracias!'
+      );
+    } else {
+      lines.push('', 'Cuando puedas, te agradezco que confirmes.');
+      const supportWaUrl = 'https://wa.me/584120893949';
       lines.push('');
-      lines.push(introOutro);
+      lines.push(`📱 Para contacto o soporte, escríbenos aquí: ${supportWaUrl}`);
+      if (introOutro) {
+        lines.push('');
+        lines.push(introOutro);
+      }
     }
   }
+
   return lines.join('\n');
 }
 

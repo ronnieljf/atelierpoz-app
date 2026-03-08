@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getAdminProducts, deleteProduct, setProductOutOfStock, updateProduct } from '@/lib/services/products';
 import { getCategoriesForAdmin, type Category } from '@/lib/services/categories';
 import { useAuth } from '@/lib/store/auth-store';
@@ -16,11 +17,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import Image from 'next/image';
 
+/** Construye query string para volver a la lista con filtros */
+function buildProductsListQuery(params: {
+  storeId?: string;
+  search?: string;
+  categoryId?: string;
+  priceMin?: string;
+  priceMax?: string;
+}): string {
+  const sp = new URLSearchParams();
+  if (params.storeId) sp.set('storeId', params.storeId);
+  if (params.search) sp.set('search', params.search);
+  if (params.categoryId) sp.set('categoryId', params.categoryId);
+  if (params.priceMin) sp.set('priceMin', params.priceMin);
+  if (params.priceMax) sp.set('priceMax', params.priceMax);
+  return sp.toString();
+}
+
 const dict = getDictionary('es');
 
 const DEFAULT_PAGE_SIZE = 20;
 
 export default function ProductsListPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { state: authState } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -50,6 +70,26 @@ export default function ProductsListPage() {
   const canEditPrice = (p: Product) => !p.combinations || p.combinations.length === 0;
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
+  // Leer filtros desde URL al montar (para preservar al volver de crear/editar)
+  const hasInitializedFromUrl = useRef(false);
+  useEffect(() => {
+    if (hasInitializedFromUrl.current) return;
+    hasInitializedFromUrl.current = true;
+    const storeId = searchParams.get('storeId') || '';
+    const searchVal = searchParams.get('search') || '';
+    const catId = searchParams.get('categoryId') || '';
+    const pMin = searchParams.get('priceMin') || '';
+    const pMax = searchParams.get('priceMax') || '';
+    if (storeId) setSelectedStoreId(storeId);
+    if (searchVal) {
+      setSearchInput(searchVal);
+      setSearch(searchVal);
+    }
+    if (catId) setCategoryId(catId);
+    if (pMin) setPriceMin(pMin);
+    if (pMax) setPriceMax(pMax);
+  }, [searchParams]);
+
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
@@ -61,15 +101,41 @@ export default function ProductsListPage() {
     }
   }, [authState.stores, selectedStoreId]);
 
+  // Sincronizar filtros a la URL para preservar al navegar a crear/editar
+  useEffect(() => {
+    const q = buildProductsListQuery({
+      storeId: selectedStoreId || undefined,
+      search: search.trim() || undefined,
+      categoryId: categoryId || undefined,
+      priceMin: priceMin || undefined,
+      priceMax: priceMax || undefined,
+    });
+    const newUrl = q ? `/admin/products?${q}` : '/admin/products';
+    if (typeof window !== 'undefined' && window.location.pathname === '/admin/products') {
+      const current = window.location.search ? `?${window.location.search}` : '';
+      const target = q ? `?${q}` : '';
+      if (current !== target) {
+        router.replace(newUrl, { scroll: false });
+      }
+    }
+  }, [selectedStoreId, search, categoryId, priceMin, priceMax, router]);
+
   useEffect(() => {
     if (!selectedStoreId) {
       setCategories([]);
       setCategoryId('');
       return;
     }
-    setCategoryId('');
+    // Preservar categoryId de la URL cuando la tienda coincide (filtros desde URL)
+    const storeFromUrl = searchParams.get('storeId');
+    const catFromUrl = searchParams.get('categoryId');
+    if (storeFromUrl === selectedStoreId && catFromUrl) {
+      setCategoryId(catFromUrl);
+    } else {
+      setCategoryId('');
+    }
     getCategoriesForAdmin(selectedStoreId).then(setCategories).catch(() => setCategories([]));
-  }, [selectedStoreId]);
+  }, [selectedStoreId, searchParams]);
 
   const loadProducts = useCallback(async () => {
     if (!selectedStoreId) {
@@ -440,7 +506,10 @@ export default function ProductsListPage() {
           )}
         </div>
         {hasPermission('products.create') && (
-          <Link href="/admin/products/create" className="w-full sm:w-auto">
+          <Link
+            href={`/admin/products/create${(selectedStoreId || search || categoryId || priceMin || priceMax) ? `?${buildProductsListQuery({ storeId: selectedStoreId, search, categoryId, priceMin, priceMax })}` : ''}`}
+            className="w-full sm:w-auto"
+          >
             <Button variant="primary" className="h-11 w-full justify-center sm:h-auto sm:w-auto" title="Crear un nuevo producto">
               <Plus className="h-4 w-4 mr-2" />
               {dict.admin.navigation.createProduct}
@@ -600,7 +669,9 @@ export default function ProductsListPage() {
               Limpiar filtros
             </Button>
           ) : hasPermission('products.create') ? (
-            <Link href="/admin/products/create">
+            <Link
+              href={`/admin/products/create${(selectedStoreId || search || categoryId || priceMin || priceMax) ? `?${buildProductsListQuery({ storeId: selectedStoreId, search, categoryId, priceMin, priceMax })}` : ''}`}
+            >
               <Button variant="primary" className="h-11 min-w-[180px] gap-2 px-5">
                 <Plus className="h-4 w-4" />
                 {dict.admin.navigation.createProduct}
@@ -764,7 +835,7 @@ export default function ProductsListPage() {
                       <>
                     {/* Fila 1: Editar (más prominente) */}
                     <Link
-                      href={`/admin/products/${product.id}/edit`}
+                      href={`/admin/products/${product.id}/edit${(selectedStoreId || search || categoryId || priceMin || priceMax) ? `?${buildProductsListQuery({ storeId: selectedStoreId, search, categoryId, priceMin, priceMax })}` : ''}`}
                       className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 border-b border-neutral-700/60"
                       title="Editar toda la información del producto"
                     >
@@ -998,7 +1069,7 @@ export default function ProductsListPage() {
                     <>
                   {/* Editar (más prominente) */}
                   <Link
-                    href={`/admin/products/${product.id}/edit`}
+                    href={`/admin/products/${product.id}/edit${(selectedStoreId || search || categoryId || priceMin || priceMax) ? `?${buildProductsListQuery({ storeId: selectedStoreId, search, categoryId, priceMin, priceMax })}` : ''}`}
                     className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-b border-neutral-700/60"
                     title="Editar toda la información del producto"
                   >

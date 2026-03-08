@@ -3,18 +3,61 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { getReceivables, getPendingTotal, updateReceivable, createReceivablePayment, getReceivablePayments, hasReceivablesWhatsAppReminderFeature, sendReceivableReminders, bulkUpdateReceivableStatus } from '@/lib/services/receivables';
+import { getReceivables, getPendingTotal, updateReceivable, createReceivablePayment, getReceivablePayments, createReceivableAttachment, hasReceivablesWhatsAppReminderFeature, sendReceivableReminders, bulkUpdateReceivableStatus, getReceivableLogs, type ReceivableLogEntry } from '@/lib/services/receivables';
 import { getRequestById } from '@/lib/services/requests';
 import type { Receivable, ReceivableStatus } from '@/types/receivable';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Plus, Loader2, Eye, FileText, ShoppingBag, ChevronLeft, ChevronRight, Check, X, Download, Wallet, MessageCircle, CheckSquare, Square } from 'lucide-react';
+import { Receipt, Plus, Loader2, Eye, FileText, ShoppingBag, ChevronLeft, ChevronRight, Check, X, Download, Wallet, MessageCircle, CheckSquare, Square, Clock, Paperclip, Upload } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { openWhatsAppForReceivable } from '@/lib/utils/whatsapp';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 
 const PAGE_SIZE = 20;
+
+const ACTION_LABELS: Record<string, string> = {
+  created: 'Cuenta creada',
+  paid_initial: 'Abono inicial registrado',
+  items_updated: 'Productos actualizados',
+  reopened: 'Cuenta reabierta',
+  status_paid: 'Marcada como cobrada',
+  status_cancelled: 'Marcada como cancelada',
+  updated: 'Información actualizada',
+  payment_added: 'Abono registrado',
+  payment_deleted: 'Abono eliminado',
+  reopened_after_payment_deleted: 'Reabierta tras eliminar abono',
+  reminder_sent: 'Recordatorio enviado por WhatsApp',
+};
+
+function formatLogAction(log: ReceivableLogEntry): string {
+  const label = ACTION_LABELS[log.action] ?? log.action;
+  const d = log.details as Record<string, unknown> | null | undefined;
+  if (!d || typeof d !== 'object') return label;
+  if (log.action === 'payment_added' && typeof d.amount === 'number') {
+    const curr = (d.currency as string) ?? 'USD';
+    return `${label}: ${curr} ${d.amount.toFixed(2)}`;
+  }
+  if (log.action === 'reminder_sent' && d.phone) {
+    return `${label} a ${String(d.phone)}`;
+  }
+  if (log.action === 'items_updated' && typeof d.newTotal === 'number') {
+    return `${label} (total: ${d.newTotal.toFixed(2)})`;
+  }
+  if (log.action === 'created' && typeof d.amount === 'number') {
+    const curr = (d.currency as string) ?? 'USD';
+    const fromReq = d.fromRequest ? ' desde pedido' : '';
+    return `${label}${fromReq}: ${curr} ${d.amount.toFixed(2)}`;
+  }
+  if (log.action === 'paid_initial' && typeof d.amount === 'number') {
+    const curr = (d.currency as string) ?? 'USD';
+    return `${label}: ${curr} ${d.amount.toFixed(2)}`;
+  }
+  if ((log.action === 'status_paid' || log.action === 'status_cancelled') && d.previousStatus && d.newStatus) {
+    return `${label} (${String(d.previousStatus)} → ${String(d.newStatus)})`;
+  }
+  return label;
+}
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
   pending: {
@@ -110,6 +153,7 @@ export default function ReceivablesPage() {
   const [paymentModalReceivable, setPaymentModalReceivable] = useState<Receivable | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [addingPayment, setAddingPayment] = useState(false);
   const [openingWhatsAppId, setOpeningWhatsAppId] = useState<string | null>(null);
 
@@ -133,6 +177,14 @@ export default function ReceivablesPage() {
     skippedCount: number;
   }>({ open: false, action: null, pendingReceivables: [], skippedCount: 0 });
 
+  const [activityLogReceivable, setActivityLogReceivable] = useState<Receivable | null>(null);
+  const [activityLogs, setActivityLogs] = useState<ReceivableLogEntry[]>([]);
+  const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
+
+  const [uploadAfterPaidReceivable, setUploadAfterPaidReceivable] = useState<Receivable | null>(null);
+  const [uploadAfterPaidFile, setUploadAfterPaidFile] = useState<File | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
   useEffect(() => {
     if (authState.stores.length === 1 && !selectedStoreId) {
       setSelectedStoreId(authState.stores[0].id);
@@ -146,6 +198,18 @@ export default function ReceivablesPage() {
     }, 400);
     return () => clearTimeout(t);
   }, [customerSearch]);
+
+  useEffect(() => {
+    if (!activityLogReceivable || !selectedStoreId) {
+      setActivityLogs([]);
+      return;
+    }
+    setLoadingActivityLogs(true);
+    getReceivableLogs(activityLogReceivable.id, selectedStoreId)
+      .then((logs) => setActivityLogs(logs ?? []))
+      .catch(() => setActivityLogs([]))
+      .finally(() => setLoadingActivityLogs(false));
+  }, [activityLogReceivable, selectedStoreId]);
 
   const loadReceivables = useCallback(async () => {
     if (!selectedStoreId) {
@@ -216,6 +280,7 @@ export default function ReceivablesPage() {
           text: newStatus === 'paid' ? 'Marcada como cobrada' : 'Cuenta cancelada',
         });
         getPendingTotal(selectedStoreId).then((p) => setPendingTotalByCurrency(p.byCurrency));
+        if (newStatus === 'paid') setUploadAfterPaidReceivable(updated);
       } else {
         setMessage({ type: 'error', text: 'No se pudo actualizar el estado' });
       }
@@ -227,6 +292,33 @@ export default function ReceivablesPage() {
     } finally {
       setUpdatingId(null);
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleUploadAttachmentFromList = async (file: File) => {
+    if (!uploadAfterPaidReceivable || !selectedStoreId) return;
+    setUploadingAttachment(true);
+    setMessage(null);
+    try {
+      const att = await createReceivableAttachment(
+        uploadAfterPaidReceivable.id,
+        selectedStoreId,
+        file
+      );
+      if (att) {
+        setMessage({ type: 'success', text: 'Comprobante subido correctamente' });
+        setUploadAfterPaidReceivable(null);
+        setUploadAfterPaidFile(null);
+      } else {
+        setMessage({ type: 'error', text: 'No se pudo subir el archivo' });
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Error al subir el comprobante',
+      });
+    } finally {
+      setUploadingAttachment(false);
     }
   };
 
@@ -492,6 +584,7 @@ export default function ReceivablesPage() {
         amount: amountNum,
         currency: paymentModalReceivable.currency,
         notes: paymentNotes.trim() || undefined,
+        file: paymentFile ?? undefined,
       });
       if (result) {
         setReceivables((prev) =>
@@ -500,6 +593,7 @@ export default function ReceivablesPage() {
         setPaymentModalReceivable(null);
         setPaymentAmount('');
         setPaymentNotes('');
+        setPaymentFile(null);
         setMessage({
           type: 'success',
           text: result.receivable.status === 'paid'
@@ -799,7 +893,7 @@ export default function ReceivablesPage() {
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
                 style={{ minHeight: '100dvh' }}
-                onClick={() => !addingPayment && (setPaymentModalReceivable(null), setPaymentAmount(''), setPaymentNotes(''))}
+                onClick={() => !addingPayment && (setPaymentModalReceivable(null), setPaymentAmount(''), setPaymentNotes(''), setPaymentFile(null))}
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -820,6 +914,7 @@ export default function ReceivablesPage() {
                       setPaymentModalReceivable(null);
                       setPaymentAmount('');
                       setPaymentNotes('');
+                      setPaymentFile(null);
                     }
                   }}
                   disabled={addingPayment}
@@ -864,6 +959,19 @@ export default function ReceivablesPage() {
                     className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                   />
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-400">Comprobante (opcional)</label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 py-2.5 text-sm text-neutral-300 hover:border-neutral-600">
+                    <Paperclip className="h-4 w-4" />
+                    <span>{paymentFile ? paymentFile.name : 'Subir imagen o PDF'}</span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => setPaymentFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                </div>
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     type="submit"
@@ -888,6 +996,7 @@ export default function ReceivablesPage() {
                         setPaymentModalReceivable(null);
                         setPaymentAmount('');
                         setPaymentNotes('');
+                        setPaymentFile(null);
                       }
                     }}
                     disabled={addingPayment}
@@ -896,6 +1005,80 @@ export default function ReceivablesPage() {
                   </Button>
                 </div>
               </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* Modal: ¿Subir comprobante? (después de marcar como cobrada desde la lista) */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {uploadAfterPaidReceivable && selectedStoreId && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4"
+                onClick={() => !uploadingAttachment && (setUploadAfterPaidReceivable(null), setUploadAfterPaidFile(null))}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="my-auto w-full max-w-md shrink-0 rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+                >
+                  <h3 className="mb-2 text-lg font-medium text-neutral-100 flex items-center gap-2">
+                    <Paperclip className="h-5 w-5 text-primary-400" />
+                    ¿Subir comprobante?
+                  </h3>
+                  <p className="mb-2 text-sm text-neutral-400">
+                    {uploadAfterPaidReceivable.customerName || 'Sin nombre'}
+                    {uploadAfterPaidReceivable.receivableNumber != null && (
+                      <span className="ml-2 text-neutral-500">· Cuenta #{uploadAfterPaidReceivable.receivableNumber}</span>
+                    )}
+                  </p>
+                  <p className="mb-4 text-sm text-neutral-500">
+                    Puedes adjuntar una imagen o PDF como respaldo del pago.
+                  </p>
+                  <div className="space-y-3">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600">
+                      <Upload className="h-4 w-4" />
+                      <span>{uploadAfterPaidFile ? uploadAfterPaidFile.name : 'Seleccionar imagen o PDF'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => setUploadAfterPaidFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={!uploadAfterPaidFile || uploadingAttachment}
+                        onClick={() => uploadAfterPaidFile && handleUploadAttachmentFromList(uploadAfterPaidFile)}
+                        className="inline-flex items-center gap-2"
+                      >
+                        {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Subir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setUploadAfterPaidReceivable(null);
+                          setUploadAfterPaidFile(null);
+                        }}
+                        disabled={uploadingAttachment}
+                      >
+                        Omitir
+                      </Button>
+                    </div>
+                  </div>
                 </motion.div>
               </motion.div>
             )}
@@ -1156,6 +1339,110 @@ export default function ReceivablesPage() {
                     >
                       Volver
                     </Button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* Modal historial de actividades */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {activityLogReceivable && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+                style={{ minHeight: '100dvh' }}
+                onClick={() => setActivityLogReceivable(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="my-auto w-full max-w-lg shrink-0 max-h-[90dvh] overflow-hidden rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl flex flex-col"
+                >
+                  <div className="flex items-center justify-between border-b border-neutral-700/60 p-4">
+                    <h3 className="text-lg font-medium text-neutral-100 flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-primary-400" />
+                      Historial de actividades
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setActivityLogReceivable(null)}
+                      className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                      aria-label="Cerrar"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p className="px-4 py-2 text-sm text-neutral-400 border-b border-neutral-700/60">
+                    {activityLogReceivable.customerName || 'Sin nombre'}
+                    {activityLogReceivable.receivableNumber != null && (
+                      <span className="ml-2 text-neutral-500">· Cuenta #{activityLogReceivable.receivableNumber}</span>
+                    )}
+                  </p>
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {loadingActivityLogs ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+                      </div>
+                    ) : activityLogs.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-neutral-500">No hay actividades registradas</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {activityLogs.map((log, idx) => (
+                          <div
+                            key={log.id}
+                            className={cn(
+                              'rounded-xl border p-3',
+                              idx === 0 ? 'border-primary-500/30 bg-primary-500/5' : 'border-neutral-700/60 bg-neutral-800/30'
+                            )}
+                          >
+                            <p className="text-sm font-medium text-neutral-100">
+                              {formatLogAction(log)}
+                            </p>
+                            <p className="mt-1 text-xs text-neutral-500">
+                              {(log.userName || log.userEmail) && (
+                                <span className="text-neutral-400">{log.userName || log.userEmail}</span>
+                              )}
+                              <span className="ml-1">
+                                {new Date(log.createdAt).toLocaleString('es-ES', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })}
+                              </span>
+                            </p>
+                            {log.action === 'payment_added' && (log.details as Record<string, unknown>)?.notes != null && (
+                              <p className="mt-1 text-xs text-neutral-400">Nota: {String((log.details as Record<string, unknown>).notes)}</p>
+                            )}
+                            {log.action === 'updated' && (log.details as Record<string, unknown>) && Object.keys(log.details as object).length > 0 && (
+                              <div className="mt-1.5 space-y-0.5 text-xs text-neutral-400">
+                                {Object.entries(log.details as Record<string, unknown>)
+                                  .filter(([k]) => !['storeId'].includes(k))
+                                  .map(([k, v]) => (
+                                    <p key={k}>
+                                      <span className="text-neutral-500">{k}:</span> {String(v ?? '—')}
+                                    </p>
+                                  ))}
+                              </div>
+                            )}
+                            {log.action === 'reminder_sent' && (log.details as Record<string, unknown>)?.template != null && (
+                              <p className="mt-1 text-xs text-neutral-400">Plantilla: {String((log.details as Record<string, unknown>).template)}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </motion.div>
@@ -1489,6 +1776,15 @@ export default function ReceivablesPage() {
                   <div className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActivityLogReceivable(rec)}
+                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-600/60 bg-neutral-800/50 text-neutral-400 transition-colors hover:border-primary-500/50 hover:bg-primary-500/10 hover:text-primary-400"
+                          title="Ver historial de actividades"
+                          aria-label="Ver historial de actividades"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
                         {showSelectionUI && (
                         <button
                           type="button"

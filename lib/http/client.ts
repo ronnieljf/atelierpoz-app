@@ -126,12 +126,13 @@ class HttpClient {
 
   /**
    * Construye los headers con el token de autenticación
+   * @param isFormData - Si true, no se establece Content-Type (el navegador lo hace con boundary)
    */
-  private buildHeaders(options?: RequestInit, skipAuth = false): HeadersInit {
+  private buildHeaders(options?: RequestInit, skipAuth = false, isFormData = false): HeadersInit {
     const headers = new Headers(options?.headers);
 
-    // Agregar Content-Type por defecto si no está presente
-    if (!headers.has('Content-Type')) {
+    // Para FormData no establecer Content-Type (el navegador lo hace automáticamente con boundary)
+    if (!headers.has('Content-Type') && !isFormData) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -220,10 +221,11 @@ class HttpClient {
     options: RequestOptions = {}
   ): Promise<ApiResponse<T>> {
     const { params, skipAuth, ...fetchOptions } = options;
+    const isFormData = fetchOptions.body instanceof FormData;
 
     try {
       const fullURL = this.buildURL(url, params);
-      const headers = this.buildHeaders(fetchOptions, skipAuth);
+      const headers = this.buildHeaders(fetchOptions, skipAuth, isFormData);
 
       const response = await fetch(fullURL, {
         ...fetchOptions,
@@ -261,7 +263,7 @@ class HttpClient {
     return this.request<T>(url, {
       ...options,
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
     });
   }
 

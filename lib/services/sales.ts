@@ -7,6 +7,13 @@ import type { Sale, SaleItem, POSProduct, CreateSaleData } from '@/types/sale';
 
 export type { Sale, SaleItem, POSProduct, CreateSaleData };
 
+function normalizePOSProducts(products: Array<POSProduct & { images?: string[] }>): POSProduct[] {
+  return products.map((p) => ({
+    ...p,
+    imageUrl: p.imageUrl ?? p.images?.[0] ?? undefined,
+  }));
+}
+
 /**
  * Obtener top productos más vendidos (para búsqueda local rápida)
  */
@@ -20,7 +27,9 @@ export async function getTopSoldProducts(
   const response = await httpClient.get<{ success: boolean; products: POSProduct[] }>(
     `/api/sales/top-products?${params.toString()}`
   );
-  return response.success && response.data?.products ? response.data.products : [];
+  return response.success && response.data?.products
+    ? normalizePOSProducts(response.data.products)
+    : [];
 }
 
 /**
@@ -38,7 +47,9 @@ export async function searchProductsForPOS(
   const response = await httpClient.get<{ success: boolean; products: POSProduct[] }>(
     `/api/sales/products?${params.toString()}`
   );
-  return response.success && response.data?.products ? response.data.products : [];
+  return response.success && response.data?.products
+    ? normalizePOSProducts(response.data.products)
+    : [];
 }
 
 /**
@@ -53,7 +64,9 @@ export async function getProductPOSOptions(
   const response = await httpClient.get<{ success: boolean; products: POSProduct[] }>(
     `/api/sales/products/${encodeURIComponent(productId)}/options?${params.toString()}`
   );
-  return response.success && response.data?.products ? response.data.products : [];
+  return response.success && response.data?.products
+    ? normalizePOSProducts(response.data.products)
+    : [];
 }
 
 /**

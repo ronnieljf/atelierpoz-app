@@ -5,10 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createReceivable, createReceivableFromRequest } from '@/lib/services/receivables';
 import { getRequests, getRequestById, type Request } from '@/lib/services/requests';
-import { getClients, type Client } from '@/lib/services/clients';
+import { getClients, createClient, type Client } from '@/lib/services/clients';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Receipt, ArrowLeft, Loader2, FileText, ShoppingBag, Check, ChevronLeft, ChevronRight, UserCircle, X } from 'lucide-react';
+import { Receipt, ArrowLeft, Loader2, FileText, ShoppingBag, Check, ChevronLeft, ChevronRight, UserCircle, X, Paperclip, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 const REQUESTS_PAGE_SIZE = 15;
@@ -48,6 +48,7 @@ export default function CreateReceivablePage() {
   const [creatingFromRequest, setCreatingFromRequest] = useState(false);
   const [initialPaymentAmount, setInitialPaymentAmount] = useState('');
   const [initialPaymentNotes, setInitialPaymentNotes] = useState('');
+  const [initialPaymentFile, setInitialPaymentFile] = useState<File | null>(null);
 
   // Selector de cliente existente (solo cuenta manual)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -59,6 +60,15 @@ export default function CreateReceivablePage() {
   const [recentClients, setRecentClients] = useState<Client[]>([]);
   const [recentClientsTotal, setRecentClientsTotal] = useState(0);
   const [initialClientsLoaded, setInitialClientsLoaded] = useState(false);
+  // Modal crear cliente
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientCedulaPrefix, setNewClientCedulaPrefix] = useState<'V' | 'E'>('V');
+  const [newClientCedulaNumber, setNewClientCedulaNumber] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientAddress, setNewClientAddress] = useState('');
+  const [creatingClient, setCreatingClient] = useState(false);
 
   useEffect(() => {
     if (authState.stores.length === 1 && !storeId) {
@@ -228,6 +238,66 @@ export default function CreateReceivablePage() {
     if (fromRequest && storeId && !fromPedidosModule) loadRequestsList();
   }, [fromRequest, storeId, fromPedidosModule, loadRequestsList]);
 
+  const openNewClientModal = () => {
+    setNewClientName(customerName.trim());
+    setNewClientPhone(customerPhone.trim());
+    setNewClientCedulaPrefix('V');
+    setNewClientCedulaNumber('');
+    setNewClientEmail('');
+    setNewClientAddress('');
+    setShowNewClientModal(true);
+  };
+
+  const handleNewClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!storeId) return;
+    const name = newClientName.trim();
+    const phone = newClientPhone.trim();
+    const cedulaNum = newClientCedulaNumber.trim();
+    if (!cedulaNum) {
+      setMessage({ type: 'error', text: 'La cédula de identidad es obligatoria' });
+      return;
+    }
+    if (!name && !phone && !newClientEmail.trim()) {
+      setMessage({ type: 'error', text: 'Indica al menos nombre, teléfono o email' });
+      return;
+    }
+    const cedula = `${newClientCedulaPrefix}-${cedulaNum}`;
+    setCreatingClient(true);
+    setMessage(null);
+    try {
+      const client = await createClient({
+        storeId,
+        identityDocument: cedula,
+        name: name || undefined,
+        phone: phone || undefined,
+        email: newClientEmail.trim() || undefined,
+        address: newClientAddress.trim() || undefined,
+      });
+      setSelectedClient(client);
+      setCustomerName(client.name ?? '');
+      setCustomerPhone(client.phone ?? '');
+      setRecentClients((prev) => [client, ...prev.filter((c) => c.id !== client.id)].slice(0, 100));
+      setClientSearch('');
+      setShowClientDropdown(false);
+      setShowNewClientModal(false);
+      setNewClientName('');
+      setNewClientPhone('');
+      setNewClientCedulaPrefix('V');
+      setNewClientCedulaNumber('');
+      setNewClientEmail('');
+      setNewClientAddress('');
+      setMessage({ type: 'success', text: 'Cliente creado. Puedes continuar con la cuenta por cobrar.' });
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al crear cliente',
+      });
+    } finally {
+      setCreatingClient(false);
+    }
+  };
+
   const handleSubmitManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeId) {
@@ -242,6 +312,14 @@ export default function CreateReceivablePage() {
     setSubmitting(true);
     setMessage(null);
     try {
+      const initialPayment =
+        initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0
+          ? {
+              amount: parseFloat(initialPaymentAmount),
+              notes: initialPaymentNotes.trim() || undefined,
+              file: initialPaymentFile || undefined,
+            }
+          : undefined;
       const receivable = await createReceivable({
         storeId,
         customerName: customerName.trim() || undefined,
@@ -249,6 +327,7 @@ export default function CreateReceivablePage() {
         description: description.trim() || undefined,
         amount: amountNum,
         currency,
+        initialPayment,
       });
       if (receivable) {
         setMessage({ type: 'success', text: 'Cuenta por cobrar creada correctamente' });
@@ -286,7 +365,11 @@ export default function CreateReceivablePage() {
     try {
       const initialPayment =
         initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0
-          ? { amount: parseFloat(initialPaymentAmount), notes: initialPaymentNotes.trim() || undefined }
+          ? {
+              amount: parseFloat(initialPaymentAmount),
+              notes: initialPaymentNotes.trim() || undefined,
+              file: initialPaymentFile || undefined,
+            }
           : undefined;
       const receivable = await createReceivableFromRequest({
         storeId,
@@ -623,6 +706,25 @@ export default function CreateReceivablePage() {
                         />
                       </div>
                     </div>
+                    {parseFloat(initialPaymentAmount) > 0 && (
+                      <div className="mt-2">
+                        <label className="mb-1 block text-[11px] font-medium text-neutral-400">
+                          Comprobante del abono (opcional)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setInitialPaymentFile(e.target.files?.[0] ?? null)}
+                          className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
+                        />
+                        {initialPaymentFile && (
+                          <p className="mt-1 text-xs text-neutral-500">
+                            <Paperclip className="mr-1 inline h-3 w-3" />
+                            {initialPaymentFile.name}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="primary"
@@ -666,9 +768,21 @@ export default function CreateReceivablePage() {
 
           {storeId && (
             <div className="rounded-xl border border-neutral-700/80 bg-neutral-800/30 p-4">
-              <p className="mb-3 text-sm font-medium text-neutral-300">Cliente</p>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-neutral-300">Cliente</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openNewClientModal}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Crear cliente
+                </Button>
+              </div>
               <p className="mb-3 text-xs text-neutral-500">
-                Si el cliente ya está en la cartera, búscalo y selecciónalo para rellenar nombre y teléfono. Si no, ingresa los datos abajo manualmente.
+                Si el cliente ya está en la cartera, búscalo y selecciónalo para rellenar nombre y teléfono. Si no, ingresa los datos abajo manualmente o créalo con el botón anterior.
               </p>
               {selectedClient ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 px-3 py-2.5">
@@ -839,6 +953,25 @@ export default function CreateReceivablePage() {
                 />
               </div>
             </div>
+            {parseFloat(initialPaymentAmount) > 0 && (
+              <div className="mt-3">
+                <label className="mb-1 block text-xs font-medium text-neutral-400">
+                  Comprobante del abono (opcional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setInitialPaymentFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
+                />
+                {initialPaymentFile && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    <Paperclip className="mr-1 inline h-3 w-3" />
+                    {initialPaymentFile.name}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3 border-t border-neutral-800 pt-6">
@@ -862,6 +995,100 @@ export default function CreateReceivablePage() {
             </Link>
           </div>
         </form>
+      )}
+
+      {/* Modal: crear cliente */}
+      {showNewClientModal && !fromRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-medium text-neutral-100">Nuevo cliente</h3>
+              <button
+                type="button"
+                onClick={() => setShowNewClientModal(false)}
+                className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleNewClient} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-neutral-400">Nombre</label>
+                <input
+                  type="text"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  placeholder="Ej: María García"
+                  className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-neutral-400">Teléfono</label>
+                <input
+                  type="text"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  placeholder="Ej: +58 412 1234567"
+                  className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-neutral-400">Cédula de identidad *</label>
+                <div className="flex gap-2">
+                  <select
+                    value={newClientCedulaPrefix}
+                    onChange={(e) => setNewClientCedulaPrefix(e.target.value as 'V' | 'E')}
+                    className="h-10 w-14 shrink-0 rounded-lg border border-neutral-700 bg-neutral-800 px-2 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  >
+                    <option value="V">V</option>
+                    <option value="E">E</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={newClientCedulaNumber}
+                    onChange={(e) => setNewClientCedulaNumber(e.target.value)}
+                    required
+                    placeholder="12345678"
+                    className="h-10 flex-1 min-w-0 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-neutral-400">Email (opcional)</label>
+                <input
+                  type="email"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  placeholder="cliente@ejemplo.com"
+                  className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-neutral-400">Dirección (opcional)</label>
+                <input
+                  type="text"
+                  value={newClientAddress}
+                  onChange={(e) => setNewClientAddress(e.target.value)}
+                  placeholder="Ej: Av. Principal 123"
+                  className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowNewClientModal(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={creatingClient} className="flex-1">
+                  {creatingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crear cliente'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm text-neutral-500">

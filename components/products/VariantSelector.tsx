@@ -24,8 +24,8 @@ export function VariantSelector({
   const isSize = attribute.type === 'size';
   
   return (
-    <div className="mb-4 bg-neutral-900/30 rounded-xl p-4 border border-neutral-700">
-      <label className="mb-3 block text-base font-medium text-neutral-200">
+    <div className="mb-4">
+      <label className="mb-2 block text-sm font-medium text-neutral-300">
         {attribute.name}
         {attribute.required && (
           <span className="ml-2 text-primary-400 text-sm">* {dict.product.required}</span>
@@ -110,7 +110,7 @@ export function VariantSelector({
       </div>
       
       {selectedVariantId && (
-        <p className="mt-2 text-xs font-light text-neutral-400">
+        <p className="mt-1.5 text-xs text-neutral-500">
           {dict.product.selectVariant}: {
             attribute.variants.find(v => v.id === selectedVariantId)?.name
           }
