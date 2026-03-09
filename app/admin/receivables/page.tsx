@@ -688,31 +688,56 @@ export default function ReceivablesPage() {
       };
       const statusLabel = (s: string) => (STATUS_LABELS[s]?.label ?? s);
       const formatDate = (v: string | null) =>
-        v ? new Date(v).toLocaleString('es-ES') : '';
+        v ? new Date(v).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+      const formatDateTime = (v: string | null) =>
+        v ? new Date(v).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
       const header = [
+        'Cuenta',
+        'Factura',
         'Cliente',
-        'Tel',
-        'Desc',
+        'Teléfono',
+        'Descripción',
         'Monto',
         'Moneda',
+        'Abonos',
+        'Saldo pendiente',
+        'Interés mora',
+        'Total con interés',
         'Origen',
+        'Fecha vencimiento',
         'Estado',
+        'Productos',
         'Creado',
-        'Cobro',
+        'Última actualización',
+        'Fecha cobro',
       ].join(',');
-      const dataRows = rows.map((r) =>
-        [
-          escapeCsv(r.customerName),
-          escapeCsv(r.customerPhone),
-          escapeCsv(r.description),
-          r.amount,
+      const dataRows = rows.map((r) => {
+        const totalPaid = r.totalPaid ?? 0;
+        const balance = Math.max(0, r.amount - totalPaid);
+        const origin = r.requestId
+          ? (r.orderNumber != null ? `Pedido #${r.orderNumber}` : 'Pedido')
+          : 'Manual';
+        return [
+          escapeCsv(r.receivableNumber != null ? String(r.receivableNumber) : ''),
+          escapeCsv(r.invoiceNumber ?? ''),
+          escapeCsv(r.customerName ?? ''),
+          escapeCsv(r.customerPhone ?? ''),
+          escapeCsv(r.description ?? ''),
+          r.amount.toFixed(2),
           r.currency,
-          r.requestId ? (r.orderNumber != null ? `Pedido #${r.orderNumber}` : 'Pedido') : 'Manual',
+          totalPaid.toFixed(2),
+          balance.toFixed(2),
+          r.interestAmount != null ? r.interestAmount.toFixed(2) : '',
+          r.totalWithInterest != null ? r.totalWithInterest.toFixed(2) : '',
+          escapeCsv(origin),
+          escapeCsv(formatDate(r.dueDate ?? null)),
           statusLabel(r.status),
-          escapeCsv(formatDate(r.createdAt)),
+          escapeCsv(r.productNames ?? ''),
+          escapeCsv(formatDateTime(r.createdAt)),
+          escapeCsv(formatDateTime(r.updatedAt)),
           escapeCsv(formatDate(r.paidAt)),
-        ].join(',')
-      );
+        ].join(',');
+      });
       const csv = '\uFEFF' + header + '\n' + dataRows.join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
