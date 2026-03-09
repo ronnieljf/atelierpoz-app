@@ -30,6 +30,72 @@ export interface Receivable {
   orderNumber?: number | null;
   /** Suma de abonos registrados (solo en listado cuando el backend lo incluye). */
   totalPaid?: number;
+  /** Nombres de productos resumidos (para el listado), si la cuenta viene de un pedido. */
+  productNames?: string | null;
+  /** Número de factura asociado (opcional). */
+  invoiceNumber?: string | null;
+  /** Fecha de vencimiento (opcional). */
+  dueDate?: string | null;
+}
+
+/** Recordatorio programable por cuenta por cobrar */
+export interface ReceivableReminder {
+  id: string;
+  receivableId: string;
+  storeId: string;
+  customerName: string | null;
+  storeName: string | null;
+  invoiceOrAccount: string | null;
+  fechaVencimiento: string | null;
+  datosPagomovil: string | null;
+  datosTransferencia: string | null;
+  datosBinance: string | null;
+  datosContacto: string | null;
+  fechaEnvio: string | null;
+  /** true si es recordatorio por mora (atraso) */
+  esMora?: boolean;
+  /** Cuántas veces se repetirá automáticamente (0 = no repetir) */
+  repetirVeces?: number;
+  /** Cada cuántos días se repetirá (0 = no repetir) */
+  repetirCadaDias?: number;
+  status: 'pending' | 'sent' | 'cancelled';
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReceivableReminderData {
+  storeId: string;
+  receivableId: string;
+  fechaEnvio: string; // YYYY-MM-DD
+  customerName?: string;
+  storeName?: string;
+  invoiceOrAccount?: string;
+  fechaVencimiento?: string;
+  datosPagomovil?: string;
+  datosTransferencia?: string;
+  datosBinance?: string;
+  datosContacto?: string;
+  esMora?: boolean;
+  repetirVeces?: number;
+  repetirCadaDias?: number;
+}
+
+export interface UpdateReceivableReminderData {
+  storeId: string;
+  customerName?: string;
+  storeName?: string;
+  invoiceOrAccount?: string;
+  fechaVencimiento?: string;
+  fechaEnvio?: string;
+  datosPagomovil?: string;
+  datosTransferencia?: string;
+  datosBinance?: string;
+  datosContacto?: string;
+  esMora?: boolean;
+  repetirVeces?: number;
+  repetirCadaDias?: number;
+  status?: 'pending' | 'sent' | 'cancelled';
 }
 
 export interface InitialPaymentData {
@@ -46,8 +112,13 @@ export interface CreateReceivableData {
   description?: string;
   amount: number;
   currency?: string;
+  invoiceNumber?: string;
+  /** Fecha de vencimiento (YYYY-MM-DD) opcional */
+  dueDate?: string | null;
   /** Abono inicial opcional al crear la cuenta */
   initialPayment?: InitialPaymentData;
+  /** Comprobante opcional (imagen o PDF) sin abono. Si hay abono, se envía en initialPayment.file */
+  file?: File | null;
 }
 
 export interface CreateReceivableFromRequestData {
@@ -58,8 +129,14 @@ export interface CreateReceivableFromRequestData {
   customerPhone?: string;
   /** Monto total de la cuenta (por defecto el total del pedido). Permite ajustar sin modificar el pedido. */
   amount?: number;
+  /** Número de factura asociado (opcional). */
+  invoiceNumber?: string;
+  /** Fecha de vencimiento (YYYY-MM-DD) opcional */
+  dueDate?: string | null;
   /** Abono inicial opcional al crear la cuenta */
   initialPayment?: InitialPaymentData;
+  /** Comprobante opcional (imagen o PDF) sin abono. Si hay abono, se envía en initialPayment.file */
+  file?: File | null;
 }
 
 export interface UpdateReceivableData {
@@ -69,6 +146,8 @@ export interface UpdateReceivableData {
   description?: string;
   amount?: number;
   currency?: string;
+  /** Fecha de vencimiento (YYYY-MM-DD) */
+  dueDate?: string | null;
   status?: ReceivableStatus;
 }
 

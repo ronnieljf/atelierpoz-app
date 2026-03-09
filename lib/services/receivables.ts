@@ -10,6 +10,9 @@ import type {
   UpdateReceivableData,
   ReceivablePayment,
   CreateReceivablePaymentData,
+  ReceivableReminder,
+  CreateReceivableReminderData,
+  UpdateReceivableReminderData,
 } from '@/types/receivable';
 
 /** Respuesta de la API puede venir en snake_case */
@@ -51,6 +54,10 @@ type ApiReceivable = Record<string, unknown> & {
   orderNumber?: unknown;
   total_paid?: unknown;
   totalPaid?: unknown;
+  product_names?: unknown;
+  productNames?: unknown;
+  invoice_number?: unknown;
+  invoiceNumber?: unknown;
 };
 
 function toStringOrNull(v: unknown): string | null {
@@ -101,6 +108,9 @@ function formatReceivable(r: ApiReceivable): Receivable {
           : typeof r.total_paid === 'string'
             ? parseFloat(r.total_paid)
             : undefined,
+    productNames: toStringOrNull(r.productNames ?? r.product_names),
+    invoiceNumber: toStringOrNull(r.invoiceNumber ?? r.invoice_number),
+    dueDate: toStringOrNull(r.dueDate ?? r.due_date),
   };
 }
 
@@ -110,7 +120,16 @@ function formatReceivable(r: ApiReceivable): Receivable {
  */
 export async function getReceivables(
   storeId: string,
-  options?: { status?: string; limit?: number; offset?: number; dateFrom?: string; dateTo?: string; search?: string }
+  options?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    invoiceNumber?: string;
+    source?: 'manual' | 'request';
+  }
 ): Promise<{ receivables: Receivable[]; total: number; totalAmountByCurrency: Record<string, number> }> {
   const params = new URLSearchParams();
   params.set('storeId', storeId);
@@ -120,6 +139,8 @@ export async function getReceivables(
   if (options?.dateFrom) params.set('dateFrom', options.dateFrom);
   if (options?.dateTo) params.set('dateTo', options.dateTo);
   if (options?.search?.trim()) params.set('search', options.search.trim());
+  if (options?.invoiceNumber?.trim()) params.set('invoiceNumber', options.invoiceNumber.trim());
+  if (options?.source) params.set('source', options.source);
 
   const response = await httpClient.get<{
     success: boolean;
@@ -170,13 +191,18 @@ export async function getReceivableById(receivableId: string, storeId: string): 
 
 /**
  * Crear cuenta por cobrar manual.
- * Si initialPayment.file está presente, envía multipart/form-data con el comprobante.
+ * Si initialPayment.file o data.file está presente, envía multipart/form-data con el comprobante.
  */
 export async function createReceivable(data: CreateReceivableData): Promise<Receivable | null> {
-  const hasFile = data.initialPayment?.file && data.initialPayment.file instanceof File;
+  const fileToSend = data.initialPayment?.file && data.initialPayment.file instanceof File
+    ? data.initialPayment.file
+    : data.file && data.file instanceof File
+      ? data.file
+      : null;
+  const hasFile = Boolean(fileToSend);
 
   let body: Record<string, unknown> | FormData;
-  if (hasFile && data.initialPayment?.file) {
+  if (hasFile && fileToSend) {
     const form = new FormData();
     form.append('storeId', data.storeId);
     form.append('amount', String(data.amount));
@@ -184,13 +210,15 @@ export async function createReceivable(data: CreateReceivableData): Promise<Rece
     if (data.customerPhone) form.append('customerPhone', data.customerPhone);
     if (data.description) form.append('description', data.description);
     if (data.currency) form.append('currency', data.currency);
+    if (data.invoiceNumber) form.append('invoiceNumber', data.invoiceNumber);
+    if (data.dueDate) form.append('dueDate', String(data.dueDate).slice(0, 10));
     if (data.initialPayment && data.initialPayment.amount > 0) {
       form.append(
         'initialPayment',
         JSON.stringify({ amount: data.initialPayment.amount, notes: data.initialPayment.notes })
       );
-      form.append('file', data.initialPayment.file);
     }
+    form.append('file', fileToSend);
     body = form;
   } else {
     body = {
@@ -200,6 +228,8 @@ export async function createReceivable(data: CreateReceivableData): Promise<Rece
       description: data.description ?? undefined,
       amount: data.amount,
       currency: data.currency ?? 'USD',
+      invoiceNumber: data.invoiceNumber ?? undefined,
+      dueDate: data.dueDate ?? undefined,
       initialPayment:
         data.initialPayment != null && data.initialPayment.amount > 0
           ? { amount: data.initialPayment.amount, notes: data.initialPayment.notes }
@@ -218,15 +248,20 @@ export async function createReceivable(data: CreateReceivableData): Promise<Rece
 
 /**
  * Crear cuenta por cobrar a partir de un pedido.
- * Si initialPayment.file está presente, envía multipart/form-data con el comprobante.
+ * Si initialPayment.file o data.file está presente, envía multipart/form-data con el comprobante.
  */
 export async function createReceivableFromRequest(
   data: CreateReceivableFromRequestData
 ): Promise<Receivable | null> {
-  const hasFile = data.initialPayment?.file && data.initialPayment.file instanceof File;
+  const fileToSend = data.initialPayment?.file && data.initialPayment.file instanceof File
+    ? data.initialPayment.file
+    : data.file && data.file instanceof File
+      ? data.file
+      : null;
+  const hasFile = Boolean(fileToSend);
 
   let body: Record<string, unknown> | FormData;
-  if (hasFile && data.initialPayment?.file) {
+  if (hasFile && fileToSend) {
     const form = new FormData();
     form.append('storeId', data.storeId);
     form.append('requestId', data.requestId);
@@ -234,13 +269,15 @@ export async function createReceivableFromRequest(
     if (data.customerName) form.append('customerName', data.customerName);
     if (data.customerPhone) form.append('customerPhone', data.customerPhone);
     if (data.amount != null && !Number.isNaN(data.amount)) form.append('amount', String(data.amount));
+    if (data.invoiceNumber) form.append('invoiceNumber', data.invoiceNumber);
+    if (data.dueDate) form.append('dueDate', String(data.dueDate).slice(0, 10));
     if (data.initialPayment && data.initialPayment.amount > 0) {
       form.append(
         'initialPayment',
         JSON.stringify({ amount: data.initialPayment.amount, notes: data.initialPayment.notes })
       );
-      form.append('file', data.initialPayment.file);
     }
+    form.append('file', fileToSend);
     body = form;
   } else {
     body = {
@@ -250,6 +287,8 @@ export async function createReceivableFromRequest(
       customerName: data.customerName ?? undefined,
       customerPhone: data.customerPhone ?? undefined,
       amount: data.amount != null && !Number.isNaN(data.amount) ? data.amount : undefined,
+      invoiceNumber: data.invoiceNumber ?? undefined,
+      dueDate: data.dueDate ?? undefined,
       initialPayment:
         data.initialPayment != null && data.initialPayment.amount > 0
           ? { amount: data.initialPayment.amount, notes: data.initialPayment.notes }
@@ -285,6 +324,7 @@ export async function updateReceivable(
       description: data.description,
       amount: data.amount,
       currency: data.currency,
+      dueDate: data.dueDate ?? null,
       status: data.status,
     }
   );
@@ -695,4 +735,126 @@ export async function bulkUpdateReceivableStatus(
     };
   }
   throw new Error((response as { error?: string }).error ?? 'Error al actualizar el estado');
+}
+
+/** Formatear recordatorio desde API (snake_case → camelCase) */
+function formatReminder(r: Record<string, unknown>): ReceivableReminder {
+  return {
+    id: String(r.id ?? r.id),
+    receivableId: String(r.receivableId ?? r.receivable_id),
+    storeId: String(r.storeId ?? r.store_id),
+    customerName: (r.customerName ?? r.customer_name) as string | null,
+    storeName: (r.storeName ?? r.store_name) as string | null,
+    invoiceOrAccount: (r.invoiceOrAccount ?? r.invoice_or_account) as string | null,
+    fechaVencimiento: (r.fechaVencimiento ?? r.fecha_vencimiento) as string | null,
+    // String vacío si no hay datos, para que el template no dé error
+    datosPagomovil: (r.datosPagomovil ?? r.datos_pagomovil ?? '') as string,
+    datosTransferencia: (r.datosTransferencia ?? r.datos_transferencia ?? '') as string,
+    datosBinance: (r.datosBinance ?? r.datos_binance ?? '') as string,
+    datosContacto: (r.datosContacto ?? r.datos_contacto ?? '') as string,
+    fechaEnvio: (r.fechaEnvio ?? r.fecha_envio) as string | null,
+    esMora: (r.esMora ?? r.es_mora ?? false) as boolean,
+    repetirVeces: (r.repetirVeces ?? r.repetir_veces ?? 0) as number,
+    repetirCadaDias: (r.repetirCadaDias ?? r.repetir_cada_dias ?? 0) as number,
+    status: (r.status as ReceivableReminder['status']) ?? 'pending',
+    sentAt: (r.sentAt ?? r.sent_at) as string | null,
+    createdAt: String(r.createdAt ?? r.created_at),
+    updatedAt: String(r.updatedAt ?? r.updated_at),
+  };
+}
+
+/**
+ * Listar recordatorios programables de una cuenta por cobrar
+ */
+export async function getReceivableReminders(
+  receivableId: string,
+  storeId: string
+): Promise<ReceivableReminder[]> {
+  const response = await httpClient.get<{ success: boolean; reminders: unknown[] }>(
+    `/api/receivables/${receivableId}/reminders?storeId=${encodeURIComponent(storeId)}`
+  );
+  if (response.success && Array.isArray(response.data?.reminders)) {
+    return response.data.reminders.map((r) => formatReminder(r as Record<string, unknown>));
+  }
+  return [];
+}
+
+/**
+ * Obtener datos prellenados para crear un recordatorio
+ */
+export async function getReceivableReminderDefaults(
+  receivableId: string,
+  storeId: string
+): Promise<{
+  customerName: string | null;
+  storeName: string | null;
+  invoiceOrAccount: string | null;
+  fechaVencimiento: string | null;
+  datosContacto: string | null;
+} | null> {
+  const response = await httpClient.get<{ success: boolean; defaults: Record<string, unknown> }>(
+    `/api/receivables/${receivableId}/reminders/defaults?storeId=${encodeURIComponent(storeId)}`
+  );
+  if (response.success && response.data?.defaults) {
+    const d = response.data.defaults;
+    return {
+      customerName: (d.customerName ?? d.customer_name) as string | null,
+      storeName: (d.storeName ?? d.store_name) as string | null,
+      invoiceOrAccount: (d.invoiceOrAccount ?? d.invoice_or_account) as string | null,
+      fechaVencimiento: (d.fechaVencimiento ?? d.fecha_vencimiento) as string | null,
+      datosContacto: (d.datosContacto ?? d.datos_contacto) as string | null,
+    };
+  }
+  return null;
+}
+
+/**
+ * Crear recordatorio(s) programable(s).
+ * Si repetirVeces > 1 y repetirCadaDias > 0, crea varios registros con fechas escalonadas.
+ * Retorna el array de recordatorios creados.
+ */
+export async function createReceivableReminder(
+  receivableId: string,
+  data: Omit<CreateReceivableReminderData, 'receivableId'>
+): Promise<ReceivableReminder[]> {
+  const response = await httpClient.post<{ success: boolean; reminders: unknown[] }>(
+    `/api/receivables/${receivableId}/reminders`,
+    data
+  );
+  if (response.success && Array.isArray(response.data?.reminders)) {
+    return response.data.reminders.map((r) => formatReminder(r as Record<string, unknown>));
+  }
+  return [];
+}
+
+/**
+ * Actualizar recordatorio programable
+ */
+export async function updateReceivableReminder(
+  receivableId: string,
+  reminderId: string,
+  data: UpdateReceivableReminderData
+): Promise<ReceivableReminder | null> {
+  const response = await httpClient.put<{ success: boolean; reminder: unknown }>(
+    `/api/receivables/${receivableId}/reminders/${reminderId}`,
+    data
+  );
+  if (response.success && response.data?.reminder) {
+    return formatReminder(response.data.reminder as Record<string, unknown>);
+  }
+  return null;
+}
+
+/**
+ * Eliminar recordatorio programable
+ */
+export async function deleteReceivableReminder(
+  receivableId: string,
+  reminderId: string,
+  storeId: string
+): Promise<boolean> {
+  const response = await httpClient.delete<{ success: boolean }>(
+    `/api/receivables/${receivableId}/reminders/${reminderId}?storeId=${encodeURIComponent(storeId)}`
+  );
+  return Boolean(response.success);
 }

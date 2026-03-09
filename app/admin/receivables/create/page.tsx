@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createReceivable, createReceivableFromRequest } from '@/lib/services/receivables';
@@ -16,6 +17,14 @@ const REQUESTS_PAGE_SIZE = 15;
 const REQUEST_STATUS_LABELS: Record<string, { label: string; color: string; bgColor: string }> = {
   pending: { label: 'Pendiente', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
   processing: { label: 'En proceso', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+};
+
+/** Filtra el valor para aceptar solo números (enteros o decimales). */
+function handleNumericAmount(value: string): string {
+  let v = value.replace(/[^\d.]/g, '');
+  const parts = v.split('.');
+  if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+  return v;
 }
 
 export default function CreateReceivablePage() {
@@ -30,6 +39,8 @@ export default function CreateReceivablePage() {
   const [storeId, setStoreId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -45,10 +56,13 @@ export default function CreateReceivablePage() {
   const [fromRequestCustomerPhone, setFromRequestCustomerPhone] = useState('');
   const [fromRequestDescription, setFromRequestDescription] = useState('');
   const [fromRequestAmount, setFromRequestAmount] = useState('');
+  const [fromRequestInvoiceNumber, setFromRequestInvoiceNumber] = useState('');
+  const [fromRequestDueDate, setFromRequestDueDate] = useState('');
   const [creatingFromRequest, setCreatingFromRequest] = useState(false);
   const [initialPaymentAmount, setInitialPaymentAmount] = useState('');
   const [initialPaymentNotes, setInitialPaymentNotes] = useState('');
-  const [initialPaymentFile, setInitialPaymentFile] = useState<File | null>(null);
+  /** Comprobante opcional: visible siempre. Con abono inicial = comprobante del abono; sin abono = comprobante general. */
+  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null);
 
   // Selector de cliente existente (solo cuenta manual)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -171,6 +185,7 @@ export default function CreateReceivablePage() {
         setSelectedRequest(req);
         setFromRequestCustomerName(req.customerName ?? '');
         setFromRequestCustomerPhone(req.customerPhone ?? '');
+        setFromRequestInvoiceNumber('');
         const pedidoLabel = req.orderNumber != null ? `Pedido #${req.orderNumber}` : `Pedido ${req.id.slice(0, 8)}`;
         setFromRequestDescription(req.customMessage?.trim() || pedidoLabel);
         setFromRequestAmount(typeof req.total === 'number' ? String(req.total) : '');
@@ -239,8 +254,10 @@ export default function CreateReceivablePage() {
   }, [fromRequest, storeId, fromPedidosModule, loadRequestsList]);
 
   const openNewClientModal = () => {
-    setNewClientName(customerName.trim());
-    setNewClientPhone(customerPhone.trim());
+    const baseName = fromRequest ? fromRequestCustomerName : customerName;
+    const basePhone = fromRequest ? fromRequestCustomerPhone : customerPhone;
+    setNewClientName(baseName.trim());
+    setNewClientPhone(basePhone.trim());
     setNewClientCedulaPrefix('V');
     setNewClientCedulaNumber('');
     setNewClientEmail('');
@@ -312,14 +329,14 @@ export default function CreateReceivablePage() {
     setSubmitting(true);
     setMessage(null);
     try {
-      const initialPayment =
-        initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0
-          ? {
-              amount: parseFloat(initialPaymentAmount),
-              notes: initialPaymentNotes.trim() || undefined,
-              file: initialPaymentFile || undefined,
-            }
-          : undefined;
+      const hasAbono = initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0;
+      const initialPayment = hasAbono
+        ? {
+            amount: parseFloat(initialPaymentAmount),
+            notes: initialPaymentNotes.trim() || undefined,
+            file: comprobanteFile || undefined,
+          }
+        : undefined;
       const receivable = await createReceivable({
         storeId,
         customerName: customerName.trim() || undefined,
@@ -327,12 +344,15 @@ export default function CreateReceivablePage() {
         description: description.trim() || undefined,
         amount: amountNum,
         currency,
+        invoiceNumber: invoiceNumber.trim() || undefined,
+        dueDate: dueDate.trim() || undefined,
         initialPayment,
+        file: !hasAbono && comprobanteFile ? comprobanteFile : undefined,
       });
       if (receivable) {
         setMessage({ type: 'success', text: 'Cuenta por cobrar creada correctamente' });
         setTimeout(() => {
-          router.push(`/admin/receivables?storeId=${encodeURIComponent(storeId)}`);
+          router.push(`/admin/receivables/${receivable.id}?storeId=${encodeURIComponent(storeId)}`);
         }, 1500);
       } else {
         setMessage({ type: 'error', text: 'No se pudo crear la cuenta por cobrar' });
@@ -363,14 +383,14 @@ export default function CreateReceivablePage() {
     setCreatingFromRequest(true);
     setMessage(null);
     try {
-      const initialPayment =
-        initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0
-          ? {
-              amount: parseFloat(initialPaymentAmount),
-              notes: initialPaymentNotes.trim() || undefined,
-              file: initialPaymentFile || undefined,
-            }
-          : undefined;
+      const hasAbono = initialPaymentAmount.trim() !== '' && parseFloat(initialPaymentAmount) > 0;
+      const initialPayment = hasAbono
+        ? {
+            amount: parseFloat(initialPaymentAmount),
+            notes: initialPaymentNotes.trim() || undefined,
+            file: comprobanteFile || undefined,
+          }
+        : undefined;
       const receivable = await createReceivableFromRequest({
         storeId,
         requestId: selectedRequest.id,
@@ -378,12 +398,15 @@ export default function CreateReceivablePage() {
         customerName: fromRequestCustomerName.trim(),
         customerPhone: fromRequestCustomerPhone.trim(),
         amount: amountNum,
+        invoiceNumber: fromRequestInvoiceNumber.trim() || undefined,
+        dueDate: fromRequestDueDate.trim() || undefined,
         initialPayment,
+        file: !hasAbono && comprobanteFile ? comprobanteFile : undefined,
       });
       if (receivable) {
         setMessage({ type: 'success', text: 'Cuenta por cobrar creada desde el pedido correctamente' });
         setTimeout(() => {
-          router.push(`/admin/receivables?storeId=${encodeURIComponent(storeId)}`);
+          router.push(`/admin/receivables/${receivable.id}?storeId=${encodeURIComponent(storeId)}`);
         }, 1500);
       } else {
         setMessage({ type: 'error', text: 'No se pudo crear la cuenta por cobrar' });
@@ -623,28 +646,56 @@ export default function CreateReceivablePage() {
                       : parseFloat(String(selectedRequest.total)) || 0
                     ).toFixed(2)}
                   </p>
-                  <div className="mb-4 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-neutral-400">
-                        Nombre del cliente (editable)
-                      </label>
-                      <input
-                        type="text"
-                        value={fromRequestCustomerName}
-                        onChange={(e) => setFromRequestCustomerName(e.target.value)}
-                        placeholder="Ej: María García"
-                        className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                      />
+                  <div className="mb-4 rounded-lg border border-neutral-700/80 bg-neutral-800/30 p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-neutral-300">Cliente</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={openNewClientModal}
+                        className="h-7 gap-1.5 text-[11px]"
+                      >
+                        <UserPlus className="h-3 w-3" />
+                        Crear cliente
+                      </Button>
                     </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-neutral-400">
-                        Teléfono (editable)
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-neutral-400">
+                          Nombre del cliente (editable)
+                        </label>
+                        <input
+                          type="text"
+                          value={fromRequestCustomerName}
+                          onChange={(e) => setFromRequestCustomerName(e.target.value)}
+                          placeholder="Ej: María García"
+                          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-neutral-400">
+                          Teléfono (editable)
+                        </label>
+                        <input
+                          type="text"
+                          value={fromRequestCustomerPhone}
+                          onChange={(e) => setFromRequestCustomerPhone(e.target.value)}
+                          placeholder="Ej: +58 412 1234567"
+                          className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="mb-1 block text-xs font-medium text-neutral-400">
+                        Número de factura (opcional)
                       </label>
                       <input
                         type="text"
-                        value={fromRequestCustomerPhone}
-                        onChange={(e) => setFromRequestCustomerPhone(e.target.value)}
-                        placeholder="Ej: +58 412 1234567"
+                        value={fromRequestInvoiceNumber}
+                        onChange={(e) => setFromRequestInvoiceNumber(e.target.value)}
+                        placeholder="Ej: F-000123"
+                        maxLength={100}
                         className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                       />
                     </div>
@@ -663,17 +714,27 @@ export default function CreateReceivablePage() {
                   </div>
                   <div className="mb-4">
                     <label className="mb-1.5 block text-xs font-medium text-neutral-400">
+                      Fecha de vencimiento (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={fromRequestDueDate}
+                      onChange={(e) => setFromRequestDueDate(e.target.value)}
+                      className="w-full max-w-[200px] rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-medium text-neutral-400">
                       Monto total de la cuenta
                     </label>
                     <p className="mb-2 text-[11px] text-neutral-500">
                       Puedes modificarlo (descuento, ajuste, etc.) sin cambiar el pedido. Por defecto es el total del pedido.
                     </p>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={fromRequestAmount}
-                      onChange={(e) => setFromRequestAmount(e.target.value)}
+                      onChange={(e) => setFromRequestAmount(handleNumericAmount(e.target.value))}
                       placeholder={selectedRequest ? String(selectedRequest.total) : '0.00'}
                       className="w-full max-w-[200px] rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     />
@@ -686,11 +747,10 @@ export default function CreateReceivablePage() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div>
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
+                          type="text"
+                          inputMode="decimal"
                           value={initialPaymentAmount}
-                          onChange={(e) => setInitialPaymentAmount(e.target.value)}
+                          onChange={(e) => setInitialPaymentAmount(handleNumericAmount(e.target.value))}
                           placeholder="Monto (0.00)"
                           className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-2 py-1.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                         />
@@ -706,25 +766,28 @@ export default function CreateReceivablePage() {
                         />
                       </div>
                     </div>
-                    {parseFloat(initialPaymentAmount) > 0 && (
-                      <div className="mt-2">
-                        <label className="mb-1 block text-[11px] font-medium text-neutral-400">
-                          Comprobante del abono (opcional)
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => setInitialPaymentFile(e.target.files?.[0] ?? null)}
-                          className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
-                        />
-                        {initialPaymentFile && (
-                          <p className="mt-1 text-xs text-neutral-500">
-                            <Paperclip className="mr-1 inline h-3 w-3" />
-                            {initialPaymentFile.name}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <div className="mt-2">
+                      <label className="mb-1 block text-[11px] font-medium text-neutral-400">
+                        Comprobante (opcional)
+                      </label>
+                      <p className="mb-1 text-[11px] text-neutral-500">
+                        {parseFloat(initialPaymentAmount) > 0
+                          ? 'Comprobante del abono inicial. Imagen o PDF.'
+                          : 'Adjuntar imagen o PDF como comprobante general.'}
+                      </p>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setComprobanteFile(e.target.files?.[0] ?? null)}
+                        className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
+                      />
+                      {comprobanteFile && (
+                        <p className="mt-1 text-xs text-neutral-500">
+                          <Paperclip className="mr-1 inline h-3 w-3" />
+                          {comprobanteFile.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="primary"
@@ -855,6 +918,20 @@ export default function CreateReceivablePage() {
                   )}
                 </div>
               )}
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-neutral-400">Número de factura (opcional)</label>
+                  <input
+                    type="text"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="Ej: F-000123"
+                    maxLength={100}
+                    className="h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -897,13 +974,21 @@ export default function CreateReceivablePage() {
 
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
+              <label className="mb-2 block text-sm font-medium text-neutral-300">Fecha de vencimiento (opcional)</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
+              />
+            </div>
+            <div>
               <label className="mb-2 block text-sm font-medium text-neutral-300">Monto *</label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(handleNumericAmount(e.target.value))}
                 placeholder="0.00"
                 required
                 className="h-12 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-3"
@@ -932,11 +1017,10 @@ export default function CreateReceivablePage() {
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-400">Monto</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={initialPaymentAmount}
-                  onChange={(e) => setInitialPaymentAmount(e.target.value)}
+                  onChange={(e) => setInitialPaymentAmount(handleNumericAmount(e.target.value))}
                   placeholder="0.00"
                   className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 />
@@ -953,25 +1037,28 @@ export default function CreateReceivablePage() {
                 />
               </div>
             </div>
-            {parseFloat(initialPaymentAmount) > 0 && (
-              <div className="mt-3">
-                <label className="mb-1 block text-xs font-medium text-neutral-400">
-                  Comprobante del abono (opcional)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => setInitialPaymentFile(e.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
-                />
-                {initialPaymentFile && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    <Paperclip className="mr-1 inline h-3 w-3" />
-                    {initialPaymentFile.name}
-                  </p>
-                )}
-              </div>
-            )}
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-neutral-400">
+                Comprobante (opcional)
+              </label>
+              <p className="mb-1.5 text-[11px] text-neutral-500">
+                {parseFloat(initialPaymentAmount) > 0
+                  ? 'Comprobante del abono inicial. Imagen o PDF.'
+                  : 'Adjuntar imagen o PDF como comprobante general.'}
+              </p>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setComprobanteFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-neutral-400 file:mr-2 file:rounded-lg file:border-0 file:bg-primary-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-300 hover:file:bg-primary-500/30"
+              />
+              {comprobanteFile && (
+                <p className="mt-1 text-xs text-neutral-500">
+                  <Paperclip className="mr-1 inline h-3 w-3" />
+                  {comprobanteFile.name}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3 border-t border-neutral-800 pt-6">
@@ -998,9 +1085,11 @@ export default function CreateReceivablePage() {
       )}
 
       {/* Modal: crear cliente */}
-      {showNewClientModal && !fromRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl">
+      {showNewClientModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-medium text-neutral-100">Nuevo cliente</h3>
               <button
@@ -1088,7 +1177,8 @@ export default function CreateReceivablePage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm text-neutral-500">

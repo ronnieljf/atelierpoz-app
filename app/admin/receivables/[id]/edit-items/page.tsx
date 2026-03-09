@@ -3,16 +3,54 @@
 import { use, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { getReceivableById } from '@/lib/services/receivables';
 import { getRequestById, type Request } from '@/lib/services/requests';
 import { updateReceivableItems } from '@/lib/services/receivables';
-import { getAdminProducts } from '@/lib/services/products';
+import { searchProductsForPOS, getProductPOSOptions, type POSProduct } from '@/lib/services/sales';
 import type { Receivable } from '@/types/receivable';
-import type { Product } from '@/types/product';
 import type { CartItem } from '@/types/product';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, Loader2, Package, Plus, Trash2 } from 'lucide-react';
+import { resolveImageUrl } from '@/lib/utils/image-url';
+import { ArrowLeft, Loader2, Package, Plus, Trash2, Search, ShoppingBag, ChevronDown, X, Minus } from 'lucide-react';
+
+function isHexColor(value: string | undefined): boolean {
+  if (value == null || typeof value !== 'string') return false;
+  return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(value.trim());
+}
+
+function posProductToCartItem(
+  p: POSProduct,
+  qty: number,
+  storeId: string,
+  storeName: string
+): CartItem {
+  const unitPrice = p.unitPrice;
+  const totalPrice = unitPrice * qty;
+  const displayName = p.displayName ?? p.productName;
+  return {
+    id: `${p.productId}_${p.combinationId ?? 'base'}_${Date.now()}`,
+    productId: p.productId,
+    productName: displayName,
+    productImage: p.imageUrl ?? '',
+    productSku: p.sku ?? '',
+    basePrice: unitPrice,
+    currency: p.currency,
+    quantity: qty,
+    selectedVariants: (p.selectedVariants ?? []).map((sv) => ({
+      attributeId: sv.attributeId,
+      attributeName: sv.attributeName,
+      variantId: sv.variantId,
+      variantName: sv.variantName,
+      variantValue: sv.variantValue,
+      priceModifier: p.priceModifier,
+    })),
+    totalPrice,
+    storeId,
+    storeName,
+  };
+}
 
 export default function EditReceivableItemsPage({
   params,
@@ -38,12 +76,16 @@ export default function EditReceivableItemsPage({
   const [saving, setSaving] = useState(false);
 
   const [items, setItems] = useState<CartItem[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [, setLoadingProducts] = useState(false);
-  const [addProductId, setAddProductId] = useState('');
-  const [addQuantity, setAddQuantity] = useState(1);
-  const [addSelectedVariants, setAddSelectedVariants] = useState<Record<string, string>>({});
-  const [adding, setAdding] = useState(false);
+
+  const [productSearch, setProductSearch] = useState('');
+  const [productResults, setProductResults] = useState<POSProduct[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [variantChoiceModal, setVariantChoiceModal] = useState<{
+    productName: string;
+    options: POSProduct[];
+  } | null>(null);
+  const [loadingVariantOptionsForProductId, setLoadingVariantOptionsForProductId] = useState<string | null>(null);
+  const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
 
   const total = items.reduce((sum, item) => sum + (typeof item.totalPrice === 'number' ? item.totalPrice : 0), 0);
 
@@ -94,182 +136,85 @@ export default function EditReceivableItemsPage({
   }, [storeId, id, loadData]);
 
   useEffect(() => {
-    if (!storeId) return;
-    setLoadingProducts(true);
-    getAdminProducts(storeId, { limit: 200 })
-      .then((res) => setProducts(res.products || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoadingProducts(false));
-  }, [storeId]);
+    if (!storeId) {
+      setProductResults([]);
+      return;
+    }
+    const q = productSearch.trim();
+    if (!q) {
+      setProductResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setSearching(true);
+      searchProductsForPOS(storeId, q, 30)
+        .then(setProductResults)
+        .catch(() => setProductResults([]))
+        .finally(() => setSearching(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [storeId, productSearch]);
 
   const removeItem = (index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const selectedProduct = addProductId ? products.find((p) => p.id === addProductId) : null;
-  const productAttributes = selectedProduct?.attributes ?? [];
-
-  const canAddItem = (): boolean => {
-    if (!selectedProduct || addQuantity < 1) return false;
-    const requiredAttrs = productAttributes.filter((a) => a.required);
-    const allSelected = requiredAttrs.every((a) => addSelectedVariants[a.id]);
-    return allSelected;
-  };
-
-  const buildNewItem = (): CartItem | null => {
-    if (!selectedProduct || !storeId) return null;
-    const qty = Math.max(1, addQuantity);
-    const base = selectedProduct.basePrice ?? 0;
-    const selectedVariantsArray: CartItem['selectedVariants'] = [];
-    productAttributes.forEach((attr) => {
-      const variantId = addSelectedVariants[attr.id];
-      if (variantId) {
-        const variant = attr.variants?.find((v) => v.id === variantId);
-        if (variant) {
-          selectedVariantsArray.push({
-            attributeId: attr.id,
-            attributeName: attr.name,
-            variantId: variant.id,
-            variantName: variant.name ?? '',
-            variantValue: variant.value ?? '',
-            priceModifier: 0,
-          });
-        }
-      }
+  const updateItemQty = (index: number, delta: number) => {
+    setItems((prev) => {
+      const item = prev[index];
+      if (!item) return prev;
+      const qty = Math.max(0, (item.quantity ?? 1) + delta);
+      if (qty <= 0) return prev.filter((_, i) => i !== index);
+      const unitPrice = (item.totalPrice ?? 0) / (item.quantity ?? 1);
+      return prev.map((it, i) =>
+        i === index ? { ...it, quantity: qty, totalPrice: unitPrice * qty } : it
+      );
     });
-    // Precio: si hay combinaciones, usar priceModifier de la combinación; si no, suma de variant.price
-    let unitPrice = base;
-    const combinations = selectedProduct.combinations ?? [];
-    if (combinations.length > 0 && selectedVariantsArray.length > 0) {
-      const selections: Record<string, string> = {};
-      selectedVariantsArray.forEach((sv) => { selections[sv.attributeId] = sv.variantId; });
-      const matchingCombo = combinations.find((c) => {
-        const cSel = c.selections ?? {};
-        const keys = Object.keys(selections).sort();
-        const cKeys = Object.keys(cSel).sort();
-        if (keys.length !== cKeys.length) return false;
-        return keys.every((k) => cSel[k] === selections[k]);
-      });
-      if (matchingCombo) {
-        const mod = typeof matchingCombo.priceModifier === 'number' ? matchingCombo.priceModifier : 0;
-        unitPrice = base + mod;
-        if (selectedVariantsArray.length > 0) {
-          selectedVariantsArray[0]!.priceModifier = mod;
-        }
-      } else {
-        productAttributes.forEach((attr) => {
-          const sv = selectedVariantsArray.find((s) => s.attributeId === attr.id);
-          if (sv) {
-            const variant = attr.variants?.find((v) => v.id === sv.variantId);
-            const priceMod = typeof variant?.price === 'number' ? variant.price : 0;
-            unitPrice += priceMod;
-            sv.priceModifier = priceMod;
-          }
-        });
-      }
-    } else {
-      selectedVariantsArray.forEach((sv, idx) => {
-        const attr = productAttributes.find((a) => a.id === sv.attributeId);
-        const variant = attr?.variants?.find((v) => v.id === sv.variantId);
-        const priceMod = typeof variant?.price === 'number' ? variant.price : 0;
-        unitPrice += priceMod;
-        selectedVariantsArray[idx] = { ...sv, priceModifier: priceMod };
-      });
-    }
-    const totalPrice = unitPrice * qty;
-    return {
-      id: `${selectedProduct.id}_${selectedVariantsArray.map((v) => `${v.attributeId}:${v.variantId}`).join('|')}`,
-      productId: selectedProduct.id,
-      productName: selectedProduct.name,
-      productImage: selectedProduct.images?.[0] ?? '',
-      productSku: selectedProduct.sku ?? '',
-      basePrice: selectedProduct.basePrice ?? 0,
-      currency: selectedProduct.currency,
-      quantity: qty,
-      selectedVariants: selectedVariantsArray,
-      totalPrice,
-      storeId,
-      storeName: receivable?.storeName ?? '',
-    };
   };
 
-  const getAvailableStock = (prod: Product, selections: Record<string, string>): number => {
-    const combinations = prod.combinations ?? [];
-    if (combinations.length > 0 && Object.keys(selections).length > 0) {
-      const matchingCombo = combinations.find((c) => {
-        const cSel = c.selections ?? {};
-        const keys = Object.keys(selections).sort();
-        const cKeys = Object.keys(cSel).sort();
-        if (keys.length !== cKeys.length) return false;
-        return keys.every((k) => cSel[k] === selections[k]);
-      });
-      if (matchingCombo) return typeof matchingCombo.stock === 'number' ? matchingCombo.stock : 0;
-    }
-    const attrs = prod.attributes ?? [];
-    if (attrs.length > 0 && Object.keys(selections).length > 0) {
-      const stocks: number[] = [];
-      attrs.forEach((attr) => {
-        const vId = selections[attr.id];
-        if (vId) {
-          const v = attr.variants?.find((x) => x.id === vId);
-          if (v) stocks.push(typeof v.stock === 'number' ? v.stock : 0);
-        }
-      });
-      if (stocks.length > 0) return Math.min(...stocks);
-    }
-    return typeof prod.stock === 'number' ? prod.stock : 0;
+  const addToCart = (p: POSProduct, qty = 1) => {
+    if (!storeId || !receivable) return;
+    setMessage(null);
+    const newItem = posProductToCartItem(p, qty, storeId, receivable.storeName ?? '');
+    setItems((prev) => [...prev, newItem]);
+    setVariantChoiceModal(null);
   };
 
-  const validateStock = (): string | null => {
-    const byKey = new Map<string, number>();
-    for (const item of items) {
-      const sel: Record<string, string> = {};
-      (item.selectedVariants ?? []).forEach((sv) => { sel[sv.attributeId] = sv.variantId; });
-      const key = `${item.productId}|${Object.keys(sel).sort().map((k) => `${k}:${sel[k]}`).join(',')}`;
-      byKey.set(key, (byKey.get(key) ?? 0) + (typeof item.quantity === 'number' ? item.quantity : 1));
-    }
-    for (const [key, totalQty] of byKey) {
-      const [productId, selStr] = key.split('|');
-      const prod = products.find((p) => p.id === productId);
-      if (!prod) continue;
-      const selections: Record<string, string> = {};
-      if (selStr) selStr.split(',').forEach((s) => { const [k, v] = s.split(':'); if (k && v) selections[k] = v; });
-      const available = getAvailableStock(prod, selections);
-      if (totalQty > available) {
-        return `No hay stock suficiente para "${prod.name}". Disponible: ${available}, solicitado: ${totalQty}`;
-      }
-    }
-    return null;
-  };
+  const handleProductClick = async (productId: string, options: POSProduct[]) => {
+    const single = options.length === 1;
+    const p = options[0]!;
+    const productHasVariants = p.combinationId != null || (p.selectedVariants?.length ?? 0) > 0;
+    const showVariantModal = !single ? true : productHasVariants;
 
-  const handleAddItem = () => {
-    const newItem = buildNewItem();
-    if (!newItem) return;
-    const sel: Record<string, string> = {};
-    (newItem.selectedVariants ?? []).forEach((sv) => { sel[sv.attributeId] = sv.variantId; });
-    const available = selectedProduct ? getAvailableStock(selectedProduct, sel) : 0;
-    const qty = typeof newItem.quantity === 'number' ? newItem.quantity : 1;
-    if (qty > available) {
-      setMessage({ type: 'error', text: `No hay stock suficiente. Disponible: ${available}` });
+    if (!showVariantModal) {
+      addToCart(p);
       return;
     }
-    setMessage(null);
-    setItems((prev) => [...prev, newItem]);
-    setAddProductId('');
-    setAddQuantity(1);
-    setAddSelectedVariants({});
-    setAdding(false);
+    if (!single && options.length > 0) {
+      setVariantChoiceModal({ productName: p.productName, options });
+      return;
+    }
+    if (storeId && single) {
+      setLoadingVariantOptionsForProductId(productId);
+      try {
+        const allOptions = await getProductPOSOptions(storeId, productId);
+        if (allOptions.length > 0) {
+          setVariantChoiceModal({ productName: p.productName, options: allOptions });
+        } else {
+          addToCart(p);
+        }
+      } catch {
+        addToCart(p);
+      } finally {
+        setLoadingVariantOptionsForProductId(null);
+      }
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receivable || !storeId || items.length === 0) {
       setMessage({ type: 'error', text: 'Debe haber al menos un producto' });
-      return;
-    }
-    const stockError = validateStock();
-    if (stockError) {
-      setMessage({ type: 'error', text: stockError });
       return;
     }
     setSaving(true);
@@ -347,7 +292,7 @@ export default function EditReceivableItemsPage({
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl">Cambiar productos</h1>
+          <h1 className="text-xl font-medium text-neutral-100 sm:text-2xl">Modificar productos</h1>
           <p className="text-sm text-neutral-400">
             Al guardar, el stock del producto viejo sube y el del nuevo baja.
           </p>
@@ -373,136 +318,198 @@ export default function EditReceivableItemsPage({
             Productos actuales
           </h2>
           {items.length === 0 ? (
-            <p className="py-4 text-sm text-neutral-500">No hay productos. Agrega al menos uno.</p>
+            <p className="py-4 text-sm text-neutral-500">No hay productos. Busca y agrega al menos uno.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-700 text-left text-xs font-medium uppercase tracking-wider text-neutral-500">
-                    <th className="pb-2 pr-4 pt-1">Producto</th>
-                    <th className="pb-2 px-2 pt-1 text-center">Cant.</th>
-                    <th className="pb-2 px-2 pt-1 text-right">Subtotal</th>
-                    <th className="w-10 pb-2 pl-2 pt-1" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-800">
-                  {items.map((item, index) => {
-                    const name = item.productName ?? 'Producto';
-                    const qty = typeof item.quantity === 'number' ? item.quantity : 1;
-                    const lineTotal = typeof item.totalPrice === 'number' ? item.totalPrice : 0;
-                    const variantLabel =
-                      Array.isArray(item.selectedVariants) && item.selectedVariants.length > 0
-                        ? item.selectedVariants.map((v) => v.variantValue ?? v.variantName ?? '').filter(Boolean).join(', ')
-                        : null;
-                    return (
-                      <tr key={`${item.productId}-${index}`} className="text-neutral-300">
-                        <td className="py-2 pr-4">
-                          <span className="font-medium text-neutral-100">{name}</span>
-                          {variantLabel && (
-                            <div className="mt-0.5 text-xs text-neutral-500">{variantLabel}</div>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-center">{qty}</td>
-                        <td className="px-2 py-2 text-right font-medium text-neutral-100">
-                          {receivable.currency} {lineTotal.toFixed(2)}
-                        </td>
-                        <td className="pl-2 py-2">
-                          <button
-                            type="button"
-                            onClick={() => removeItem(index)}
-                            className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-500/10 hover:text-red-400"
-                            title="Quitar"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {items.map((item, index) => {
+                const name = item.productName ?? 'Producto';
+                const qty = typeof item.quantity === 'number' ? item.quantity : 1;
+                const lineTotal = typeof item.totalPrice === 'number' ? item.totalPrice : 0;
+                const imgUrl = resolveImageUrl(item.productImage) ?? item.productImage;
+                const variantLabel =
+                  Array.isArray(item.selectedVariants) && item.selectedVariants.length > 0
+                    ? item.selectedVariants
+                        .map((v) =>
+                          isHexColor(v.variantValue)
+                            ? v.variantName || v.variantValue
+                            : v.variantValue ?? v.variantName ?? ''
+                        )
+                        .filter(Boolean)
+                        .join(', ')
+                    : null;
+                return (
+                  <div
+                    key={`${item.productId}-${item.id ?? index}`}
+                    className="flex items-center gap-3 rounded-xl border border-neutral-700/50 bg-neutral-800/40 px-3 py-2.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => imgUrl && setEnlargedImageUrl(imgUrl)}
+                      className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-700 hover:ring-2 hover:ring-primary-500/50"
+                    >
+                      {imgUrl ? (
+                        <img src={imgUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <ShoppingBag className="h-6 w-6 text-neutral-500" />
+                      )}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-neutral-100 break-words">{name}</p>
+                      {variantLabel && (
+                        <p className="mt-0.5 text-xs text-neutral-400">{variantLabel}</p>
+                      )}
+                      <p className="mt-0.5 text-xs text-neutral-500">
+                        {qty} × {((lineTotal || 0) / qty).toFixed(2)} = {lineTotal.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateItemQty(index, -1)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+                        aria-label="Menos"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-[1.5rem] text-center text-sm font-medium tabular-nums">
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateItemQty(index, 1)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+                        aria-label="Más"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-400/80 hover:bg-red-500/20 hover:text-red-400"
+                        aria-label="Quitar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           <div className="mt-4 border-t border-neutral-800 pt-4">
-            {!adding ? (
-              <button
-                type="button"
-                onClick={() => setAdding(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-dashed border-neutral-600 px-3 py-2 text-sm font-medium text-neutral-400 hover:border-primary-500/50 hover:text-primary-400"
-              >
-                <Plus className="h-4 w-4" />
-                Agregar producto
-              </button>
-            ) : (
-              <div className="rounded-xl border border-neutral-700 bg-neutral-800/50 p-4 space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-400">Producto</label>
-                  <select
-                    value={addProductId}
-                    onChange={(e) => {
-                      setAddProductId(e.target.value);
-                      setAddSelectedVariants({});
-                    }}
-                    className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-100"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.currency} {Number(p.basePrice).toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {productAttributes.length > 0 && (
-                  <div className="space-y-2">
-                    {productAttributes.map((attr) => (
-                      <div key={attr.id}>
-                        <label className="mb-1 block text-xs font-medium text-neutral-400">
-                          {attr.name} {attr.required ? '*' : ''}
-                        </label>
-                        <select
-                          value={addSelectedVariants[attr.id] ?? ''}
-                          onChange={(e) =>
-                            setAddSelectedVariants((prev) => ({ ...prev, [attr.id]: e.target.value }))
-                          }
-                          className="w-full rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-100"
-                        >
-                          <option value="">Seleccionar...</option>
-                          {(attr.variants || []).map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.value ?? v.name} {typeof v.price === 'number' && v.price > 0 ? `(+${v.price.toFixed(2)})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
+            <label className="mb-2 block text-xs font-medium text-neutral-400">
+              Buscar y agregar productos
+            </label>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o código..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 pl-10 pr-4 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              />
+            </div>
+
+            {productSearch.trim() && (
+              <div className="min-h-[160px] max-h-[280px] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900/40">
+                {searching ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-neutral-500" />
+                  </div>
+                ) : productResults.length === 0 ? (
+                  <p className="py-8 text-center text-neutral-500 text-sm">Sin resultados</p>
+                ) : (
+                  <div className="divide-y divide-neutral-800/80">
+                    {(() => {
+                      const byProductId = new Map<string, POSProduct[]>();
+                      for (const p of productResults) {
+                        const list = byProductId.get(p.productId) ?? [];
+                        list.push(p);
+                        byProductId.set(p.productId, list);
+                      }
+                      const storeIva = authState.stores.find((s) => s.id === storeId)?.iva ?? 0;
+                      return Array.from(byProductId.entries()).map(([productId, options]) => {
+                        const single = options.length === 1;
+                        const p = options[0]!;
+                        const productHasVariants =
+                          p.combinationId != null || (p.selectedVariants?.length ?? 0) > 0;
+                        const showVariantModal = !single ? true : productHasVariants;
+                        const effectiveIva = p.iva != null && p.iva > 0 ? p.iva : storeIva;
+                        const priceDisplay = p.unitPrice * (1 + effectiveIva / 100);
+
+                        return (
+                          <div
+                            key={productId}
+                            className="flex min-h-[52px] w-full items-center gap-3 px-4 py-3"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                p.imageUrl &&
+                                setEnlargedImageUrl(resolveImageUrl(p.imageUrl) ?? p.imageUrl ?? null)
+                              }
+                              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-800 hover:ring-2 hover:ring-primary-500/50"
+                            >
+                              {(resolveImageUrl(p.imageUrl) ?? p.imageUrl) ? (
+                                <img
+                                  src={resolveImageUrl(p.imageUrl) ?? p.imageUrl ?? ''}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ShoppingBag className="h-5 w-5 text-neutral-600" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleProductClick(productId, options)}
+                              disabled={loadingVariantOptionsForProductId != null}
+                              className="flex min-w-0 flex-1 items-center justify-between gap-3 py-0 text-left transition-colors hover:bg-neutral-800/50 disabled:opacity-50"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-neutral-100">
+                                  {single && !productHasVariants ? p.displayName : p.productName}
+                                </p>
+                                {(!single || productHasVariants) && (
+                                  <p className="mt-0.5 text-xs text-primary-400">
+                                    {single
+                                      ? 'Tiene variantes · Elegir cuál agregar'
+                                      : `${options.length} variantes · Elegir cuál agregar`}
+                                  </p>
+                                )}
+                                <p className="mt-0.5 text-xs text-neutral-500">
+                                  {single ? (
+                                    <>Stock: {p.stock}</>
+                                  ) : (
+                                    <>{options.filter((o) => o.stock > 0).length} con stock</>
+                                  )}
+                                </p>
+                              </div>
+                              {single && !showVariantModal ? (
+                                <>
+                                  <span className="shrink-0 text-sm text-neutral-400">
+                                    {priceDisplay.toFixed(2)} {p.currency}
+                                  </span>
+                                  <Plus className="h-4 w-4 shrink-0 text-neutral-400" />
+                                </>
+                              ) : (
+                                <>
+                                  {loadingVariantOptionsForProductId === productId ? (
+                                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-neutral-400" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />
+                                  )}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-400">Cantidad</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={addQuantity}
-                    onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-full max-w-[120px] rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-100"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={handleAddItem}
-                    disabled={!canAddItem()}
-                  >
-                    Agregar
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setAdding(false)}>
-                    Cancelar
-                  </Button>
-                </div>
               </div>
             )}
           </div>
@@ -531,6 +538,146 @@ export default function EditReceivableItemsPage({
           </div>
         </div>
       </form>
+
+      {/* Modal: imagen ampliada */}
+      {enlargedImageUrl && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4"
+            onClick={() => setEnlargedImageUrl(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Imagen ampliada"
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEnlargedImageUrl(null);
+              }}
+              className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-neutral-800/90 text-white hover:bg-neutral-700"
+              aria-label="Cerrar"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <img
+              src={enlargedImageUrl}
+              alt=""
+              className="max-h-[85vh] max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body
+        )}
+
+      {/* Modal: elegir variante */}
+      {variantChoiceModal && typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-black/60 p-4 py-8">
+            <div className="my-auto w-full max-w-md shrink-0 rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl max-h-[85vh] flex flex-col">
+              <div className="mb-4 flex shrink-0 items-center justify-between">
+                <h3 className="text-lg font-medium text-neutral-100">
+                  Elegir variante · {variantChoiceModal.productName}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setVariantChoiceModal(null)}
+                  className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="mb-3 text-sm text-neutral-400">
+                Selecciona la combinación que deseas agregar.
+              </p>
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                {variantChoiceModal.options.map((opt) => {
+                  const storeIvaForOpt = authState.stores.find((s) => s.id === storeId)?.iva ?? 0;
+                  const effectiveIvaOpt = opt.iva != null && opt.iva > 0 ? opt.iva : storeIvaForOpt;
+                  const priceDisplay = opt.unitPrice * (1 + effectiveIvaOpt / 100);
+                  const isVariant = opt.combinationId != null || (opt.selectedVariants?.length ?? 0) > 0;
+                  const displayTitle = (() => {
+                    let title = opt.displayName;
+                    if (opt.selectedVariants) {
+                      for (const sv of opt.selectedVariants) {
+                        if (isHexColor(sv.variantValue) && (sv.variantName ?? '').trim()) {
+                          const escaped = sv.variantValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                          title = title.replace(new RegExp(escaped, 'gi'), sv.variantName!);
+                        }
+                      }
+                    }
+                    return title;
+                  })();
+                  return (
+                    <div
+                      key={`${opt.productId}-${opt.combinationId ?? 'base'}`}
+                      className="flex w-full items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/50 px-4 py-3 transition-colors hover:bg-neutral-700/50"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          opt.imageUrl &&
+                          setEnlargedImageUrl(resolveImageUrl(opt.imageUrl) ?? opt.imageUrl ?? null)
+                        }
+                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-700 hover:ring-2 hover:ring-primary-500/50"
+                      >
+                        {(resolveImageUrl(opt.imageUrl) ?? opt.imageUrl) ? (
+                          <img
+                            src={resolveImageUrl(opt.imageUrl) ?? opt.imageUrl ?? ''}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <ShoppingBag className="h-6 w-6 text-neutral-500" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(opt)}
+                        className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-neutral-100">{displayTitle}</p>
+                          {isVariant && opt.selectedVariants && opt.selectedVariants.length > 0 && (
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-400">
+                              {opt.selectedVariants.map((sv) =>
+                                isHexColor(sv.variantValue) ? (
+                                  <span key={sv.attributeId} className="inline-flex items-center gap-1.5">
+                                    <span
+                                      className="h-4 w-4 shrink-0 rounded-full border border-neutral-600"
+                                      style={{ backgroundColor: sv.variantValue }}
+                                      title={`${sv.attributeName}: ${sv.variantName || sv.variantValue}`}
+                                    />
+                                    <span>
+                                      {sv.attributeName}: {sv.variantName || sv.variantValue}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span key={sv.attributeId}>
+                                    {sv.attributeName}: {sv.variantValue}
+                                  </span>
+                                )
+                              )}
+                            </p>
+                          )}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-neutral-500">
+                            {opt.sku && <span>Cód: {opt.sku}</span>}
+                            <span>Stock: {opt.stock}</span>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-sm font-medium text-neutral-200">
+                          {priceDisplay.toFixed(2)} {opt.currency}
+                        </span>
+                        <Plus className="h-4 w-4 shrink-0 text-neutral-400" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

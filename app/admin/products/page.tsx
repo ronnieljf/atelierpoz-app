@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getAdminProducts, deleteProduct, setProductOutOfStock, updateProduct } from '@/lib/services/products';
+import { resolveImageUrl } from '@/lib/utils/image-url';
 import { getCategoriesForAdmin, type Category } from '@/lib/services/categories';
 import { useAuth } from '@/lib/store/auth-store';
 import { useStorePermissions } from '@/lib/hooks/useStorePermissions';
@@ -281,9 +282,16 @@ export default function ProductsListPage() {
       return;
     }
     try {
-      await setProductOutOfStock(id, selectedStoreId);
+      const updated = await setProductOutOfStock(id, selectedStoreId);
+      if (!updated) {
+        setMessage({ type: 'error', text: 'No se pudo actualizar el stock del producto' });
+        return;
+      }
       setMessage({ type: 'success', text: 'Stock del producto actualizado a 0' });
-      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, stock: 0 } : p)));
+      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      if (reducingStockProduct?.id === id) {
+        setReducingStockProduct(updated);
+      }
     } catch (error) {
       setMessage({
         type: 'error',
@@ -305,15 +313,17 @@ export default function ProductsListPage() {
     return parts.join(', ') || combo.sku || '—';
   };
 
-  const handleReduceStockCombo = async (product: Product, comboId: string, amount: number) => {
+  const handleAdjustStockCombo = async (product: Product, comboId: string, delta: number) => {
     if (!selectedStoreId || !product.combinations?.length) return;
     const combo = product.combinations.find((c) => c.id === comboId);
-    if (!combo || combo.stock < amount) return;
+    if (!combo || delta === 0) return;
+    const newStockForCombo = combo.stock + delta;
+    if (newStockForCombo < 0) return;
     setReducingStockComboId(comboId);
     setMessage(null);
     try {
       const updatedCombinations = product.combinations.map((c) =>
-        c.id === comboId ? { ...c, stock: Math.max(0, c.stock - amount) } : c
+        c.id === comboId ? { ...c, stock: newStockForCombo } : c
       );
       const newTotal = updatedCombinations.reduce((s, c) => s + c.stock, 0);
       await updateProduct(product.id, {
@@ -321,7 +331,13 @@ export default function ProductsListPage() {
         combinations: updatedCombinations,
         stock: newTotal,
       });
-      setMessage({ type: 'success', text: `Stock reducido en ${amount}` });
+      setMessage({
+        type: 'success',
+        text:
+          delta > 0
+            ? `Stock aumentado en ${delta}`
+            : `Stock reducido en ${Math.abs(delta)}`,
+      });
       setProducts((prev) =>
         prev.map((p) =>
           p.id === product.id
@@ -343,7 +359,7 @@ export default function ProductsListPage() {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Error al reducir el stock',
+        text: error instanceof Error ? error.message : 'Error al actualizar el stock',
       });
     } finally {
       setReducingStockComboId(null);
@@ -883,33 +899,46 @@ export default function ProductsListPage() {
                       </button>
                     </div>
                     
-                    {/* Fila 3: Reducir stock (solo con combinaciones) y acciones destructivas */}
-                    <div className="grid grid-cols-2">
+                    {/* Fila 3: Ajustar / agotar stock y acciones destructivas */}
+                    <div className="grid grid-cols-3">
                       {product.combinations && product.combinations.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setReducingStockProduct(product)}
-                          className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 border-r border-neutral-700/60"
-                          title="Reducir stock de una combinación"
-                        >
-                          <Minus className="h-4 w-4" />
-                          <span>Reducir stock</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setReducingStockProduct(product)}
+                            className="flex items-center justify-center gap-2 py-4 text-xs sm:text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 border-r border-neutral-700/60"
+                            title="Aumentar o reducir stock de una combinación"
+                          >
+                            <Minus className="h-4 w-4" />
+                            <span>Ajustar stock</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOutOfStock(product.id)}
+                            className="flex items-center justify-center gap-2 py-4 text-xs sm:text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/10 border-r border-neutral-700/60"
+                            title="Poner en 0 el stock global y de todas las combinaciones"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            <span>Agotar stock</span>
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOutOfStock(product.id)}
-                          className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/10 border-r border-neutral-700/60"
-                          title="Poner el stock de este producto en 0"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          <span>Agotar stock</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOutOfStock(product.id)}
+                            className="flex items-center justify-center gap-2 py-4 text-xs sm:text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/10 border-r border-neutral-700/60 col-span-2"
+                            title="Poner el stock de este producto en 0"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            <span>Agotar stock</span>
+                          </button>
+                        </>
                       )}
                       <button
                         type="button"
                         onClick={() => handleDelete(product.id)}
-                        className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+                        className="flex items-center justify-center gap-2 py-4 text-xs sm:text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
                         title="Eliminar permanentemente este producto"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1178,7 +1207,7 @@ export default function ProductsListPage() {
         </div>
       )}
 
-      {/* Modal: Reducir stock por combinación (renderizado en portal para evitar clipping/stacking de PageTransition) */}
+                  {/* Modal: Ajustar stock por combinación (renderizado en portal para evitar clipping/stacking de PageTransition) */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
@@ -1198,7 +1227,7 @@ export default function ProductsListPage() {
                   className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-900 shadow-xl"
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
-                    <h3 className="text-base font-medium text-white">Reducir stock · {reducingStockProduct.name}</h3>
+                    <h3 className="text-base font-medium text-white">Ajustar stock · {reducingStockProduct.name}</h3>
                     <button
                       type="button"
                       onClick={() => setReducingStockProduct(null)}
@@ -1208,34 +1237,73 @@ export default function ProductsListPage() {
                       <X className="h-5 w-5" />
                     </button>
                   </div>
-                <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
-                  {reducingStockProduct.combinations?.map((combo) => (
-                    <div
-                      key={combo.id}
-                      className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-neutral-800/60 border border-neutral-700/50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-white truncate">
-                          {getCombinationLabel(reducingStockProduct, combo)}
-                        </p>
-                        <p className="text-xs text-neutral-500">Stock: {combo.stock}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleReduceStockCombo(reducingStockProduct, combo.id, 1)}
-                        disabled={combo.stock < 1 || reducingStockComboId === combo.id}
-                        className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-                        title="Reducir 1 unidad"
+                  <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+                    {reducingStockProduct.combinations?.map((combo) => (
+                      <div
+                        key={combo.id}
+                        className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-neutral-800/60 border border-neutral-700/50"
                       >
-                        {reducingStockComboId === combo.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Minus className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                        <button
+                          type="button"
+                          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-900/80 border border-neutral-700"
+                          title={getCombinationLabel(reducingStockProduct, combo)}
+                        >
+                          {(() => {
+                            const comboImages = Array.isArray((combo as any).images) ? (combo as any).images as string[] : [];
+                            const rawUrl =
+                              comboImages[0] ||
+                              (Array.isArray(reducingStockProduct.images) ? reducingStockProduct.images[0] : null) ||
+                              null;
+                            const imgUrl = resolveImageUrl(rawUrl) ?? rawUrl;
+                            return imgUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={imgUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ImageIcon className="h-5 w-5 text-neutral-600" />
+                            );
+                          })()}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate">
+                            {getCombinationLabel(reducingStockProduct, combo)}
+                          </p>
+                          <p className="text-xs text-neutral-500">Stock: {combo.stock}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustStockCombo(reducingStockProduct, combo.id, -1)}
+                            disabled={combo.stock < 1 || reducingStockComboId === combo.id}
+                            className="flex items-center justify-center w-9 h-9 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Reducir 1 unidad"
+                          >
+                            {reducingStockComboId === combo.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Minus className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustStockCombo(reducingStockProduct, combo.id, 1)}
+                            disabled={reducingStockComboId === combo.id}
+                            className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Aumentar 1 unidad"
+                          >
+                            {reducingStockComboId === combo.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               </motion.div>
             )}

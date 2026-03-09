@@ -150,6 +150,7 @@ export function ProductForm({ productId }: ProductFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [stockMismatchInfo, setStockMismatchInfo] = useState<{ sumCombos: number; productStock: number } | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
   const [showAttributesHelp, setShowAttributesHelp] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -745,9 +746,9 @@ export function ProductForm({ productId }: ProductFormProps) {
       }
       // Productos con variantes: la suma del stock de las combinaciones debe ser igual al stock total del producto
       if (hasVariants && combos.length > 0 && sumCombos !== productStock) {
-        throw new Error(
-          `La suma del stock de las combinaciones (${sumCombos}) debe ser igual al stock del producto (${productStock}). Ajusta el stock del producto o el de cada combinación.`
-        );
+        setStockMismatchInfo({ sumCombos, productStock });
+        setIsSubmitting(false);
+        return;
       }
       const priceNum = formData.basePrice !== '' && formData.basePrice != null ? parseFloat(formData.basePrice) : 0;
 
@@ -854,7 +855,7 @@ export function ProductForm({ productId }: ProductFormProps) {
     );
   }
 
-  // Diálogo de categoría (portal): compartido por modo básico y completo
+  // Diálogos (portales): categoría y desajuste de stock
   const categoryDialogPortal =
     typeof document !== 'undefined' &&
     createPortal(
@@ -945,9 +946,80 @@ export function ProductForm({ productId }: ProductFormProps) {
       document.body
     );
 
+  const stockMismatchPortal =
+    typeof document !== 'undefined' &&
+    createPortal(
+      <AnimatePresence>
+        {stockMismatchInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={() => setStockMismatchInfo(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl relative z-[10000]"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+                <h3 className="text-lg font-semibold text-neutral-100">Revisa el stock</h3>
+                <button
+                  type="button"
+                  onClick={() => setStockMismatchInfo(null)}
+                  className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 transition-colors"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3 text-sm text-neutral-200">
+                <p>
+                  La suma del stock de las <strong>combinaciones</strong> no coincide con el
+                  <strong> stock total del producto</strong>.
+                </p>
+                <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 px-3 py-2 text-xs text-neutral-300">
+                  <p>
+                    Suma de combinaciones:{' '}
+                    <span className="font-semibold text-primary-400">
+                      {stockMismatchInfo.sumCombos}
+                    </span>
+                  </p>
+                  <p>
+                    Stock del producto:{' '}
+                    <span className="font-semibold text-primary-400">
+                      {stockMismatchInfo.productStock}
+                    </span>
+                  </p>
+                </div>
+                <p className="text-neutral-400 text-xs">
+                  Ajusta el stock total del producto o el stock de cada combinación para que las
+                  cantidades coincidan y vuelve a intentar guardar.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 p-4 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setStockMismatchInfo(null)}
+                  className="inline-flex items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-800 hover:text-white transition-colors min-w-[100px]"
+                >
+                  Entendido
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    );
+
   return (
     <div className="min-h-screen bg-neutral-950 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
       {categoryDialogPortal}
+      {stockMismatchPortal}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb y título */}
         <div className="mb-6 sm:mb-8">
@@ -1646,6 +1718,21 @@ export function ProductForm({ productId }: ProductFormProps) {
                             </div>
                           );
                         })}
+                        <div className="mt-2 flex items-center justify-end text-xs text-neutral-400 px-1">
+                          <span>
+                            Stock total en combinaciones:{' '}
+                            <span className="font-semibold text-primary-400">
+                              {formData.combinations.reduce((s, c) => {
+                                const raw = c?.stock;
+                                const n =
+                                  typeof raw === 'number' && !Number.isNaN(raw)
+                                    ? raw
+                                    : parseInt(String(raw ?? 0), 10);
+                                return s + (Number.isNaN(n) ? 0 : Math.max(0, n));
+                              }, 0)}
+                            </span>
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>

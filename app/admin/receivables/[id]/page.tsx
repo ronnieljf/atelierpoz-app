@@ -2,9 +2,11 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getReceivableById, updateReceivable, reopenReceivable, getReceivablePayments, createReceivablePayment, deleteReceivablePayment, getReceivableLogs, getReceivableAttachments, createReceivableAttachment, getReceivableAttachmentDownloadUrl, type ReceivableLogEntry } from '@/lib/services/receivables';
+import { useRouter } from 'next/navigation';
+import { getReceivableById, updateReceivable, reopenReceivable, getReceivablePayments, createReceivablePayment, deleteReceivablePayment, getReceivableLogs, getReceivableAttachments, createReceivableAttachment, getReceivableAttachmentDownloadUrl, getReceivableReminders, getReceivableReminderDefaults, createReceivableReminder, updateReceivableReminder, deleteReceivableReminder, type ReceivableLogEntry } from '@/lib/services/receivables';
+import { getStorePaymentOptions, type StorePaymentOption } from '@/lib/services/stores';
 import { getRequestById, type Request } from '@/lib/services/requests';
-import type { Receivable, ReceivableStatus, ReceivablePayment, ReceivableAttachment } from '@/types/receivable';
+import type { Receivable, ReceivableStatus, ReceivablePayment, ReceivableAttachment, ReceivableReminder } from '@/types/receivable';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
 import {
@@ -26,9 +28,15 @@ import {
   Paperclip,
   Download,
   Upload,
+  Bell,
+  Calendar,
+  Edit3,
 } from 'lucide-react';
 import { openWhatsAppForReceivable } from '@/lib/utils/whatsapp';
+import { formatContactPhone } from '@/lib/utils/phone';
+import { formatDateOnly } from '@/lib/utils/date';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils/cn';
 
 const STATUS_LABELS: Record<ReceivableStatus, { label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -64,8 +72,12 @@ export default function ReceivableDetailPage({
   const storeIdFromQuery = Array.isArray(resolvedSearch?.storeId)
     ? resolvedSearch.storeId[0]
     : resolvedSearch?.storeId ?? '';
+  const openReminderFromQuery = Array.isArray(resolvedSearch?.openReminder)
+    ? resolvedSearch.openReminder[0]
+    : resolvedSearch?.openReminder ?? '';
 
   const { state: authState } = useAuth();
+  const router = useRouter();
   const [receivable, setReceivable] = useState<Receivable | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -76,6 +88,7 @@ export default function ReceivableDetailPage({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
+  const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<ReceivableStatus | null>(null);
   const [reopening, setReopening] = useState(false);
@@ -144,6 +157,33 @@ export default function ReceivableDetailPage({
   const [showUploadAfterPaidModal, setShowUploadAfterPaidModal] = useState(false);
   const [uploadAfterPaidFile, setUploadAfterPaidFile] = useState<File | null>(null);
 
+  const [reminders, setReminders] = useState<ReceivableReminder[]>([]);
+  const [loadingReminders, setLoadingReminders] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<ReceivableReminder | null>(null);
+  const [savingReminder, setSavingReminder] = useState(false);
+  const [reminderForm, setReminderForm] = useState({
+    customerName: '',
+    storeName: '',
+    invoiceOrAccount: '',
+    fechaVencimiento: '',
+    fechaEnvio: '',
+    datosPagomovil: '',
+    datosTransferencia: '',
+    datosBinance: '',
+    datosContacto: '',
+    esMora: false,
+    repetirVeces: 1,
+    repetirCadaDias: 0,
+  });
+  const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
+
+  const reminderIsReadOnly = editingReminder != null && editingReminder.status !== 'pending';
+  const [paymentOptions, setPaymentOptions] = useState<{ pagomovil: StorePaymentOption[]; transferencia: StorePaymentOption[]; binance: StorePaymentOption[] }>({
+    pagomovil: [],
+    transferencia: [],
+    binance: [],
+  });
   const storeId = storeIdFromQuery || (authState.stores.length === 1 ? authState.stores[0].id : '');
 
   const loadReceivable = useCallback(async () => {
@@ -163,6 +203,7 @@ export default function ReceivableDetailPage({
         setDescription(rec.description ?? '');
         setAmount(String(rec.amount));
         setCurrency(rec.currency ?? 'USD');
+        setDueDate(rec.dueDate ?? '');
       }
     } catch (error) {
       setMessage({
@@ -179,6 +220,57 @@ export default function ReceivableDetailPage({
     if (storeId && id) loadReceivable();
     else setLoading(false);
   }, [storeId, id, loadReceivable]);
+
+  // Si venimos desde la lista con ?openReminder=1, abrir directamente el modal de nuevo recordatorio
+  useEffect(() => {
+    if (!receivable || !storeId) return;
+    if (openReminderFromQuery !== '1') return;
+    if (showReminderModal) return;
+    // Reutilizar lógica del modal nuevo
+    (async () => {
+      try {
+        setEditingReminder(null);
+        setLoadingReminders(true);
+        const [defaults, options] = await Promise.all([
+          getReceivableReminderDefaults(id, storeId),
+          getStorePaymentOptions(storeId),
+        ]);
+        setPaymentOptions(options);
+        const storeForPhone = authState.stores.find((s) => s.id === storeId);
+        const rawPhone = storeForPhone?.phone_number?.trim() || defaults?.datosContacto || '';
+        setReminderForm({
+          customerName: defaults?.customerName ?? receivable.customerName ?? '',
+          storeName: defaults?.storeName ?? receivable.storeName ?? '',
+          invoiceOrAccount:
+            defaults?.invoiceOrAccount ??
+            (receivable.invoiceNumber
+              ? String(receivable.invoiceNumber)
+              : receivable.receivableNumber
+                ? String(receivable.receivableNumber)
+                : ''),
+          fechaVencimiento: (receivable.dueDate && receivable.dueDate.trim()) ? receivable.dueDate : (defaults?.fechaVencimiento ?? ''),
+          fechaEnvio: '',
+          datosPagomovil: options.pagomovil.length > 0 ? options.pagomovil[options.pagomovil.length - 1].data : '',
+          datosTransferencia: options.transferencia.length > 0 ? options.transferencia[options.transferencia.length - 1].data : '',
+          datosBinance: options.binance.length > 0 ? options.binance[options.binance.length - 1].data : '',
+          datosContacto: formatContactPhone(rawPhone) || rawPhone,
+          esMora: false,
+          repetirVeces: 1,
+          repetirCadaDias: 0,
+        });
+        setShowReminderModal(true);
+        // Limpiar el query openReminder de la URL para que no se vuelva a abrir en renderizados posteriores
+        router.replace(
+          `/admin/receivables/${id}?storeId=${encodeURIComponent(storeId)}`,
+          { scroll: false }
+        );
+      } catch (error) {
+        console.error('Error abriendo modal de recordatorio desde lista:', error);
+      } finally {
+        setLoadingReminders(false);
+      }
+    })();
+  }, [openReminderFromQuery, receivable, storeId, id, authState.stores, showReminderModal, router]);
 
   const loadRequestDetails = useCallback(async () => {
     if (!receivable?.requestId || !storeId) {
@@ -245,6 +337,177 @@ export default function ReceivableDetailPage({
     if (id && storeId) loadAttachments();
     else setAttachments([]);
   }, [id, storeId, loadAttachments]);
+
+  const loadReminders = useCallback(async () => {
+    if (!id || !storeId) return;
+    setLoadingReminders(true);
+    try {
+      const list = await getReceivableReminders(id, storeId);
+      setReminders(list);
+    } catch {
+      setReminders([]);
+    } finally {
+      setLoadingReminders(false);
+    }
+  }, [id, storeId]);
+
+  useEffect(() => {
+    if (id && storeId) loadReminders();
+    else setReminders([]);
+  }, [id, storeId, loadReminders]);
+
+  const openAddReminderModal = useCallback(async () => {
+    setEditingReminder(null);
+    const [defaults, options] = await Promise.all([
+      id && storeId ? getReceivableReminderDefaults(id, storeId) : null,
+      storeId ? getStorePaymentOptions(storeId) : { pagomovil: [], transferencia: [], binance: [] },
+    ]);
+    setPaymentOptions(options);
+    const storeForPhone = authState.stores.find((s) => s.id === storeId);
+    const rawPhone = storeForPhone?.phone_number?.trim() || defaults?.datosContacto || '';
+    setReminderForm({
+      customerName: defaults?.customerName ?? receivable?.customerName ?? '',
+      storeName: defaults?.storeName ?? receivable?.storeName ?? '',
+      invoiceOrAccount: defaults?.invoiceOrAccount ?? (receivable?.invoiceNumber ? String(receivable.invoiceNumber) : receivable?.receivableNumber ? String(receivable.receivableNumber) : ''),
+      fechaVencimiento: (receivable?.dueDate && receivable.dueDate.trim()) ? receivable.dueDate : (defaults?.fechaVencimiento ?? ''),
+      fechaEnvio: '',
+      datosPagomovil: options.pagomovil.length > 0 ? options.pagomovil[options.pagomovil.length - 1].data : '',
+      datosTransferencia: options.transferencia.length > 0 ? options.transferencia[options.transferencia.length - 1].data : '',
+      datosBinance: options.binance.length > 0 ? options.binance[options.binance.length - 1].data : '',
+      datosContacto: formatContactPhone(rawPhone) || rawPhone,
+      esMora: false,
+      repetirVeces: 1,
+      repetirCadaDias: 0,
+    });
+    setShowReminderModal(true);
+  }, [id, storeId, receivable, authState.stores]);
+
+  const openEditReminderModal = useCallback(async (r: ReceivableReminder) => {
+    setEditingReminder(r);
+    const options = storeId ? await getStorePaymentOptions(storeId) : { pagomovil: [], transferencia: [], binance: [] };
+    setPaymentOptions(options);
+    const storeForPhone = authState.stores.find((s) => s.id === storeId);
+    const rawPhone = storeForPhone?.phone_number?.trim() || r.datosContacto || '';
+    setReminderForm({
+      customerName: r.customerName ?? '',
+      storeName: r.storeName ?? '',
+      invoiceOrAccount: r.invoiceOrAccount ?? '',
+      fechaVencimiento: r.fechaVencimiento ?? '',
+      fechaEnvio: r.fechaEnvio ?? '',
+      datosPagomovil: r.datosPagomovil ?? '',
+      datosTransferencia: r.datosTransferencia ?? '',
+      datosBinance: r.datosBinance ?? '',
+      datosContacto: formatContactPhone(rawPhone) || rawPhone,
+      esMora: r.esMora ?? false,
+      repetirVeces: r.repetirVeces ?? 0,
+      repetirCadaDias: r.repetirCadaDias ?? 0,
+    });
+    setShowReminderModal(true);
+  }, [storeId, authState.stores]);
+
+  const handleSaveReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingReminder && editingReminder.status !== 'pending') {
+      // Recordatorios enviados o cancelados no se pueden editar
+      setShowReminderModal(false);
+      setEditingReminder(null);
+      return;
+    }
+    if (!receivable || !storeId || !id) return;
+    if (!reminderForm.fechaEnvio.trim()) {
+      setMessage({ type: 'error', text: 'La fecha de envío es requerida' });
+      return;
+    }
+    if (!reminderForm.fechaVencimiento.trim()) {
+      setMessage({ type: 'error', text: 'La fecha de vencimiento es requerida' });
+      return;
+    }
+    const invoiceVal = reminderForm.invoiceOrAccount.trim();
+    setSavingReminder(true);
+    setMessage(null);
+    try {
+      if (editingReminder) {
+        const updated = await updateReceivableReminder(id, editingReminder.id, {
+          storeId,
+          customerName: reminderForm.customerName.trim() || undefined,
+          storeName: reminderForm.storeName.trim() || undefined,
+          invoiceOrAccount: invoiceVal || undefined,
+          fechaVencimiento: reminderForm.fechaVencimiento.trim() || undefined,
+          fechaEnvio: reminderForm.fechaEnvio.trim(),
+          datosPagomovil: reminderForm.datosPagomovil.trim() || undefined,
+          datosTransferencia: reminderForm.datosTransferencia.trim() || undefined,
+          datosBinance: reminderForm.datosBinance.trim() || undefined,
+          datosContacto: formatContactPhone(reminderForm.datosContacto.trim()) || undefined,
+          esMora: reminderForm.esMora,
+          repetirVeces: reminderForm.repetirVeces || 0,
+          repetirCadaDias: reminderForm.repetirCadaDias || 0,
+        });
+        if (updated) {
+          setReminders((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+          setShowReminderModal(false);
+          setMessage({ type: 'success', text: 'Recordatorio actualizado' });
+        }
+      } else {
+        const created = await createReceivableReminder(id, {
+          storeId,
+          fechaEnvio: reminderForm.fechaEnvio.trim(),
+          fechaVencimiento: reminderForm.fechaVencimiento.trim(),
+          customerName: reminderForm.customerName.trim() || undefined,
+          storeName: reminderForm.storeName.trim() || undefined,
+          invoiceOrAccount: invoiceVal || undefined,
+          datosPagomovil: reminderForm.datosPagomovil.trim() || undefined,
+          datosTransferencia: reminderForm.datosTransferencia.trim() || undefined,
+          datosBinance: reminderForm.datosBinance.trim() || undefined,
+          datosContacto: formatContactPhone(reminderForm.datosContacto.trim()) || undefined,
+          esMora: reminderForm.esMora,
+          repetirVeces: reminderForm.repetirVeces ?? 1,
+          repetirCadaDias: reminderForm.repetirCadaDias ?? 0,
+        });
+        if (created.length > 0) {
+          setReminders((prev) => [...prev, ...created].sort((a, b) => (a.fechaEnvio ?? '').localeCompare(b.fechaEnvio ?? '')));
+          setShowReminderModal(false);
+          setMessage({ type: 'success', text: created.length === 1 ? 'Recordatorio creado' : `${created.length} recordatorios creados` });
+        }
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al guardar' });
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
+  const handleSelectPaymentOption = useCallback(
+    (type: 'pagomovil' | 'transferencia' | 'binance', optionId: string) => {
+      const opts = paymentOptions[type];
+      const opt = opts.find((o) => o.id === optionId);
+      if (opt) {
+        setReminderForm((f) => ({ ...f, [type === 'pagomovil' ? 'datosPagomovil' : type === 'transferencia' ? 'datosTransferencia' : 'datosBinance']: opt.data }));
+      } else {
+        setReminderForm((f) => ({ ...f, [type === 'pagomovil' ? 'datosPagomovil' : type === 'transferencia' ? 'datosTransferencia' : 'datosBinance']: '' }));
+      }
+    },
+    [paymentOptions]
+  );
+
+  const handleDeleteReminder = async (reminderId: string) => {
+    if (!id || !storeId) return;
+    setDeletingReminderId(reminderId);
+    try {
+      const ok = await deleteReceivableReminder(id, reminderId, storeId);
+      if (ok) {
+        setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+        setMessage({ type: 'success', text: 'Recordatorio eliminado' });
+        if (editingReminder?.id === reminderId) {
+          setShowReminderModal(false);
+          setEditingReminder(null);
+        }
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Error al eliminar' });
+    } finally {
+      setDeletingReminderId(null);
+    }
+  };
 
   const loadActivityLogs = useCallback(async () => {
     if (!id || !storeId) return;
@@ -327,6 +590,7 @@ export default function ReceivableDetailPage({
         description: description.trim() || undefined,
         amount: amountNum,
         currency,
+        dueDate: dueDate || null,
       });
       if (updated) {
         setReceivable(updated);
@@ -497,9 +761,11 @@ export default function ReceivableDetailPage({
   }
 
   if (!receivable) {
+    const createManualHref = storeId ? `/admin/receivables/create?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables/create';
+    const createFromPedidoHref = storeId ? `/admin/receivables/create?from=request&storeId=${encodeURIComponent(storeId)}` : '/admin/receivables/create?from=request';
     return (
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href={storeId ? `/admin/receivables?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables'}
             className="inline-flex items-center gap-2 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
@@ -507,6 +773,20 @@ export default function ReceivableDetailPage({
             <ArrowLeft className="h-4 w-4" />
             Volver a cuentas por cobrar
           </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={createManualHref}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FileText className="h-4 w-4" />
+                Crear manual
+              </Button>
+            </Link>
+            <Link href={createFromPedidoHref}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ShoppingBag className="h-4 w-4" />
+                Crear desde pedido
+              </Button>
+            </Link>
+          </div>
         </div>
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-8 text-center backdrop-blur-sm sm:rounded-3xl sm:p-12">
           <Receipt className="mx-auto mb-4 h-14 w-14 text-neutral-600" />
@@ -514,11 +794,25 @@ export default function ReceivableDetailPage({
           <p className="mb-6 text-sm text-neutral-400">
             La cuenta por cobrar no existe o no tienes acceso.
           </p>
-          <Link href={storeId ? `/admin/receivables?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables'}>
-            <Button variant="outline" size="sm">
-              Volver a la lista
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Link href={storeId ? `/admin/receivables?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables'}>
+              <Button variant="outline" size="sm">
+                Volver a la lista
+              </Button>
+            </Link>
+            <Link href={createManualHref}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <FileText className="h-4 w-4" />
+                Crear manual
+              </Button>
+            </Link>
+            <Link href={createFromPedidoHref}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ShoppingBag className="h-4 w-4" />
+                Crear desde pedido
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -527,6 +821,9 @@ export default function ReceivableDetailPage({
   const statusInfo = STATUS_LABELS[receivable.status];
   const fromPedido = !!receivable.requestId;
   const listHref = storeId ? `/admin/receivables?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables';
+
+  const createManualHref = storeId ? `/admin/receivables/create?storeId=${encodeURIComponent(storeId)}` : '/admin/receivables/create';
+  const createFromPedidoHref = storeId ? `/admin/receivables/create?from=request&storeId=${encodeURIComponent(storeId)}` : '/admin/receivables/create?from=request';
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -538,6 +835,20 @@ export default function ReceivableDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Volver a cuentas por cobrar
         </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={createManualHref}>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              Crear manual
+            </Button>
+          </Link>
+          <Link href={createFromPedidoHref}>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <ShoppingBag className="h-4 w-4" />
+              Crear desde pedido
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -653,6 +964,15 @@ export default function ReceivableDetailPage({
                   </select>
                 </div>
               </div>
+              <div className="mt-4">
+                <label className="mb-1.5 block text-sm font-medium text-neutral-400">Fecha de vencimiento</label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="h-11 w-full max-w-xs rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button type="submit" variant="primary" size="sm" disabled={saving} className="inline-flex items-center gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -669,6 +989,7 @@ export default function ReceivableDetailPage({
                     setDescription(receivable.description ?? '');
                     setAmount(String(receivable.amount));
                     setCurrency(receivable.currency ?? 'USD');
+                      setDueDate(receivable.dueDate ?? '');
                   }}
                   disabled={saving}
                 >
@@ -753,6 +1074,14 @@ export default function ReceivableDetailPage({
                       )}
                     </dd>
                   </div>
+                  {receivable.dueDate && (
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500">Fecha de vencimiento</dt>
+                      <dd className="mt-1 text-sm text-neutral-400">
+                        {formatDateOnly(receivable.dueDate)}
+                      </dd>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-6 border-t border-neutral-800 pt-4">
                   <div>
@@ -824,7 +1153,7 @@ export default function ReceivableDetailPage({
                   href={`/admin/receivables/${id}/edit-items?storeId=${encodeURIComponent(storeId)}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/40 bg-primary-500/10 px-2.5 py-1.5 text-xs font-medium text-primary-400 hover:bg-primary-500/20"
                 >
-                  Cambiar productos
+                  Modificar productos
                 </Link>
               )}
             </div>
@@ -877,6 +1206,59 @@ export default function ReceivableDetailPage({
             )}
           </div>
         )}
+
+        {/* Comprobantes (archivos adjuntos de la cuenta) */}
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+              <Paperclip className="h-4 w-4 text-primary-400" />
+              Comprobantes
+            </h3>
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-600 bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700">
+                <Upload className="h-3.5 w-3.5" />
+                Añadir archivo
+              </span>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f && receivable) {
+                    await handleUploadAttachment(f);
+                    e.target.value = '';
+                  }
+                }}
+                disabled={uploadingAttachment}
+              />
+            </label>
+          </div>
+          {loadingAttachments ? (
+            <p className="text-xs text-neutral-500">Cargando...</p>
+          ) : attachments.length === 0 ? (
+            <p className="text-xs text-neutral-500">Sin comprobantes. Puedes subir imágenes o PDF al registrar abonos o al marcar como cobrada.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {attachments.map((att) => (
+                <li
+                  key={att.id}
+                  className="flex items-center justify-between rounded-lg border border-neutral-700/50 bg-neutral-800/50 px-2.5 py-2 text-sm"
+                >
+                  <span className="truncate text-neutral-300">{att.fileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadAttachment(att)}
+                    className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-primary-400"
+                    title="Descargar"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {/* Abonos */}
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
@@ -985,59 +1367,6 @@ export default function ReceivableDetailPage({
                   </table>
                 </div>
               )}
-              {/* Comprobantes / archivos adjuntos */}
-              <div className="mb-4 rounded-xl border border-neutral-700 bg-neutral-800/30 p-3 sm:p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
-                    <Paperclip className="h-4 w-4" />
-                    Comprobantes
-                  </h4>
-                  <label className="cursor-pointer">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-600 bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700">
-                      <Upload className="h-3.5 w-3.5" />
-                      Añadir archivo
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (f && receivable) {
-                          await handleUploadAttachment(f);
-                          e.target.value = '';
-                        }
-                      }}
-                      disabled={uploadingAttachment}
-                    />
-                  </label>
-                </div>
-                {loadingAttachments ? (
-                  <p className="text-xs text-neutral-500">Cargando...</p>
-                ) : attachments.length === 0 ? (
-                  <p className="text-xs text-neutral-500">Sin comprobantes. Puedes subir imágenes o PDF al registrar abonos o al marcar como cobrada.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {attachments.map((att) => (
-                      <li
-                        key={att.id}
-                        className="flex items-center justify-between rounded-lg border border-neutral-700/50 bg-neutral-800/50 px-2.5 py-2 text-sm"
-                      >
-                        <span className="truncate text-neutral-300">{att.fileName}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadAttachment(att)}
-                          className="shrink-0 rounded p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-primary-400"
-                          title="Descargar"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
               {receivable.status === 'pending' && (
                 <form onSubmit={handleAddPayment} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                   <div className="flex-1">
@@ -1095,6 +1424,96 @@ export default function ReceivableDetailPage({
                 </form>
               )}
             </>
+          )}
+        </div>
+
+        {/* Recordatorios programables */}
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:rounded-3xl sm:p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+              <Bell className="h-4 w-4 text-primary-400" />
+              Recordatorios
+            </h3>
+            {receivable.status === 'pending' && storeId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openAddReminderModal}
+                className="inline-flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Añadir recordatorio
+              </Button>
+            )}
+          </div>
+          {loadingReminders ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
+            </div>
+          ) : reminders.length === 0 ? (
+            <p className="py-4 text-sm text-neutral-500">
+              No hay recordatorios programados. Puedes añadir recordatorios con la fecha de envío y los datos del cliente para enviarlos automáticamente.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {reminders.map((r) => (
+                <div
+                  key={r.id}
+                  onClick={() => openEditReminderModal(r)}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-700 bg-neutral-800/50 p-3 cursor-pointer hover:border-primary-500/60 hover:bg-neutral-800/80 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-neutral-100 truncate">{r.customerName || '—'}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Enviar: {formatDateOnly(r.fechaEnvio)}
+                      </span>
+                      {r.fechaVencimiento && (
+                        <span>Venc: {formatDateOnly(r.fechaVencimiento)}</span>
+                      )}
+                      <span
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-xs',
+                          r.status === 'sent' && 'bg-green-500/20 text-green-400',
+                          r.status === 'pending' && 'bg-yellow-500/20 text-yellow-400',
+                          r.status === 'cancelled' && 'bg-neutral-600 text-neutral-400'
+                        )}
+                      >
+                        {r.status === 'sent' ? 'Enviado' : r.status === 'pending' ? 'Pendiente' : 'Cancelado'}
+                      </span>
+                    </div>
+                  </div>
+                  {receivable.status === 'pending' && r.status === 'pending' && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditReminderModal(r);
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-primary-400"
+                        title="Editar"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteReminder(r.id);
+                        }}
+                        disabled={deletingReminderId === r.id}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                        title="Eliminar"
+                      >
+                        {deletingReminderId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -1295,6 +1714,206 @@ export default function ReceivableDetailPage({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Modal crear/editar recordatorio (portal para centrado en viewport) */}
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {showReminderModal && receivable && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/60 p-4"
+                  onClick={() => !savingReminder && (setShowReminderModal(false), setEditingReminder(null))}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="my-auto w-full max-w-lg shrink-0 max-h-[90dvh] overflow-y-auto rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+                  >
+                <h3 className="mb-4 text-lg font-medium text-neutral-100 flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-primary-400" />
+                  {editingReminder ? 'Editar recordatorio' : 'Nuevo recordatorio'}
+                </h3>
+                <form onSubmit={handleSaveReminder} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-400">Nombre del cliente</label>
+                      <input
+                        type="text"
+                        value={reminderForm.customerName}
+                        onChange={(e) => setReminderForm((f) => ({ ...f, customerName: e.target.value }))}
+                        disabled={reminderIsReadOnly || savingReminder}
+                        className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                        placeholder="Ej. María García"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-400">Nombre de la tienda</label>
+                      <input
+                        type="text"
+                        value={reminderForm.storeName}
+                        onChange={(e) => setReminderForm((f) => ({ ...f, storeName: e.target.value }))}
+                        disabled={reminderIsReadOnly || savingReminder}
+                        className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                        placeholder="Ej. Tienda XYZ"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-400">Factura (o número de cuenta si no hay)</label>
+                    <input
+                      type="text"
+                      value={reminderForm.invoiceOrAccount}
+                        onChange={(e) => setReminderForm((f) => ({ ...f, invoiceOrAccount: e.target.value }))}
+                        disabled={reminderIsReadOnly || savingReminder}
+                      className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                      placeholder="Ej. F-001 o #1"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-400">Fecha de vencimiento <span className="text-red-400">*</span></label>
+                      <input
+                        type="date"
+                        value={reminderForm.fechaVencimiento}
+                        onChange={(e) => setReminderForm((f) => ({ ...f, fechaVencimiento: e.target.value }))}
+                        required
+                        disabled={reminderIsReadOnly || savingReminder}
+                        className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-400">Fecha de envío <span className="text-red-400">*</span></label>
+                      <input
+                        type="date"
+                        value={reminderForm.fechaEnvio}
+                        onChange={(e) => setReminderForm((f) => ({ ...f, fechaEnvio: e.target.value }))}
+                        required
+                        disabled={reminderIsReadOnly || savingReminder}
+                        className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                      />
+                    </div>
+                  </div>
+                  {(['pagomovil', 'transferencia', 'binance'] as const).map((type) => {
+                    const key = type === 'pagomovil' ? 'datosPagomovil' : type === 'transferencia' ? 'datosTransferencia' : 'datosBinance';
+                    const label = type === 'pagomovil' ? 'Datos PagoMóvil' : type === 'transferencia' ? 'Datos transferencia' : 'Datos Binance';
+                    const placeholder = type === 'pagomovil' ? 'CI, teléfono, banco' : type === 'transferencia' ? 'Banco, cédula, cuenta' : 'Usuario, wallet';
+                    const opts = paymentOptions[type];
+                    const selectedOpt = opts.find((o) => o.data === reminderForm[key]);
+                    return (
+                      <div key={type}>
+                        <label className="mb-1 block text-xs font-medium text-neutral-400">{label}</label>
+                        {opts.length > 0 && (
+                          <select
+                            value={selectedOpt?.id ?? ''}
+                            onChange={(e) => handleSelectPaymentOption(type, e.target.value)}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="mb-1.5 w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          >
+                            <option value="">Escribir nuevo...</option>
+                            {opts.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.label || o.data.slice(0, 50)}
+                                {o.data.length > 50 ? '…' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {(opts.length === 0 || !selectedOpt) && (
+                          <textarea
+                            value={reminderForm[key]}
+                            onChange={(e) => setReminderForm((f) => ({ ...f, [key]: e.target.value }))}
+                            rows={2}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                            placeholder={placeholder}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!editingReminder && (
+                    <div className="flex items-center gap-2 text-xs text-neutral-400 pt-1">
+                      <span>Repetir</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={reminderForm.repetirVeces === 0 ? '' : String(reminderForm.repetirVeces)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '');
+                          const num = digits === '' ? 0 : Math.min(999, parseInt(digits, 10) || 0);
+                          setReminderForm((f) => ({ ...f, repetirVeces: num }));
+                        }}
+                        disabled={savingReminder}
+                        className="w-16 rounded border border-neutral-700 bg-neutral-800/50 px-2 py-1 text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/60"
+                        placeholder="0"
+                      />
+                      <span>veces cada</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={reminderForm.repetirCadaDias === 0 ? '' : String(reminderForm.repetirCadaDias)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '');
+                          const num = digits === '' ? 0 : Math.min(999, parseInt(digits, 10) || 0);
+                          setReminderForm((f) => ({ ...f, repetirCadaDias: num }));
+                        }}
+                        disabled={savingReminder}
+                        className="w-16 rounded border border-neutral-700 bg-neutral-800/50 px-2 py-1 text-xs text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/60"
+                        placeholder="0"
+                      />
+                      <span>días</span>
+                    </div>
+                  )}
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-400">Teléfono de contacto</label>
+                    <input
+                      type="text"
+                      inputMode="tel"
+                      value={reminderForm.datosContacto}
+                      onChange={(e) => setReminderForm((f) => ({ ...f, datosContacto: e.target.value }))}
+                      onBlur={(e) => {
+                        const formatted = formatContactPhone(e.target.value);
+                        if (formatted && formatted !== e.target.value) {
+                          setReminderForm((f) => ({ ...f, datosContacto: formatted }));
+                        }
+                      }}
+                      disabled={reminderIsReadOnly || savingReminder}
+                      className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                      placeholder="Ej: +58 412 1234567 o 0412-1234567"
+                    />
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Número al que el cliente debe contactar. Se formatea con código de país y sin ceros a la izquierda.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    {!reminderIsReadOnly && (
+                      <Button type="submit" variant="primary" size="sm" disabled={savingReminder} className="inline-flex items-center gap-2">
+                        {savingReminder ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {editingReminder ? 'Guardar cambios' : 'Crear recordatorio'}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => (setShowReminderModal(false), setEditingReminder(null))}
+                      disabled={savingReminder}
+                    >
+                      {reminderIsReadOnly ? 'Cerrar' : 'Cancelar'}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
         {/* Reabrir cuenta (cualquier cuenta cobrada) */}
         {receivable.status === 'paid' && (

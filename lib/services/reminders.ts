@@ -9,6 +9,7 @@ export interface ReminderSettings {
   reminder_days_after_creation: number;
   reminder_days_after_last_payment: number;
   reminder_interval_days: number;
+  reminder_min_days_age: number;
 }
 
 export interface ReminderNotification {
@@ -61,5 +62,23 @@ export async function dismissReminderNotification(id: string): Promise<boolean> 
     return response.success === true;
   } catch {
     return false;
+  }
+}
+
+export async function runRemindersNow(): Promise<{
+  success: boolean;
+  result?: { usersProcessed: number; remindersCreated: number; whatsappSent: number; emailSent: number };
+  error?: string;
+}> {
+  try {
+    const response = await httpClient.post<{
+      success: boolean;
+      result: { usersProcessed: number; remindersCreated: number; whatsappSent: number; emailSent: number };
+    }>('/api/reminders/run-now', {});
+    if (response.success) return { success: true, result: response.data!.result };
+    return { success: false, error: 'No se pudo ejecutar el envío de recordatorios' };
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } }; message?: string };
+    return { success: false, error: err?.response?.data?.error ?? err?.message ?? 'Error al ejecutar recordatorios' };
   }
 }

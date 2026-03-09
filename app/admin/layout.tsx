@@ -215,11 +215,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
               <span className="truncate">Categorías de Productos</span>
             </Link>
+            {/*
             <Link href="/admin/posts" className={navLinkClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}>
               {(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
               <span className={navIconClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}><Image className="h-4 w-4" /></span>
               <span className="truncate">Publicaciones (Instagram)</span>
             </Link>
+            */}
 
             <div className="my-4 border-t border-neutral-800/80" />
 
@@ -314,6 +316,20 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Configuración
             </p>
+            {state.user?.role === 'admin' && (
+              <Link
+                href="/admin/users"
+                className={navLinkClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}
+              >
+                {(pathname === '/admin/users' || pathname.startsWith('/admin/users/')) && (
+                  <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+                )}
+                <span className={navIconClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}>
+                  <UserCircle className="h-4 w-4" />
+                </span>
+                <span className="truncate">Usuarios</span>
+              </Link>
+            )}
             <Link
               href="/admin/stores"
               className={navLinkClass(pathname === '/admin/stores' || pathname.startsWith('/admin/stores/'))}
@@ -427,11 +443,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className={navIconClass(pathname === '/admin/categories' || pathname.startsWith('/admin/categories/'))}><FolderTree className="h-4 w-4" /></span>
                   <span className="truncate">Categorías de Productos</span>
                 </Link>
+                {/*
                 <Link href="/admin/posts" className={navLinkClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))} onClick={() => setMobileSidebarOpen(false)}>
                   {(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/')) && <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />}
                   <span className={navIconClass(pathname === '/admin/posts' || pathname.startsWith('/admin/posts/'))}><Image className="h-4 w-4" /></span>
                   <span className="truncate">Publicaciones (Instagram)</span>
                 </Link>
+                */}
                 <div className="my-4 border-t border-neutral-800/80" />
 
                 {/* ── Ingresos ── */}
@@ -513,6 +531,21 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
                 {/* ── Configuración ── */}
                 <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Configuración</p>
+                {state.user?.role === 'admin' && (
+                  <Link
+                    href="/admin/users"
+                    className={navLinkClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}
+                    onClick={() => setMobileSidebarOpen(false)}
+                  >
+                    {(pathname === '/admin/users' || pathname.startsWith('/admin/users/')) && (
+                      <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-primary-500" />
+                    )}
+                    <span className={navIconClass(pathname === '/admin/users' || pathname.startsWith('/admin/users/'))}>
+                      <UserCircle className="h-4 w-4" />
+                    </span>
+                    <span className="truncate">Usuarios</span>
+                  </Link>
+                )}
                 <Link
                   href="/admin/stores"
                   className={navLinkClass(pathname === '/admin/stores' || pathname.startsWith('/admin/stores/'))}

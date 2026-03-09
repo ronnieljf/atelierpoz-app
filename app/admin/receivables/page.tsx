@@ -8,9 +8,10 @@ import { getRequestById } from '@/lib/services/requests';
 import type { Receivable, ReceivableStatus } from '@/types/receivable';
 import { useAuth } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Plus, Loader2, Eye, FileText, ShoppingBag, ChevronLeft, ChevronRight, Check, X, Download, Wallet, MessageCircle, CheckSquare, Square, Clock, Paperclip, Upload } from 'lucide-react';
+import { Receipt, Plus, Loader2, Eye, FileText, ShoppingBag, ChevronLeft, ChevronRight, Check, X, Download, Wallet, MessageCircle, CheckSquare, Square, Clock, Paperclip, Upload, Bell } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { openWhatsAppForReceivable } from '@/lib/utils/whatsapp';
+import { formatDateOnly } from '@/lib/utils/date';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 
@@ -140,6 +141,9 @@ export default function ReceivablesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('pending');
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerSearchDebounced, setCustomerSearchDebounced] = useState('');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [invoiceSearchDebounced, setInvoiceSearchDebounced] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'request'>('all');
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<ReceivableStatus | null>(null);
@@ -200,6 +204,14 @@ export default function ReceivablesPage() {
   }, [customerSearch]);
 
   useEffect(() => {
+    const t = setTimeout(() => {
+      setInvoiceSearchDebounced(invoiceSearch);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [invoiceSearch]);
+
+  useEffect(() => {
     if (!activityLogReceivable || !selectedStoreId) {
       setActivityLogs([]);
       return;
@@ -227,6 +239,8 @@ export default function ReceivablesPage() {
         offset,
         status: statusFilter || undefined,
         search: customerSearchDebounced || undefined,
+        invoiceNumber: invoiceSearchDebounced || undefined,
+        source: sourceFilter === 'all' ? undefined : sourceFilter,
       });
       setReceivables(result.receivables);
       setTotal(result.total);
@@ -245,7 +259,7 @@ export default function ReceivablesPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStoreId, page, statusFilter, customerSearchDebounced]);
+  }, [selectedStoreId, page, statusFilter, customerSearchDebounced, invoiceSearchDebounced, sourceFilter]);
 
   useEffect(() => {
     if (selectedStoreId) loadReceivables();
@@ -1486,16 +1500,42 @@ export default function ReceivablesPage() {
       {selectedStoreId && (
         <div className="mb-4 rounded-2xl border border-neutral-800 bg-neutral-900/80 p-4 backdrop-blur-sm sm:mb-6 sm:rounded-3xl sm:p-6">
           <p className="mb-3 text-xs font-medium uppercase tracking-wider text-neutral-500">Filtros</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-neutral-400">Cliente o número</label>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-400">Cliente, cuenta o producto</label>
               <input
                 type="text"
                 value={customerSearch}
                 onChange={(e) => setCustomerSearch(e.target.value)}
-                placeholder="Nombre, teléfono o Nro de cuenta"
+                placeholder="Nombre, teléfono, Nro de cuenta o producto"
                 className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
               />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-400">Nro de factura</label>
+              <input
+                type="text"
+                value={invoiceSearch}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
+                placeholder="Ej: F-000123"
+                className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-400">Origen</label>
+              <select
+                value={sourceFilter}
+                onChange={(e) => {
+                  const v = e.target.value as 'all' | 'manual' | 'request';
+                  setSourceFilter(v);
+                  setPage(1);
+                }}
+                className="h-12 w-full min-w-0 rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-base text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 sm:h-auto sm:py-2.5 sm:text-sm"
+              >
+                <option value="all">Todas</option>
+                <option value="manual">Manual</option>
+                <option value="request">Desde pedido</option>
+              </select>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-neutral-400">Estado</label>
@@ -1540,7 +1580,7 @@ export default function ReceivablesPage() {
               )}
             </div>
           </div>
-          {(statusFilter !== 'pending' || customerSearchDebounced) && (
+          {(statusFilter !== 'pending' || customerSearchDebounced || invoiceSearchDebounced || sourceFilter !== 'all') && (
             <div className="mb-4 rounded-2xl border border-neutral-700/80 bg-neutral-800/50 p-4 sm:mb-6 sm:rounded-3xl sm:p-5">
               <p className="mb-1 text-xs font-medium uppercase tracking-wider text-neutral-500">
                 Total del filtro ({total} {total === 1 ? 'cuenta' : 'cuentas'})
@@ -1841,14 +1881,28 @@ export default function ReceivablesPage() {
                         {statusInfo.label}
                       </span>
                     </div>
-                    {rec.description && (
-                      <p className="text-xs text-neutral-400 line-clamp-2" title={rec.description}>
-                        {rec.description}
+                    {rec.description &&
+                      !rec.requestId &&
+                      !rec.description.startsWith('Cuenta por cobrar generada') && (
+                        <p className="text-xs text-neutral-400 line-clamp-2" title={rec.description}>
+                          {rec.description}
+                        </p>
+                      )}
+                    {rec.productNames ? (
+                      <p className="text-xs text-neutral-400 line-clamp-2" title={rec.productNames}>
+                        {rec.productNames}
                       </p>
+                    ) : (
+                      rec.itemsCount != null &&
+                      rec.itemsCount > 0 && (
+                        <p className="text-xs text-neutral-500">
+                          {rec.itemsCount} {rec.itemsCount === 1 ? 'producto' : 'productos'}
+                        </p>
+                      )
                     )}
-                    {rec.itemsCount != null && rec.itemsCount > 0 && (
+                    {rec.dueDate && (
                       <p className="text-xs text-neutral-500">
-                        {rec.itemsCount} {rec.itemsCount === 1 ? 'producto' : 'productos'}
+                        Vence: {formatDateOnly(rec.dueDate)}
                       </p>
                     )}
                     <div className="space-y-1.5">
@@ -1913,13 +1967,36 @@ export default function ReceivablesPage() {
                     {/* Ver detalle siempre visible */}
                     <Link
                       href={`/admin/receivables/${rec.id}?storeId=${encodeURIComponent(selectedStoreId)}`}
-                      className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-b border-neutral-700/60"
+                      className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary-400 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15 border-b border-neutral-700/60"
                       title="Ver información completa y abonos"
                     >
                       <Eye className="h-4 w-4" />
                       <span>Ver detalle completo</span>
                       <Tooltip content="Ver historial de abonos, información del cliente y más" />
                     </Link>
+                    {/* Crear recordatorio y modificar productos desde la lista */}
+                    <div className="flex divide-x divide-neutral-700/60 border-b border-neutral-700/60">
+                      <Link
+                        href={`/admin/receivables/${rec.id}?storeId=${encodeURIComponent(selectedStoreId)}&openReminder=1`}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-500/10 active:bg-amber-500/15"
+                        title="Crear recordatorio de pago para esta cuenta"
+                      >
+                        <Bell className="h-4 w-4" />
+                        <span>Recordatorio</span>
+                        <Tooltip content="Abrir el modal para crear un recordatorio de pago para esta cuenta" />
+                      </Link>
+                      {rec.requestId && rec.itemsCount != null && rec.itemsCount > 0 && (
+                        <Link
+                          href={`/admin/receivables/${rec.id}/edit-items?storeId=${encodeURIComponent(selectedStoreId)}`}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary-300 transition-colors hover:bg-primary-500/10 active:bg-primary-500/15"
+                          title="Modificar productos de esta cuenta"
+                        >
+                          <ShoppingBag className="h-4 w-4" />
+                          <span>Modificar productos</span>
+                          <Tooltip content="Abrir vista para modificar los productos asociados a esta cuenta" />
+                        </Link>
+                      )}
+                    </div>
                     
                     {rec.status === 'pending' && (
                       <>

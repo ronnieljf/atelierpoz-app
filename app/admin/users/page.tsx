@@ -33,8 +33,14 @@ export default function UsersListPage() {
   });
 
   useEffect(() => {
-    router.push('/admin/products');
-  }, [router]);
+    const user = authState.user;
+    if (!user) return;
+    if (user.role !== 'admin') {
+      router.replace('/admin/products');
+      return;
+    }
+    void loadUsers();
+  }, [authState.user, router]);
 
   const loadUsers = async () => {
     try {

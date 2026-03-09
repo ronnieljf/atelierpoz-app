@@ -402,3 +402,82 @@ export async function getStoreUsers(storeId: string): Promise<StoreUserRow[]> {
   // Si la respuesta es exitosa pero no tiene datos, retornar array vacío
   return response.data?.users ?? [];
 }
+
+/** Opción de pago guardada (PagoMovil, transferencia, Binance) */
+export interface StorePaymentOption {
+  id: string;
+  storeId: string;
+  type: 'pagomovil' | 'transferencia' | 'binance';
+  label: string | null;
+  data: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorePaymentOptionsByType {
+  pagomovil: StorePaymentOption[];
+  transferencia: StorePaymentOption[];
+  binance: StorePaymentOption[];
+}
+
+/**
+ * Listar opciones de pago guardadas de una tienda
+ */
+export async function getStorePaymentOptions(storeId: string): Promise<StorePaymentOptionsByType> {
+  const { httpClient } = await import('@/lib/http/client');
+  const response = await httpClient.get<{ success: boolean; options: StorePaymentOptionsByType }>(
+    `/api/stores/${storeId}/payment-options`
+  );
+  if (response.success && response.data?.options) {
+    return response.data.options;
+  }
+  return { pagomovil: [], transferencia: [], binance: [] };
+}
+
+/**
+ * Crear opción de pago guardada
+ */
+export async function createStorePaymentOption(
+  storeId: string,
+  data: { type: 'pagomovil' | 'transferencia' | 'binance'; data: string; label?: string }
+): Promise<StorePaymentOption | null> {
+  const { httpClient } = await import('@/lib/http/client');
+  const response = await httpClient.post<{ success: boolean; option: StorePaymentOption }>(
+    `/api/stores/${storeId}/payment-options`,
+    data
+  );
+  if (response.success && response.data?.option) {
+    return response.data.option;
+  }
+  return null;
+}
+
+/**
+ * Actualizar opción de pago
+ */
+export async function updateStorePaymentOption(
+  storeId: string,
+  optionId: string,
+  updates: { label?: string; data?: string }
+): Promise<StorePaymentOption | null> {
+  const { httpClient } = await import('@/lib/http/client');
+  const response = await httpClient.put<{ success: boolean; option: StorePaymentOption }>(
+    `/api/stores/${storeId}/payment-options/${optionId}`,
+    updates
+  );
+  if (response.success && response.data?.option) {
+    return response.data.option;
+  }
+  return null;
+}
+
+/**
+ * Eliminar opción de pago
+ */
+export async function deleteStorePaymentOption(storeId: string, optionId: string): Promise<boolean> {
+  const { httpClient } = await import('@/lib/http/client');
+  const response = await httpClient.delete<{ success: boolean }>(
+    `/api/stores/${storeId}/payment-options/${optionId}`
+  );
+  return Boolean(response.success);
+}
