@@ -241,8 +241,8 @@ export default function ReceivableDetailPage({
           getStorePaymentOptions(storeId),
         ]);
         setPaymentOptions(options);
-        const storeForPhone = authState.stores.find((s) => s.id === storeId);
-        const rawPhone = storeForPhone?.phone_number?.trim() || defaults?.datosContacto || '';
+        const loggedUserPhone = authState.stores.find((s) => s.id === storeId)?.phone_number?.trim() || '';
+        const rawPhone = loggedUserPhone || defaults?.datosContacto || '';
         setReminderForm({
           customerName: defaults?.customerName ?? receivable.customerName ?? '',
           storeName: defaults?.storeName ?? receivable.storeName ?? '',
@@ -371,8 +371,9 @@ export default function ReceivableDetailPage({
       storeId ? getStorePaymentOptions(storeId) : { pagomovil: [], transferencia: [], binance: [] },
     ]);
     setPaymentOptions(options);
-    const storeForPhone = authState.stores.find((s) => s.id === storeId);
-    const rawPhone = storeForPhone?.phone_number?.trim() || defaults?.datosContacto || '';
+    // Teléfono del usuario logueado (store_user) como valor inicial; editable
+    const loggedUserPhone = authState.stores.find((s) => s.id === storeId)?.phone_number?.trim() || '';
+    const rawPhone = loggedUserPhone || defaults?.datosContacto || '';
     setReminderForm({
       customerName: defaults?.customerName ?? receivable?.customerName ?? '',
       storeName: defaults?.storeName ?? receivable?.storeName ?? '',
