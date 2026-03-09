@@ -54,6 +54,10 @@ type ApiReceivable = Record<string, unknown> & {
   orderNumber?: unknown;
   total_paid?: unknown;
   totalPaid?: unknown;
+  interest_amount?: unknown;
+  interestAmount?: unknown;
+  total_with_interest?: unknown;
+  totalWithInterest?: unknown;
   product_names?: unknown;
   productNames?: unknown;
   invoice_number?: unknown;
@@ -108,6 +112,8 @@ function formatReceivable(r: ApiReceivable): Receivable {
           : typeof r.total_paid === 'string'
             ? parseFloat(r.total_paid)
             : undefined,
+    interestAmount: typeof (r as Record<string, unknown>).interestAmount === 'number' ? (r as Record<string, unknown>).interestAmount as number : undefined,
+    totalWithInterest: typeof (r as Record<string, unknown>).totalWithInterest === 'number' ? (r as Record<string, unknown>).totalWithInterest as number : undefined,
     productNames: toStringOrNull(r.productNames ?? r.product_names),
     invoiceNumber: toStringOrNull(r.invoiceNumber ?? r.invoice_number),
     dueDate: toStringOrNull(r.dueDate ?? r.due_date),
@@ -325,6 +331,7 @@ export async function updateReceivable(
       amount: data.amount,
       currency: data.currency,
       dueDate: data.dueDate ?? null,
+      invoiceNumber: data.invoiceNumber ?? null,
       status: data.status,
     }
   );
@@ -753,9 +760,17 @@ function formatReminder(r: Record<string, unknown>): ReceivableReminder {
     datosBinance: (r.datosBinance ?? r.datos_binance ?? '') as string,
     datosContacto: (r.datosContacto ?? r.datos_contacto ?? '') as string,
     fechaEnvio: (r.fechaEnvio ?? r.fecha_envio) as string | null,
-    esMora: (r.esMora ?? r.es_mora ?? false) as boolean,
+    tipoRecordatorio: ((r.tipoRecordatorio ?? r.tipo_recordatorio) === 'mora' || (r.tipoRecordatorio ?? r.tipo_recordatorio) === 'aviso')
+      ? (r.tipoRecordatorio ?? r.tipo_recordatorio) as 'aviso' | 'mora'
+      : ((r.esMora ?? r.es_mora) === true ? 'mora' : 'aviso'),
+    esMora: ((r.tipoRecordatorio ?? r.tipo_recordatorio) === 'mora') || ((r.esMora ?? r.es_mora) === true),
     repetirVeces: (r.repetirVeces ?? r.repetir_veces ?? 0) as number,
     repetirCadaDias: (r.repetirCadaDias ?? r.repetir_cada_dias ?? 0) as number,
+    interestCadaDias: (r.interestCadaDias ?? r.interest_cada_dias) != null ? Number(r.interestCadaDias ?? r.interest_cada_dias) : undefined,
+    interestTipo: ((r.interestTipo ?? r.interest_tipo) === 'fijo' || (r.interestTipo ?? r.interest_tipo) === 'porcentaje')
+      ? (r.interestTipo ?? r.interest_tipo) as 'fijo' | 'porcentaje'
+      : undefined,
+    interestMonto: (r.interestMonto ?? r.interest_monto) != null ? Number(r.interestMonto ?? r.interest_monto) : undefined,
     status: (r.status as ReceivableReminder['status']) ?? 'pending',
     sentAt: (r.sentAt ?? r.sent_at) as string | null,
     createdAt: String(r.createdAt ?? r.created_at),
@@ -791,19 +806,41 @@ export async function getReceivableReminderDefaults(
   invoiceOrAccount: string | null;
   fechaVencimiento: string | null;
   datosContacto: string | null;
+  interestCadaDias?: number | null;
+  interestTipo?: 'fijo' | 'porcentaje' | null;
+  interestMonto?: number | null;
 } | null> {
   const response = await httpClient.get<{ success: boolean; defaults: Record<string, unknown> }>(
     `/api/receivables/${receivableId}/reminders/defaults?storeId=${encodeURIComponent(storeId)}`
   );
   if (response.success && response.data?.defaults) {
     const d = response.data.defaults;
-    return {
+    const result: {
+      customerName: string | null;
+      storeName: string | null;
+      invoiceOrAccount: string | null;
+      fechaVencimiento: string | null;
+      datosContacto: string | null;
+      interestCadaDias?: number | null;
+      interestTipo?: 'fijo' | 'porcentaje' | null;
+      interestMonto?: number | null;
+    } = {
       customerName: (d.customerName ?? d.customer_name) as string | null,
       storeName: (d.storeName ?? d.store_name) as string | null,
       invoiceOrAccount: (d.invoiceOrAccount ?? d.invoice_or_account) as string | null,
       fechaVencimiento: (d.fechaVencimiento ?? d.fecha_vencimiento) as string | null,
       datosContacto: (d.datosContacto ?? d.datos_contacto) as string | null,
     };
+    if (d.interestCadaDias != null || d.interest_cada_dias != null) {
+      result.interestCadaDias = Number(d.interestCadaDias ?? d.interest_cada_dias);
+    }
+    if ((d.interestTipo ?? d.interest_tipo) === 'fijo' || (d.interestTipo ?? d.interest_tipo) === 'porcentaje') {
+      result.interestTipo = (d.interestTipo ?? d.interest_tipo) as 'fijo' | 'porcentaje';
+    }
+    if (d.interestMonto != null || d.interest_monto != null) {
+      result.interestMonto = Number(d.interestMonto ?? d.interest_monto);
+    }
+    return result;
   }
   return null;
 }

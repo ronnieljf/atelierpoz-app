@@ -16,6 +16,12 @@ export interface Store {
   phone_number?: string | null;
   /** IVA en porcentaje (ej. 19, 13). Configurable por tienda. */
   iva?: number;
+  /** Interés por mora: cada cuántos días se suma (ej. 7, 30). */
+  interest_cada_dias?: number | null;
+  /** Interés por mora: 'fijo' (monto fijo) | 'porcentaje'. */
+  interest_tipo?: 'fijo' | 'porcentaje' | null;
+  /** Interés por mora: monto fijo o % según interest_tipo. */
+  interest_monto?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -227,6 +233,9 @@ export async function updateStore(
     description?: string | null;
     location?: string | null;
     iva?: number | null;
+    interest_cada_dias?: number | null;
+    interest_tipo?: 'fijo' | 'porcentaje' | null;
+    interest_monto?: number | null;
   }
 ): Promise<Store | null> {
   try {

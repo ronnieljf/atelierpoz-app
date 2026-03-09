@@ -30,6 +30,10 @@ export interface Receivable {
   orderNumber?: number | null;
   /** Suma de abonos registrados (solo en listado cuando el backend lo incluye). */
   totalPaid?: number;
+  /** Interés por mora calculado (cuando la tienda tiene config y la cuenta está vencida). */
+  interestAmount?: number;
+  /** Balance + interés por mora (cuando aplica). */
+  totalWithInterest?: number;
   /** Nombres de productos resumidos (para el listado), si la cuenta viene de un pedido. */
   productNames?: string | null;
   /** Número de factura asociado (opcional). */
@@ -52,12 +56,20 @@ export interface ReceivableReminder {
   datosBinance: string | null;
   datosContacto: string | null;
   fechaEnvio: string | null;
-  /** true si es recordatorio por mora (atraso) */
+  /** 'aviso' = solo para avisar, 'mora' = recordatorio por mora */
+  tipoRecordatorio?: 'aviso' | 'mora';
+  /** @deprecated Usar tipoRecordatorio. true si es por mora */
   esMora?: boolean;
   /** Cuántas veces se repetirá automáticamente (0 = no repetir) */
   repetirVeces?: number;
   /** Cada cuántos días se repetirá (0 = no repetir) */
   repetirCadaDias?: number;
+  /** Mora: cada cuántos días se cobra interés */
+  interestCadaDias?: number | null;
+  /** Mora: 'fijo' | 'porcentaje' */
+  interestTipo?: 'fijo' | 'porcentaje' | null;
+  /** Mora: monto o porcentaje */
+  interestMonto?: number | null;
   status: 'pending' | 'sent' | 'cancelled';
   sentAt: string | null;
   createdAt: string;
@@ -76,9 +88,13 @@ export interface CreateReceivableReminderData {
   datosTransferencia?: string;
   datosBinance?: string;
   datosContacto?: string;
+  tipoRecordatorio?: 'aviso' | 'mora';
   esMora?: boolean;
   repetirVeces?: number;
   repetirCadaDias?: number;
+  interestCadaDias?: number | null;
+  interestTipo?: 'fijo' | 'porcentaje' | null;
+  interestMonto?: number | null;
 }
 
 export interface UpdateReceivableReminderData {
@@ -92,9 +108,13 @@ export interface UpdateReceivableReminderData {
   datosTransferencia?: string;
   datosBinance?: string;
   datosContacto?: string;
+  tipoRecordatorio?: 'aviso' | 'mora';
   esMora?: boolean;
   repetirVeces?: number;
   repetirCadaDias?: number;
+  interestCadaDias?: number | null;
+  interestTipo?: 'fijo' | 'porcentaje' | null;
+  interestMonto?: number | null;
   status?: 'pending' | 'sent' | 'cancelled';
 }
 
@@ -146,8 +166,10 @@ export interface UpdateReceivableData {
   description?: string;
   amount?: number;
   currency?: string;
-  /** Fecha de vencimiento (YYYY-MM-DD) */
+  /** Fecha de vencimiento (YYYY-MM-DD) opcional */
   dueDate?: string | null;
+  /** Número de factura opcional */
+  invoiceNumber?: string | null;
   status?: ReceivableStatus;
 }
 

@@ -1921,11 +1921,20 @@ export default function ReceivablesPage() {
                         </div>
                       )}
                       {rec.status === 'pending' && (
-                        <div className="flex items-center justify-between gap-2 border-t border-neutral-700/60 pt-1.5">
-                          <span className="text-xs font-medium text-neutral-400">Pendiente</span>
-                          <span className="text-sm font-semibold tabular-nums text-amber-400">
-                            {rec.currency} {Math.max(0, rec.amount - (rec.totalPaid ?? 0)).toFixed(2)}
-                          </span>
+                        <div className="flex flex-col gap-0.5 border-t border-neutral-700/60 pt-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-neutral-400">Pendiente</span>
+                            <span className="text-sm font-semibold tabular-nums text-amber-400">
+                              {rec.currency} {(rec.totalWithInterest != null && rec.interestAmount != null && rec.interestAmount > 0)
+                                ? rec.totalWithInterest.toFixed(2)
+                                : Math.max(0, rec.amount - (rec.totalPaid ?? 0)).toFixed(2)}
+                            </span>
+                          </div>
+                          {rec.interestAmount != null && rec.interestAmount > 0 && (
+                            <p className="text-[10px] text-amber-400/80">
+                              (incluye {rec.currency} {rec.interestAmount.toFixed(2)} interés por mora)
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

@@ -89,6 +89,7 @@ export default function ReceivableDetailPage({
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [dueDate, setDueDate] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<ReceivableStatus | null>(null);
   const [reopening, setReopening] = useState(false);
@@ -172,9 +173,12 @@ export default function ReceivableDetailPage({
     datosTransferencia: '',
     datosBinance: '',
     datosContacto: '',
-    esMora: false,
+    tipoRecordatorio: 'aviso' as 'aviso' | 'mora',
     repetirVeces: 1,
     repetirCadaDias: 0,
+    interestCadaDias: '',
+    interestTipo: '' as '' | 'fijo' | 'porcentaje',
+    interestMonto: '',
   });
   const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
 
@@ -204,6 +208,7 @@ export default function ReceivableDetailPage({
         setAmount(String(rec.amount));
         setCurrency(rec.currency ?? 'USD');
         setDueDate(rec.dueDate ?? '');
+        setInvoiceNumber(rec.invoiceNumber ?? '');
       }
     } catch (error) {
       setMessage({
@@ -254,9 +259,12 @@ export default function ReceivableDetailPage({
           datosTransferencia: options.transferencia.length > 0 ? options.transferencia[options.transferencia.length - 1].data : '',
           datosBinance: options.binance.length > 0 ? options.binance[options.binance.length - 1].data : '',
           datosContacto: formatContactPhone(rawPhone) || rawPhone,
-          esMora: false,
+          tipoRecordatorio: 'aviso',
           repetirVeces: 1,
           repetirCadaDias: 0,
+          interestCadaDias: defaults?.interestCadaDias != null ? String(defaults.interestCadaDias) : '',
+          interestTipo: (defaults?.interestTipo === 'fijo' || defaults?.interestTipo === 'porcentaje') ? defaults.interestTipo : '',
+          interestMonto: defaults?.interestMonto != null ? String(defaults.interestMonto) : '',
         });
         setShowReminderModal(true);
         // Limpiar el query openReminder de la URL para que no se vuelva a abrir en renderizados posteriores
@@ -375,9 +383,12 @@ export default function ReceivableDetailPage({
       datosTransferencia: options.transferencia.length > 0 ? options.transferencia[options.transferencia.length - 1].data : '',
       datosBinance: options.binance.length > 0 ? options.binance[options.binance.length - 1].data : '',
       datosContacto: formatContactPhone(rawPhone) || rawPhone,
-      esMora: false,
+      tipoRecordatorio: 'aviso',
       repetirVeces: 1,
       repetirCadaDias: 0,
+      interestCadaDias: defaults?.interestCadaDias != null ? String(defaults.interestCadaDias) : '',
+      interestTipo: (defaults?.interestTipo === 'fijo' || defaults?.interestTipo === 'porcentaje') ? defaults.interestTipo : '',
+      interestMonto: defaults?.interestMonto != null ? String(defaults.interestMonto) : '',
     });
     setShowReminderModal(true);
   }, [id, storeId, receivable, authState.stores]);
@@ -398,9 +409,12 @@ export default function ReceivableDetailPage({
       datosTransferencia: r.datosTransferencia ?? '',
       datosBinance: r.datosBinance ?? '',
       datosContacto: formatContactPhone(rawPhone) || rawPhone,
-      esMora: r.esMora ?? false,
+      tipoRecordatorio: (r.tipoRecordatorio === 'mora' || r.tipoRecordatorio === 'aviso') ? r.tipoRecordatorio : (r.esMora ? 'mora' : 'aviso'),
       repetirVeces: r.repetirVeces ?? 0,
       repetirCadaDias: r.repetirCadaDias ?? 0,
+      interestCadaDias: r.interestCadaDias != null ? String(r.interestCadaDias) : '',
+      interestTipo: (r.interestTipo === 'fijo' || r.interestTipo === 'porcentaje') ? r.interestTipo : '',
+      interestMonto: r.interestMonto != null ? String(r.interestMonto) : '',
     });
     setShowReminderModal(true);
   }, [storeId, authState.stores]);
@@ -438,9 +452,12 @@ export default function ReceivableDetailPage({
           datosTransferencia: reminderForm.datosTransferencia.trim() || undefined,
           datosBinance: reminderForm.datosBinance.trim() || undefined,
           datosContacto: formatContactPhone(reminderForm.datosContacto.trim()) || undefined,
-          esMora: reminderForm.esMora,
+          tipoRecordatorio: reminderForm.tipoRecordatorio,
           repetirVeces: reminderForm.repetirVeces || 0,
           repetirCadaDias: reminderForm.repetirCadaDias || 0,
+          interestCadaDias: reminderForm.tipoRecordatorio === 'mora' && reminderForm.interestCadaDias ? Number(reminderForm.interestCadaDias) : undefined,
+          interestTipo: reminderForm.tipoRecordatorio === 'mora' && (reminderForm.interestTipo === 'fijo' || reminderForm.interestTipo === 'porcentaje') ? reminderForm.interestTipo : undefined,
+          interestMonto: reminderForm.tipoRecordatorio === 'mora' && reminderForm.interestMonto ? parseFloat(reminderForm.interestMonto) : undefined,
         });
         if (updated) {
           setReminders((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
@@ -459,9 +476,12 @@ export default function ReceivableDetailPage({
           datosTransferencia: reminderForm.datosTransferencia.trim() || undefined,
           datosBinance: reminderForm.datosBinance.trim() || undefined,
           datosContacto: formatContactPhone(reminderForm.datosContacto.trim()) || undefined,
-          esMora: reminderForm.esMora,
+          tipoRecordatorio: reminderForm.tipoRecordatorio,
           repetirVeces: reminderForm.repetirVeces ?? 1,
           repetirCadaDias: reminderForm.repetirCadaDias ?? 0,
+          interestCadaDias: reminderForm.tipoRecordatorio === 'mora' && reminderForm.interestCadaDias ? Number(reminderForm.interestCadaDias) : undefined,
+          interestTipo: reminderForm.tipoRecordatorio === 'mora' && (reminderForm.interestTipo === 'fijo' || reminderForm.interestTipo === 'porcentaje') ? reminderForm.interestTipo : undefined,
+          interestMonto: reminderForm.tipoRecordatorio === 'mora' && reminderForm.interestMonto ? parseFloat(reminderForm.interestMonto) : undefined,
         });
         if (created.length > 0) {
           setReminders((prev) => [...prev, ...created].sort((a, b) => (a.fechaEnvio ?? '').localeCompare(b.fechaEnvio ?? '')));
@@ -591,6 +611,7 @@ export default function ReceivableDetailPage({
         amount: amountNum,
         currency,
         dueDate: dueDate || null,
+        invoiceNumber: invoiceNumber.trim() || null,
       });
       if (updated) {
         setReceivable(updated);
@@ -964,14 +985,26 @@ export default function ReceivableDetailPage({
                   </select>
                 </div>
               </div>
-              <div className="mt-4">
-                <label className="mb-1.5 block text-sm font-medium text-neutral-400">Fecha de vencimiento</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="h-11 w-full max-w-xs rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-400">Factura (opcional)</label>
+                  <input
+                    type="text"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    placeholder="Ej. F-001"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-neutral-400">Fecha de vencimiento (opcional)</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-neutral-700 bg-neutral-800/50 px-3 text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                  />
+                </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button type="submit" variant="primary" size="sm" disabled={saving} className="inline-flex items-center gap-2">
@@ -989,7 +1022,8 @@ export default function ReceivableDetailPage({
                     setDescription(receivable.description ?? '');
                     setAmount(String(receivable.amount));
                     setCurrency(receivable.currency ?? 'USD');
-                      setDueDate(receivable.dueDate ?? '');
+                    setDueDate(receivable.dueDate ?? '');
+                    setInvoiceNumber(receivable.invoiceNumber ?? '');
                   }}
                   disabled={saving}
                 >
@@ -1074,6 +1108,12 @@ export default function ReceivableDetailPage({
                       )}
                     </dd>
                   </div>
+                  {receivable.invoiceNumber && (
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500">Factura</dt>
+                      <dd className="mt-1 text-sm text-neutral-400">{receivable.invoiceNumber}</dd>
+                    </div>
+                  )}
                   {receivable.dueDate && (
                     <div>
                       <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500">Fecha de vencimiento</dt>
@@ -1290,8 +1330,15 @@ export default function ReceivableDetailPage({
                   <p className="mt-0.5 font-medium text-neutral-100">
                     {receivable.status === 'paid'
                       ? '—'
-                      : `${receivable.currency} ${Math.max(0, Number(receivable.amount) - totalPaid).toFixed(2)}`}
+                      : receivable.interestAmount != null && receivable.totalWithInterest != null
+                        ? `${receivable.currency} ${receivable.totalWithInterest.toFixed(2)}`
+                        : `${receivable.currency} ${Math.max(0, Number(receivable.amount) - totalPaid).toFixed(2)}`}
                   </p>
+                  {receivable.status === 'pending' && receivable.interestAmount != null && receivable.interestAmount > 0 && (
+                    <p className="mt-0.5 text-[11px] text-amber-400">
+                      (incluye {receivable.currency} {receivable.interestAmount.toFixed(2)} de interés por mora)
+                    </p>
+                  )}
                 </div>
               </div>
               {payments.length > 0 && (
@@ -1456,13 +1503,24 @@ export default function ReceivableDetailPage({
             </p>
           ) : (
             <div className="space-y-2">
-              {reminders.map((r) => (
+              {reminders.map((r) => {
+                const tipo = (r.tipoRecordatorio === 'mora' || r.tipoRecordatorio === 'aviso') ? r.tipoRecordatorio : (r.esMora ? 'mora' : 'aviso');
+                const borderClass = tipo === 'mora' ? 'border-amber-500/60 hover:border-amber-500/80' : 'border-cyan-500/50 hover:border-cyan-500/70';
+                return (
                 <div
                   key={r.id}
                   onClick={() => openEditReminderModal(r)}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-700 bg-neutral-800/50 p-3 cursor-pointer hover:border-primary-500/60 hover:bg-neutral-800/80 transition-colors"
+                  className={cn('relative flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-neutral-800/50 p-3 cursor-pointer transition-colors', borderClass)}
                 >
-                  <div className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      'absolute left-2 top-2 rounded px-2 py-0.5 text-[10px] font-medium',
+                      tipo === 'mora' ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'
+                    )}
+                  >
+                    {tipo === 'mora' ? 'Por mora' : 'Aviso'}
+                  </span>
+                  <div className="min-w-0 flex-1 pl-14">
                     <p className="text-sm font-medium text-neutral-100 truncate">{r.customerName || '—'}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
                       <span className="inline-flex items-center gap-1">
@@ -1512,7 +1570,8 @@ export default function ReceivableDetailPage({
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1554,9 +1613,9 @@ export default function ReceivableDetailPage({
           </div>
         )}
 
-        {/* Modal historial de actividades */}
-        <AnimatePresence>
-          {showActivityLogModal && (
+        {/* Modal historial de actividades (portal para centrar en pantalla) */}
+        {showActivityLogModal && typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1648,8 +1707,9 @@ export default function ReceivableDetailPage({
                 </div>
               </motion.div>
             </motion.div>
-          )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
 
         {/* Modal: ¿Subir comprobante? (después de marcar como cobrada) */}
         <AnimatePresence>
@@ -1774,6 +1834,128 @@ export default function ReceivableDetailPage({
                       placeholder="Ej. F-001 o #1"
                     />
                   </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-400">Tipo de recordatorio</label>
+                    {(() => {
+                      const otrosAviso = reminders.filter((r) => r.tipoRecordatorio === 'aviso' && r.id !== editingReminder?.id).length;
+                      const esMoraExistente = editingReminder?.tipoRecordatorio === 'mora';
+                      const puedeSeleccionarMora = otrosAviso >= 1 || esMoraExistente;
+                      return (
+                        <>
+                          <select
+                            value={reminderForm.tipoRecordatorio}
+                            onChange={(e) => {
+                              const nuevoTipo = e.target.value as 'aviso' | 'mora';
+                              if (nuevoTipo === 'mora') {
+                                const avisos = reminders.filter((r) => r.tipoRecordatorio === 'aviso' && r.id !== editingReminder?.id);
+                                let nuevaFecha = reminderForm.fechaEnvio;
+                                if (avisos.length > 0) {
+                                  const ultimaFechaAviso = avisos
+                                    .map((a) => a.fechaEnvio)
+                                    .filter(Boolean)
+                                    .sort()
+                                    .pop() as string | undefined;
+                                  if (ultimaFechaAviso) {
+                                    const m = ultimaFechaAviso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                                    if (m) {
+                                      const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+                                      d.setDate(d.getDate() + 1);
+                                      nuevaFecha = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    }
+                                  }
+                                }
+                                const store = storeId ? authState.stores.find((s) => s.id === storeId) : null;
+                                const updates: Partial<typeof reminderForm> = { tipoRecordatorio: nuevoTipo, fechaEnvio: nuevaFecha };
+                                if (!reminderForm.interestCadaDias && store?.interest_cada_dias != null) {
+                                  updates.interestCadaDias = String(store.interest_cada_dias);
+                                  updates.interestTipo = (store.interest_tipo === 'fijo' || store.interest_tipo === 'porcentaje') ? store.interest_tipo : '';
+                                  updates.interestMonto = store.interest_monto != null ? String(store.interest_monto) : '';
+                                }
+                                setReminderForm((f) => ({ ...f, ...updates }));
+                              } else {
+                                setReminderForm((f) => ({ ...f, tipoRecordatorio: nuevoTipo }));
+                              }
+                            }}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          >
+                            <option value="aviso">Solo para avisar</option>
+                            <option value="mora" disabled={!puedeSeleccionarMora}>Por mora</option>
+                          </select>
+                          {!puedeSeleccionarMora && (
+                            <p className="mt-1 text-[11px] text-amber-400">
+                              Para crear o cambiar a &quot;Por mora&quot; debe existir al menos un recordatorio de tipo &quot;Solo para avisar&quot;.
+                            </p>
+                          )}
+                          {reminderForm.tipoRecordatorio === 'aviso' && (
+                            <p className="mt-1 text-[11px] text-neutral-500">
+                              Recordatorio informativo antes del vencimiento.
+                            </p>
+                          )}
+                          {reminderForm.tipoRecordatorio === 'mora' && puedeSeleccionarMora && (
+                            <p className="mt-1 text-[11px] text-neutral-500">
+                              Recordatorio de cobro por atraso (después del vencimiento).
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  {reminderForm.tipoRecordatorio === 'mora' && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                      <p className="mb-2 text-xs font-medium text-amber-400">Interés por mora (configuración del recordatorio)</p>
+                      <p className="mb-3 text-[11px] text-neutral-500">
+                        Por cada X días vencidos, sumar un monto. Prellenado desde la tienda; puedes editarlo.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-neutral-400">Cada cuántos días</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={reminderForm.interestCadaDias}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '');
+                              setReminderForm((f) => ({ ...f, interestCadaDias: v }));
+                            }}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                            placeholder="Ej: 7"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-neutral-400">Tipo</label>
+                          <select
+                            value={reminderForm.interestTipo}
+                            onChange={(e) => setReminderForm((f) => ({ ...f, interestTipo: e.target.value as '' | 'fijo' | 'porcentaje' }))}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                          >
+                            <option value="">—</option>
+                            <option value="fijo">Monto fijo</option>
+                            <option value="porcentaje">Porcentaje</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-neutral-400">Monto {reminderForm.interestTipo === 'porcentaje' ? '(%)' : ''}</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={reminderForm.interestMonto}
+                            onChange={(e) => {
+                              let v = e.target.value.replace(/[^\d.]/g, '');
+                              const parts = v.split('.');
+                              if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+                              setReminderForm((f) => ({ ...f, interestMonto: v }));
+                            }}
+                            disabled={reminderIsReadOnly || savingReminder}
+                            className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-neutral-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                            placeholder={reminderForm.interestTipo === 'porcentaje' ? '5' : '10'}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-xs font-medium text-neutral-400">Fecha de vencimiento <span className="text-red-400">*</span></label>

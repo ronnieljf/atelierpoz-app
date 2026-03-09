@@ -42,6 +42,9 @@ const EMPTY_FORM = {
   description: '',
   location: '',
   iva: '',
+  interest_cada_dias: '',
+  interest_tipo: '' as '' | 'fijo' | 'porcentaje',
+  interest_monto: '',
 };
 
 export default function StoresPage() {
@@ -220,7 +223,20 @@ export default function StoresPage() {
     }
   };
 
-  const handleEditStore = (store: { id: string; name: string; state: string; store_id?: string | null; instagram?: string | null; tiktok?: string | null; description?: string | null; location?: string | null; iva?: number | null }) => {
+  const handleEditStore = (store: {
+    id: string;
+    name: string;
+    state: string;
+    store_id?: string | null;
+    instagram?: string | null;
+    tiktok?: string | null;
+    description?: string | null;
+    location?: string | null;
+    iva?: number | null;
+    interest_cada_dias?: number | null;
+    interest_tipo?: 'fijo' | 'porcentaje' | null;
+    interest_monto?: number | null;
+  }) => {
     setEditingStoreId(store.id);
     setEditFormData({
       name: store.name,
@@ -231,6 +247,9 @@ export default function StoresPage() {
       description: store.description || '',
       location: store.location || '',
       iva: store.iva != null && !Number.isNaN(Number(store.iva)) ? String(store.iva) : '',
+      interest_cada_dias: store.interest_cada_dias != null ? String(store.interest_cada_dias) : '',
+      interest_tipo: (store.interest_tipo === 'fijo' || store.interest_tipo === 'porcentaje') ? store.interest_tipo : '',
+      interest_monto: store.interest_monto != null ? String(store.interest_monto) : '',
     });
     setUploadedLogoUrl(null);
     setLogoImgErrorStoreIds(s => { const n = new Set(s); n.delete(store.id); return n; });
@@ -253,6 +272,24 @@ export default function StoresPage() {
       if (editFormData.iva !== '') {
         const ivaNum = parseFloat(editFormData.iva);
         updates.iva = !Number.isNaN(ivaNum) ? Math.max(0, Math.min(100, ivaNum)) : null;
+      }
+      if (editFormData.interest_cada_dias !== '') {
+        const num = parseInt(editFormData.interest_cada_dias, 10);
+        updates.interest_cada_dias = !Number.isNaN(num) && num > 0 ? num : null;
+      } else {
+        updates.interest_cada_dias = null;
+      }
+      if (editFormData.interest_tipo === 'fijo' || editFormData.interest_tipo === 'porcentaje') {
+        updates.interest_tipo = editFormData.interest_tipo;
+        if (editFormData.interest_monto !== '') {
+          const num = parseFloat(editFormData.interest_monto);
+          updates.interest_monto = !Number.isNaN(num) && num >= 0 ? num : null;
+        } else {
+          updates.interest_monto = null;
+        }
+      } else {
+        updates.interest_tipo = null;
+        updates.interest_monto = null;
       }
 
       const updatedStore = await updateStore(editingStoreId, updates as Parameters<typeof updateStore>[1]);
@@ -712,6 +749,15 @@ export default function StoresPage() {
                                   />
                                   <DetailItem icon={Percent} label="IVA" value={store.iva != null && store.iva > 0 ? `${store.iva}%` : null} />
                                   <DetailItem icon={Phone} label="Mi teléfono" value={store.phone_number} />
+                                  <DetailItem
+                                    icon={Percent}
+                                    label="Interés por mora"
+                                    value={
+                                      store.interest_cada_dias != null && store.interest_tipo && store.interest_monto != null
+                                        ? `Cada ${store.interest_cada_dias} días: ${store.interest_tipo === 'porcentaje' ? `${store.interest_monto}%` : `${store.interest_monto} fijo`}`
+                                        : null
+                                    }
+                                  />
                                 </div>
 
                                 {store.description && (
@@ -1024,6 +1070,49 @@ function StoreForm({
         <div className="sm:col-span-2">
           <label className={labelClass}>Descripción</label>
           <textarea value={data.description} onChange={(e) => onChange({ ...data, description: e.target.value })} rows={2} className={cn(inputClass, 'resize-y')} placeholder="Breve descripción de la tienda" />
+        </div>
+        {/* Interés por mora */}
+        <div className="sm:col-span-2 pt-2 border-t border-neutral-800">
+          <p className="text-xs font-medium text-neutral-400 mb-2">Interés por mora (cuentas por cobrar vencidas)</p>
+          <p className="text-[11px] text-neutral-500 mb-2">Por cada X días vencidos, sumar un monto al total pendiente. Deja vacío para no aplicar interés.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className={labelClass}>Cada cuántos días</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={data.interest_cada_dias}
+                onChange={(e) => onChange({ ...data, interest_cada_dias: e.target.value.replace(/\D/g, '') })}
+                className={inputClass}
+                placeholder="Ej: 7 o 30"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Tipo</label>
+              <select value={data.interest_tipo} onChange={(e) => onChange({ ...data, interest_tipo: e.target.value as '' | 'fijo' | 'porcentaje' })} className={inputClass}>
+                <option value="">Ninguno</option>
+                <option value="fijo">Monto fijo</option>
+                <option value="porcentaje">Porcentaje del total</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Monto {data.interest_tipo === 'porcentaje' ? '(%)' : '(fijo)'}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={data.interest_monto}
+                onChange={(e) => {
+                  let v = e.target.value.replace(/[^\d.]/g, '');
+                  const parts = v.split('.');
+                  if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+                  onChange({ ...data, interest_monto: v });
+                }}
+                className={inputClass}
+                placeholder={data.interest_tipo === 'porcentaje' ? 'Ej: 5' : 'Ej: 10'}
+                disabled={!data.interest_tipo}
+              />
+            </div>
+          </div>
         </div>
       </div>
       <div className="flex gap-2 pt-1">
