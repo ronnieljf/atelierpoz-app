@@ -4,7 +4,7 @@ import { type ReactNode } from 'react';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
   onClick?: () => void;
 }
@@ -32,6 +32,7 @@ export function Button({
   };
 
   const sizes = {
+    xs: 'px-3 py-1.5 text-[11px]',
     sm: 'px-5 py-2.5 text-xs',
     md: 'px-6 py-3 text-sm',
     lg: 'px-8 py-3.5 text-base',

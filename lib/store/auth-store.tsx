@@ -21,6 +21,9 @@ interface Store {
   joined_at: string;
   feature_send_reminder_receivables_whatsapp?: boolean;
   approved?: boolean;
+  interest_cada_dias?: number | null;
+  interest_tipo?: 'fijo' | 'porcentaje' | null;
+  interest_monto?: number | null;
 }
 
 interface AuthState {
